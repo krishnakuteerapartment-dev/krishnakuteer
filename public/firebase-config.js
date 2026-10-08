@@ -1,10 +1,9 @@
-/* Paste your Firebase web-app settings here (Firebase console > Project settings > General > Your apps).
-   These values are public by design. Until they are filled in, the app simply hides the notification button. */
+/* Firebase web-app settings (public values). Push alerts stay hidden until vapidKey is filled in. */
 window.KK_FB = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID",
-  vapidKey: "PASTE_WEB_PUSH_PUBLIC_KEY"   /* Project settings > Cloud Messaging > Web Push certificates > Generate key pair */
+  apiKey: "AIzaSyALA446TR-Asy2cQj_Qc3XN1891JG0tUJE",
+  authDomain: "krishna-kuteer-apartment.firebaseapp.com",
+  projectId: "krishna-kuteer-apartment",
+  messagingSenderId: "666165782340",
+  appId: "1:666165782340:web:d301911c0c89e3d6b5d911",
+  vapidKey: "BEwnqqbzrsbkd4UJLaYuKTEInwEWTomaCMMmtXMBtMbvP7dVW4Po8TTtzUaWwuX_WJwU5s8MUffp947tw-8E_cQ"
 };
