@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+*.log
+*.keystore
+*.jks
+signing.keystore
+signing-key-info.txt
