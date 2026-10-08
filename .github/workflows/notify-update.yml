@@ -1,0 +1,21 @@
+name: Notify users of app update
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - '!public/.well-known/**'
+  workflow_dispatch:
+jobs:
+  notify:
+    if: "!contains(github.event.head_commit.message, '[skip notify]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Cloudflare Pages to finish deploying
+        run: sleep 120
+      - name: Send push alert to all installed phones
+        env:
+          SCRIPT_URL: ${{ secrets.SCRIPT_URL }}
+          PUSH_SECRET: ${{ secrets.PUSH_SECRET }}
+        run: |
+          curl -sL "$SCRIPT_URL" -H "Content-Type: text/plain" -d "{\"a\":\"deployPing\",\"secret\":\"$PUSH_SECRET\"}"
