@@ -1,1 +1,8 @@
-[]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "dev.workers.krishnakuteerapartment.krishnakuteer.twa",
+        "sha256_cert_fingerprints": ["AC:E6:D2:01:71:83:F1:EC:3C:4D:5B:59:29:EF:C8:1B:0E:01:2C:5F:E9:69:F3:A7:65:29:15:F0:E0:80:F3:BD"]
+      }
+    }]
