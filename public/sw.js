@@ -1,6 +1,6 @@
 /* Krishna Kuteer service worker: app files load from the phone instantly, then refresh quietly in the background.
    Google Sheets data requests are never touched here (they go straight to the network). */
-const V = "kk-v27", FILES = ["./", "index.html", "hero.webp","fonts/poppins-Regular.woff","fonts/poppins-Medium.woff","fonts/poppins-Bold.woff", "manifest.webmanifest", "icon-192.png"];
+const V = "kk-v28", FILES = ["./", "index.html", "hero.webp","fonts/poppins-Regular.woff","fonts/poppins-Medium.woff","fonts/poppins-Bold.woff", "manifest.webmanifest", "icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
