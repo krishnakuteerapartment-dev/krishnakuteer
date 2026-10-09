@@ -1,6 +1,6 @@
 /* Krishna Kuteer service worker: app files load from the phone instantly, then refresh quietly in the background.
    Google Sheets data requests are never touched here (they go straight to the network). */
-const V = "kk-v35", FILES = ["./", "index.html", "lang.js", "hero.webp","fonts/poppins-Regular.woff","fonts/poppins-Medium.woff","fonts/poppins-Bold.woff","fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
+const V = "kk-v36", FILES = ["./", "index.html", "lang.js", "hero.webp","fonts/poppins-Regular.woff","fonts/poppins-Medium.woff","fonts/poppins-Bold.woff","fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
 /* Browsers refuse to show a redirected response for a page load, so rebuild it as a plain response. */
 const clean = x => (x && x.redirected) ? new Response(x.body, { status: x.status, statusText: x.statusText, headers: x.headers }) : x;
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });

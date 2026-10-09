@@ -21,11 +21,13 @@
     ".lgsw{display:inline-flex;gap:2px;padding:3px;border-radius:999px;background:rgba(255,255,255,.18);margin-left:auto;flex:none}" +
     ".lgsw button{all:unset;box-sizing:border-box;cursor:pointer;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:600;line-height:1.3;color:#fff;white-space:nowrap}" +
     ".lgsw button.on{background:#fff;color:#0b2a63}" +
+    ".lgsw button{position:relative;overflow:hidden}.lgsw button::after,.lgsw button::before{display:none!important}" +
     ".hdr-actions{margin-left:12px}" +
     "header .hl{min-width:0;flex:1 1 auto;display:flex;align-items:center}header .brand{min-width:0;overflow:hidden}header .lgsw{margin-left:8px}" +
     ".lgs{display:none}@media(max-width:420px){header .lgsw .lgl{display:none}header .lgsw .lgs{display:inline}header .lgsw button{padding:5px 9px;font-size:.8rem}header .brand b{font-size:1.02rem}header .brand .logo{flex:none}}" +
     "@media(max-width:340px){header .brand b{white-space:normal;line-height:1.15}}" +
-    ".login .lgsw{display:flex;width:max-content;margin:0 0 10px auto;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(11,42,99,.25);position:relative;z-index:5}" +
+    ".login .lgsw{display:flex;width:max-content;margin:0;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(11,42,99,.25);position:absolute;top:12px;right:12px;z-index:5}" +
+    ".login .hero-img{max-width:none!important}" +
     ".login .lgsw button{color:#0b2a63}.login .lgsw button.on{background:#0b2a63;color:#fff}";
   document.head.appendChild(css);
   document.addEventListener("click", function (e) {
