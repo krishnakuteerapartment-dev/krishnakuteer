@@ -13,8 +13,8 @@
   window.KK_LANG = L;
   window.KK_LGSW = function () {
     return '<span class="lgsw" role="group" aria-label="Language">' +
-      '<button type="button" data-lg="en" class="' + (L === "en" ? "on" : "") + '">English</button>' +
-      '<button type="button" data-lg="te" class="' + (L === "te" ? "on" : "") + '">తెలుగు</button></span>';
+      '<button type="button" data-lg="en" class="' + (L === "en" ? "on" : "") + '"><span class="lgl">English</span><span class="lgs">EN</span></button>' +
+      '<button type="button" data-lg="te" class="' + (L === "te" ? "on" : "") + '"><span class="lgl">తెలుగు</span><span class="lgs">తె</span></button></span>';
   };
   var css = document.createElement("style");
   css.textContent =
@@ -22,6 +22,9 @@
     ".lgsw button{all:unset;box-sizing:border-box;cursor:pointer;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:600;line-height:1.3;color:#fff;white-space:nowrap}" +
     ".lgsw button.on{background:#fff;color:#0b2a63}" +
     ".hdr-actions{margin-left:12px}" +
+    "header .hl{min-width:0;flex:1 1 auto;display:flex;align-items:center}header .brand{min-width:0;overflow:hidden}header .lgsw{margin-left:8px}" +
+    ".lgs{display:none}@media(max-width:420px){header .lgsw .lgl{display:none}header .lgsw .lgs{display:inline}header .lgsw button{padding:5px 9px;font-size:.8rem}header .brand b{font-size:1.02rem}header .brand .logo{flex:none}}" +
+    "@media(max-width:340px){header .brand b{white-space:normal;line-height:1.15}}" +
     ".login .lgsw{display:flex;width:max-content;margin:0 0 10px auto;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(11,42,99,.25);position:relative;z-index:5}" +
     ".login .lgsw button{color:#0b2a63}.login .lgsw button.on{background:#0b2a63;color:#fff}";
   document.head.appendChild(css);
