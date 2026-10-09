@@ -4,21 +4,21 @@
 const TABLES = {
   flats: ['id', 'flat_no', 'monthly_amount'],
   payments: ['id', 'receipt_no', 'flat_id', 'month', 'amount', 'paid_on', 'mode', 'reference', 'remarks', 'created_at'],
-  expenses: ['id', 'spent_on', 'category', 'amount', 'paid_to', 'mode', 'description', 'remarks', 'created_at'],
+  expenses: ['id', 'spent_on', 'category', 'amount', 'paid_to', 'mode', 'description', 'remarks', 'created_at', 'te'],
   income: ['id', 'received_on', 'category', 'amount', 'mode', 'remarks', 'created_at'],
   maintenance_rates: ['month', 'amount'],
   closed_months: ['month', 'closing_cash', 'closing_bank', 'closed_at'],
-  notices: ['id', 'title', 'created_on'],
+  notices: ['id', 'title', 'created_on', 'te'],
   settings: ['id', 'opening_cash', 'opening_bank'],
   users: ['username', 'role', 'flat_id', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified'],
-  maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at'],
-  celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at'],
-  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice'],
-  gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder'],
+  maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at', 'te'],
+  celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at', 'te'],
+  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te'],
+  gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder', 'te'],
   file_data: ['file_id', 'part', 'mime', 'data'],
   login_log: ['username', 'role', 'login_at', 'logout_at', 'last_seen', 'minutes', 'device'],
-  meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at'],
-  polls: ['id', 'question', 'options', 'status', 'created_at'],
+  meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te'],
+  polls: ['id', 'question', 'options', 'status', 'created_at', 'te'],
   votes: ['id', 'poll_id', 'flat_no', 'choice', 'created_at'],
   visitors: ['id', 'visit_on', 'count', 'created_at'],
   status: ['item', 'state', 'updated_on'],
@@ -27,7 +27,7 @@ const TABLES = {
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
 const STR_COLS = ['flat_no', 'username', 'temp_password'];
-TEXT_COLS.push('token', 'voice');
+TEXT_COLS.push('token', 'voice', 'te');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
 const VIS = ['admin', 'treasurer', 'secretary', 'executive'];                /* who may add / delete visitors */
@@ -444,6 +444,7 @@ function write_(u, b) {
     if (cols.indexOf('created_at') >= 0) rec.created_at = now_();
     if (t === 'notices') rec.created_on = now_().slice(0, 10);
     if (t === 'closed_months') rec.closed_at = now_();
+    if (cols.indexOf('te') >= 0) rec.te = te_(t, rec);
     sh.appendRow(cols.map(c => rec[c] == null ? '' : rec[c]));
     try { notifyNew_(t, rec); } catch (e) { /* a failed alert must never block saving */ }
     return { ok: true };
@@ -472,7 +473,7 @@ function write_(u, b) {
 /* ---------- SPEED: keep the backend warm (run installKeepWarm ONCE) ----------
    Google puts idle scripts to sleep, which makes the first tap slow. This trigger wakes it every 5 minutes
    and refreshes the cached data, so residents always get a fast answer. Sheet edits by hand show within 5 minutes. */
-function keepWarm() { cacheDrop_('snap'); tables_(); }
+function keepWarm() { try { translateMissing_(40); } catch (e) {} cacheDrop_('snap'); tables_(); }
 function installKeepWarm() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'keepWarm').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('keepWarm').timeBased().everyMinutes(5).create();
@@ -664,3 +665,56 @@ function testPush() { Logger.log(JSON.stringify(pushAll_('Test alert', 'Push not
 /* Run by hand after you publish a new version of the website, if you did not use the GitHub automation. */
 function sendAppUpdateNow() { Logger.log(JSON.stringify(pushAll_('Krishna Kuteer updated', 'A new version of the app is ready. Open it to see what is new.', '/'))); }
 function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').length); }
+
+
+/* ---------- TELUGU: typed text (notices, complaints, events, polls...) gets a Telugu copy ----------
+   When something is posted, Google Translate makes a Telugu copy and saves it in the 'te' column of that tab.
+   The app shows it when a resident chooses తెలుగు. The English (as typed) stays in its own column.
+   TO FIX A BAD TRANSLATION: edit the 'te' cell by hand (keep the {"title":"..."} shape), then run clearCache().
+   Run translateAll() ONCE by hand (click Allow) to translate everything posted before this update.
+   Free Google account limit: about 5,000 translations a day; the app uses one per field, only when posting. */
+const TE_FIELDS = {
+  notices: ['title'], complaints: ['title', 'details'], meetings: ['title', 'place'], polls: ['question', 'options'],
+  maintenance_log: ['details'], gallery: ['title'], celebrations: ['details'], expenses: ['description', 'remarks']
+};
+const TE_RX = /[\u0C00-\u0C7F]/;
+let TE_FAIL_ = false; /* set when Google Translate refuses (daily limit): rows are then left for a later try */
+function teOne_(x) {
+  x = String(x == null ? '' : x).trim();
+  if (!x || TE_RX.test(x) || !/[A-Za-z]/.test(x)) return null; /* already Telugu, or only numbers */
+  try { const r = String(LanguageApp.translate(x.slice(0, 4000), '', 'te') || '').trim(); return r && r !== x ? r : null; }
+  catch (e) { TE_FAIL_ = true; return null; }
+}
+function te_(t, rec) {
+  const o = {};
+  (TE_FIELDS[t] || []).forEach(k => {
+    const v = rec[k]; if (v == null || v === '') return;
+    if (k === 'options') { const a = String(v).split('|').map(x => teOne_(x) || x); if (a.join('|') !== String(v)) o[k] = a.join('|'); }
+    else { const r = teOne_(v); if (r) o[k] = r; }
+  });
+  return Object.keys(o).length ? JSON.stringify(o) : '';
+}
+/* fills the 'te' column for older rows; stops after 'max' rows or 4.5 minutes, so run it again if the log says so */
+function translateMissing_(max) {
+  const start = Date.now(); let done = 0, left = 0;
+  Object.keys(TE_FIELDS).forEach(t => {
+    const sh = sh_(t); if (!sh) return;
+    const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String), col = head.indexOf('te') + 1;
+    if (!col) return;
+    read_(t).forEach(r => {
+      if (r.te) return;
+      if (done >= max || Date.now() - start > 270000) { left++; return; }
+      TE_FAIL_ = false;
+      const v = te_(t, r);
+      if (TE_FAIL_) { left++; return; }
+      sh.getRange(r.__r, col).setValue(v || '{}'); done++;
+    });
+  });
+  if (done) cacheDrop_('snap');
+  return { done: done, left: left };
+}
+function translateAll() {
+  upgradeUsers(); /* adds the 'te' column header to each tab if missing */
+  const r = translateMissing_(100000);
+  Logger.log('Translated ' + r.done + ' rows. ' + (r.left ? r.left + ' still waiting: run translateAll again.' : 'All done.'));
+}

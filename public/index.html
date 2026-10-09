@@ -43,11 +43,12 @@ async function api(body,bg){let r;
  finally{if(!bg)netEnd();if(cb)cb.classList.remove("busy")}
  if(r.auth){setTok(null);dropCache();cur=null;SNAP=null;loginView(r.error.message);throw new Error(r.error.message)}return r}
 const SK="kk_snap",FRESH=20000;let DIRTY=false,REFR=false,GEN=0;
-const readCache=()=>{try{const c=JSON.parse(localStorage.getItem(SK)||"null");if(c&&c.tok&&c.tok===TOK)return c.d}catch(e){}return null};
+const LOC=d=>window.KK_LOC?KK_LOC(d):d,OPT=(q,o)=>window.KK_OPT?KK_OPT(q,o):o;
+const readCache=()=>{try{const c=JSON.parse(localStorage.getItem(SK)||"null");if(c&&c.tok&&c.tok===TOK)return LOC(c.d)}catch(e){}return null};
 const saveCache=d=>{try{localStorage.setItem(SK,JSON.stringify({tok:TOK,d}))}catch(e){}};
 const dropCache=()=>{try{localStorage.removeItem(SK)}catch(e){}};
-const getSnap=bg=>api({a:"snapshot"},bg).then(r=>{if(r.error)throw new Error(r.error.message);return r.data});
-function adopt(d){SNAP=Promise.resolve(d);SNAPT=Date.now();DIRTY=false;saveCache(d);if(d&&d.me&&cur)cur=d.me}
+const getSnap=bg=>api({a:"snapshot"},bg).then(r=>{if(r.error)throw new Error(r.error.message);return LOC(r.data)});
+function adopt(d){d=LOC(d);SNAP=Promise.resolve(d);SNAPT=Date.now();DIRTY=false;saveCache(d);if(d&&d.me&&cur)cur=d.me}
 /* Show what we already have instantly, then quietly fetch the latest in the background. */
 function refresh(){if(REFR)return;REFR=true;const old=SNAP,g=GEN;
  getSnap(1).then(async d=>{if(g!==GEN)return;const prev=await old;adopt(d);
@@ -630,8 +631,8 @@ async function polls(m){
  m.innerHTML=`${can?`<div class="card"><b>New poll</b><div style="height:8px"></div><input id="pq" placeholder="Question"><div style="height:8px"></div><input id="po" placeholder="Options separated by commas, e.g. Yes, No"><div style="height:8px"></div><button id="pc">Start poll</button></div>`:""}
  ${(p.data||[]).map(q=>{const O=String(q.options).split("|"),my=V.find(x=>String(x.poll_id)===String(q.id)&&x.mine),tot=V.filter(x=>String(x.poll_id)===String(q.id)).length,open=q.status==="open";
   return `<div class="card"><b>${esc(q.question)}</b> <small style="color:var(--grey)">${open?"Open":"Closed"} · ${tot} vote${tot===1?"":"s"}</small>
-  ${O.map(o=>{const n=V.filter(x=>String(x.poll_id)===String(q.id)&&x.choice===o).length,pc=tot?Math.round(n/tot*100):0;return my||!open?`<div class="bar${my&&my.choice===o?" me":""}"><div style="width:${Math.max(pc,12)}%">${esc(o)} · ${n} (${pc}%)</div></div>`:`<button class="ghost" style="margin-top:6px" data-v="${q.id}" data-c="${esc(o)}">${esc(o)}</button>`}).join("")}
-  ${my?`<small style="color:var(--green)">You voted: ${esc(my.choice)}</small>`:""}${can?`<div class="f" style="margin-top:8px">${open?`<button class="ghost" data-pc="${q.id}">Close poll</button>`:""}<button class="ghost" data-px="${q.id}">Delete</button></div>`:""}</div>`}).join("")||`<div class="card">No polls yet.</div>`}`;
+  ${O.map(o=>{const n=V.filter(x=>String(x.poll_id)===String(q.id)&&x.choice===o).length,pc=tot?Math.round(n/tot*100):0;return my||!open?`<div class="bar${my&&my.choice===o?" me":""}"><div style="width:${Math.max(pc,12)}%">${esc(OPT(q,o))} · ${n} (${pc}%)</div></div>`:`<button class="ghost" style="margin-top:6px" data-v="${q.id}" data-c="${esc(o)}">${esc(OPT(q,o))}</button>`}).join("")}
+  ${my?`<small style="color:var(--green)">You voted: ${esc(OPT(q,my.choice))}</small>`:""}${can?`<div class="f" style="margin-top:8px">${open?`<button class="ghost" data-pc="${q.id}">Close poll</button>`:""}<button class="ghost" data-px="${q.id}">Delete</button></div>`:""}</div>`}).join("")||`<div class="card">No polls yet.</div>`}`;
  if(can)$("#pc").onclick=async()=>{const{error}=await db.from("polls").insert({question:$("#pq").value.trim(),options:$("#po").value.split(",").map(x=>x.trim()).filter(Boolean).join("|")});error?toast(error.message):render()};
  document.querySelectorAll("[data-v]").forEach(b=>b.onclick=async()=>{const{error}=await db.from("votes").insert({poll_id:+b.dataset.v,choice:b.dataset.c});error?toast(error.message):render()});
  document.querySelectorAll("[data-pc]").forEach(b=>b.onclick=async()=>{await db.from("polls").update({status:"closed"}).eq("id",b.dataset.pc);render()});

@@ -1,6 +1,6 @@
 /* Krishna Kuteer - language switch: English | తెలుగు
    HOW IT WORKS: the app's own words (menus, buttons, headings, form labels, messages) are swapped for Telugu when the
-   resident taps "తెలుగు". Text typed by residents (notices, complaints, poll questions...) is NEVER translated.
+   resident taps "తెలుగు". Text typed by residents (notices, complaints, polls...) is shown from its Telugu copy made by the server (see KK_LOC below).
    TO FIX A TELUGU WORD: find the English line in the list below (TE) and change only the Telugu part on the right.
    TO ADD A NEW ONE: add a line   "English text exactly as shown in the app": "తెలుగు",   (keep the comma at the end). */
 (function () {
@@ -33,6 +33,46 @@
     try { localStorage.setItem(KEY, v); } catch (x) {}
     location.reload();
   });
+
+  /* ---------- Telugu letters always use Noto Sans Telugu (file: fonts/NotoSansTelugu.woff2). English letters keep Poppins. ---------- */
+  var STACK = 'KKP,"KK Telugu",Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+  var fcss = document.createElement("style");
+  fcss.textContent =
+    '@font-face{font-family:"KK Telugu";font-style:normal;font-weight:100 900;font-display:swap;src:url(fonts/NotoSansTelugu.woff2) format("woff2");' +
+    'unicode-range:U+0951-0952,U+0964-0965,U+0C00-0C7F,U+1CDA,U+1CF2,U+200C-200D,U+25CC}' +
+    'body,input,select,textarea,button{font-family:' + STACK + '!important}' +
+    'html[lang=te] body *{font-family:' + STACK + '!important}' +
+    '.wel>small{display:block}';
+  document.head.appendChild(fcss);
+
+  /* ---------- text typed by people (notices, complaints, events, polls...) ----------
+     The server keeps a Telugu copy of each one (column 'te' in the Google Sheet). In తెలుగు mode the app shows that copy;
+     in English mode it shows the text exactly as it was typed. Poll answers keep their English value for voting. */
+  var TEF = { notices: ["title"], complaints: ["title", "details"], meetings: ["title", "place"], polls: ["question", "options"],
+    maintenance_log: ["details"], gallery: ["title"], celebrations: ["details"], expenses: ["description", "remarks"] };
+  window.KK_LOC = function (d) {
+    if (!d || typeof d !== "object") return d;
+    Object.keys(TEF).forEach(function (t) {
+      var rows = d[t]; if (!Array.isArray(rows)) return;
+      rows.forEach(function (r) {
+        if (!r || !r.te) return;
+        var te; try { te = typeof r.te === "string" ? JSON.parse(r.te) : r.te; } catch (e) { return; }
+        if (!te || typeof te !== "object") return;
+        if (!r._en) { r._en = {}; TEF[t].forEach(function (k) { r._en[k] = r[k]; }); }
+        TEF[t].forEach(function (k) {
+          if (k === "options") { r.options_te = L === "te" && te.options ? te.options : null; return; }
+          r[k] = L === "te" && te[k] ? te[k] : r._en[k];
+        });
+      });
+    });
+    return d;
+  };
+  /* poll answer as shown on screen (the vote itself still uses the English answer) */
+  window.KK_OPT = function (q, o) {
+    if (!q || !q.options_te) return o;
+    var en = String(q.options).split("|"), te = String(q.options_te).split("|"), i = en.indexOf(o);
+    return i >= 0 && te[i] ? te[i] : o;
+  };
 
   if (L !== "te") return; /* English: nothing more to do */
   /* Telugu letters join together, so the site's extra letter-spacing must be switched off */
@@ -166,6 +206,11 @@
   };
   /* ---------- sentences with changing parts (names, months, numbers) ---------- */
   var PAT = [
+    [/^([\s\S]*) · Event$/, function (m, a) { return a + " · కార్యక్రమం"; }],
+    [/^([\s\S]*) · Meeting$/, function (m, a) { return a + " · సమావేశం"; }],
+    [/^(\S+) Complaint resolved: ([\s\S]*)$/, function (m, i, a) { return i + " ఫిర్యాదు పరిష్కరించబడింది: " + a; }],
+    [/^(🛠 [\s\S]*) \(pending\)$/, function (m, a) { return a + " (పెండింగ్)"; }],
+    [/^(🛠 [\s\S]*) \(partial\)$/, function (m, a) { return a + " (పాక్షికం)"; }],
     [/^Flat (.+?) · (.*)$/, function (m, a, b) { return "ఫ్లాట్ " + a + " · " + b; }],
     [/^Flat (.+)$/, function (m, a) { return "ఫ్లాట్ " + a; }],
     [/^Namaste 🙏, (.*)$/, function (m, a) { return "నమస్తే 🙏, " + tr(a); }],
