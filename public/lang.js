@@ -87,6 +87,10 @@
 
   /* ---------- Telugu wording (English  ->  తెలుగు) ---------- */
   var TE = {
+    "Saved": "సేవ్ అయింది", "Complaint sent": "ఫిర్యాదు పంపబడింది", "Making PDF…": "PDF తయారవుతోంది…",
+    "Still saving. Please try again in a moment.": "ఇంకా సేవ్ అవుతోంది. కొద్దిసేపటి తర్వాత మళ్ళీ ప్రయత్నించండి.",
+    "Still uploading. Please wait a moment.": "ఇంకా అప్‌లోడ్ అవుతోంది. కొద్దిసేపు వేచి ఉండండి.",
+    "please try again": "దయచేసి మళ్ళీ ప్రయత్నించండి",
     /* menu */
     "Home": "హోమ్", "Maintenance": "నిర్వహణ", "Payments": "చెల్లింపులు", "Expenses": "ఖర్చులు", "Statement": "స్టేట్‌మెంట్",
     "Celebrations": "వేడుకలు", "Visitors": "సందర్శకులు", "Documents": "పత్రాలు", "Notices": "నోటీసులు",
@@ -211,6 +215,7 @@
   };
   /* ---------- sentences with changing parts (names, months, numbers) ---------- */
   var PAT = [
+    [/^Not saved: ([\s\S]*)$/, function (m, a) { return "సేవ్ కాలేదు: " + tr(a); }],
     [/^([\s\S]*) · Event$/, function (m, a) { return a + " · కార్యక్రమం"; }],
     [/^([\s\S]*) · Meeting$/, function (m, a) { return a + " · సమావేశం"; }],
     [/^(\S+) Complaint resolved: ([\s\S]*)$/, function (m, i, a) { return i + " ఫిర్యాదు పరిష్కరించబడింది: " + a; }],

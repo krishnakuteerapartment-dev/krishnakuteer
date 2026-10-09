@@ -115,6 +115,7 @@ function route_(b) {
   if (b.a === 'upload') return upload_(u, b);
   if (b.a === 'photo') return photo_(u, b);
   if (b.a === 'driveSync') return driveSync_();
+  if (b.a === 'after') return after_();
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
@@ -123,8 +124,8 @@ function route_(b) {
     try {
       if (b.a === 'pw') return pw_(u, b);
       let r;
-      try { r = write_(u, b); } finally { cacheDrop_('snap'); }
-      if (r && r.ok) r.snapshot = snapshot_(u);
+      try { r = write_(u, b); } catch (e) { cacheDrop_('snap'); throw e; }
+      if (r && r.ok) { patchSnap_(b.t); r.snapshot = snapshot_(u); }
       return r;
     } finally { lock.releaseLock(); }
   }
@@ -444,7 +445,6 @@ function write_(u, b) {
     if (cols.indexOf('created_at') >= 0) rec.created_at = now_();
     if (t === 'notices') rec.created_on = now_().slice(0, 10);
     if (t === 'closed_months') rec.closed_at = now_();
-    if (cols.indexOf('te') >= 0) rec.te = te_(t, rec);
     sh.appendRow(cols.map(c => rec[c] == null ? '' : rec[c]));
     try { notifyNew_(t, rec); } catch (e) { /* a failed alert must never block saving */ }
     return { ok: true };
@@ -473,7 +473,7 @@ function write_(u, b) {
 /* ---------- SPEED: keep the backend warm (run installKeepWarm ONCE) ----------
    Google puts idle scripts to sleep, which makes the first tap slow. This trigger wakes it every 5 minutes
    and refreshes the cached data, so residents always get a fast answer. Sheet edits by hand show within 5 minutes. */
-function keepWarm() { try { translateMissing_(40); } catch (e) {} cacheDrop_('snap'); tables_(); }
+function keepWarm() { try { after_(); } catch (e) {} try { translateMissing_(40); } catch (e) {} cacheDrop_('snap'); tables_(); }
 function installKeepWarm() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'keepWarm').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('keepWarm').timeBased().everyMinutes(5).create();
@@ -605,9 +605,35 @@ function deployPing_(b) {
 
 /* Automatic alert whenever a notice, meeting/event or poll is added. */
 function notifyNew_(t, rec) {
-  if (t === 'notices') pushAll_('New notice', String(rec.title || ''), '/');
-  else if (t === 'meetings') pushAll_(rec.kind === 'event' ? 'New event' : 'New meeting', String(rec.title || '') + (rec.on_date ? ' - ' + String(rec.on_date).slice(0, 10) : ''), '/');
-  else if (t === 'polls') pushAll_('New poll - please vote', String(rec.question || ''), '/');
+  if (t === 'notices') queuePush_('New notice', String(rec.title || ''));
+  else if (t === 'meetings') queuePush_(rec.kind === 'event' ? 'New event' : 'New meeting', String(rec.title || '') + (rec.on_date ? ' - ' + String(rec.on_date).slice(0, 10) : ''));
+  else if (t === 'polls') queuePush_('New poll - please vote', String(rec.question || ''));
+}
+/* ---------- SPEED: alerts and Telugu copies are made just AFTER a save, not during it ----------
+   The app calls 'after' quietly a moment after each save; keepWarm (every 5 minutes) also does it as a safety net. */
+function queuePush_(title, body) {
+  const P = PROPS_(), q = JSON.parse(P.getProperty('PUSH_Q') || '[]');
+  q.push({ t: title, b: body }); P.setProperty('PUSH_Q', JSON.stringify(q.slice(-20)));
+}
+function flushPush_() {
+  const P = PROPS_(), q = JSON.parse(P.getProperty('PUSH_Q') || '[]');
+  if (!q.length) return 0;
+  P.deleteProperty('PUSH_Q');
+  q.forEach(m => { try { pushAll_(m.t, m.b, '/'); } catch (e) { Logger.log('Push failed: ' + e); } });
+  return q.length;
+}
+function after_() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(500)) return { ok: true }; /* another 'after' is already running */
+  try { const sent = flushPush_(); let tr = { done: 0 }; try { tr = translateMissing_(15); } catch (e) {} return { ok: true, sent: sent, translated: tr.done }; }
+  finally { lock.releaseLock(); }
+}
+/* after a save, re-read only the tab that changed and update the cached copy of everything else */
+function patchSnap_(t) {
+  const T = cacheGetBig_('snap');
+  if (!T || !Object.prototype.hasOwnProperty.call(T, t)) { cacheDrop_('snap'); return; }
+  T[t] = clean_(read_(t));
+  cachePutBig_('snap', T, SNAP_TTL);
 }
 
 /* OAuth token for the FCM API, made from the service account (cached ~50 minutes). */
@@ -696,7 +722,7 @@ function te_(t, rec) {
 }
 /* fills the 'te' column for older rows; stops after 'max' rows or 4.5 minutes, so run it again if the log says so */
 function translateMissing_(max) {
-  const start = Date.now(); let done = 0, left = 0;
+  const start = Date.now(), touched = {}; let done = 0, left = 0;
   Object.keys(TE_FIELDS).forEach(t => {
     const sh = sh_(t); if (!sh) return;
     const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String), col = head.indexOf('te') + 1;
@@ -707,10 +733,10 @@ function translateMissing_(max) {
       TE_FAIL_ = false;
       const v = te_(t, r);
       if (TE_FAIL_) { left++; return; }
-      sh.getRange(r.__r, col).setValue(v || '{}'); done++;
+      sh.getRange(r.__r, col).setValue(v || '{}'); done++; touched[t] = 1;
     });
   });
-  if (done) cacheDrop_('snap');
+  Object.keys(touched).forEach(patchSnap_);
   return { done: done, left: left };
 }
 function translateAll() {

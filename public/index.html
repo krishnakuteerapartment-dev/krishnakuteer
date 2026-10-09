@@ -39,6 +39,7 @@
 /* Status tiles keep their animations, but rest while scrolled off the screen */
 .stg>button.zz,.stg>button.zz *,.stg>button.zz::before,.stg>button.zz::after,.stg>button.zz *::before,.stg>button.zz *::after{animation-play-state:paused!important}
 img.ph{content-visibility:auto}
+#nb.sync{opacity:1}#nb.sync i{animation:nbar 1s ease-in-out infinite}
 </style>
 </head>
 <body>
@@ -56,7 +57,7 @@ const netStart=()=>{if(NB++===0)NBT=setTimeout(()=>{NBE.classList.add("on");docu
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("button");CB=b&&b.closest("main,.login,.modal")?b:null;CBT=Date.now()},true);
 async function api(body,bg){let r;
  if(!bg)netStart();const cb=!bg&&CB&&CB.isConnected&&Date.now()-CBT<600&&!CB.classList.contains("busy")?CB:null;if(cb)cb.classList.add("busy");
- try{r=await(await fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify({token:TOK,...body})})).json()}
+ try{const bd=JSON.stringify({token:TOK,...body});r=await(await fetch(SCRIPT_URL,{method:"POST",body:bd,keepalive:bd.length<60000})).json()}
  catch(e){throw new Error("Could not reach Google Sheets. Check your internet connection and try again.")}
  finally{if(!bg)netEnd();if(cb)cb.classList.remove("busy")}
  if(r.auth){setTok(null);dropCache();cur=null;SNAP=null;loginView(r.error.message);throw new Error(r.error.message)}return r}
@@ -66,9 +67,57 @@ const readCache=()=>{try{const c=JSON.parse(localStorage.getItem(SK)||"null");if
 const saveCache=d=>{try{localStorage.setItem(SK,JSON.stringify({tok:TOK,d}))}catch(e){}};
 const dropCache=()=>{try{localStorage.removeItem(SK)}catch(e){}};
 const getSnap=bg=>api({a:"snapshot"},bg).then(r=>{if(r.error)throw new Error(r.error.message);return LOC(r.data)});
-function adopt(d){d=LOC(d);SNAP=Promise.resolve(d);SNAPT=Date.now();DIRTY=false;saveCache(d);if(d&&d.me&&cur)cur=d.me}
+/* ---------- INSTANT SAVE ----------
+   Saving no longer waits for Google Sheets: the new item shows at once and "Saved" appears, while the real save runs
+   quietly in the background (thin bar at the top of the screen). Saves are sent one after another, in order.
+   If Google Sheets refuses one (for example a locked month), a message explains why and the screen reloads the real data.
+   Payments, month locks and settings still wait for Google Sheets, because they need a receipt number or a final check. */
+const PEND=[],TMPID=9e12;let CHAIN=Promise.resolve(),TMP=0; /* items still saving get a temporary id above TMPID, so they sort as newest */
+const nowS=()=>{const d=new Date();return ld()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")};
+const clone=o=>typeof structuredClone==="function"?structuredClone(o):JSON.parse(JSON.stringify(o));
+const busyBar=()=>{const n=document.getElementById("nb");if(n)n.classList.toggle("sync",PEND.length>0)};
+const calm=()=>{if(me&&$("#m")&&!document.querySelector("input:focus,select:focus,textarea:focus"))render()};
+let AFT=null;const after=()=>{clearTimeout(AFT);AFT=setTimeout(()=>api({a:"after"},1).catch(()=>{}),1500)};
+function bgRun(apply,job){
+ const it={apply};PEND.push(it);GEN++;busyBar();
+ if(SNAP){SNAP=SNAP.then(T=>{const c=clone(T);apply(c);return c});SNAPT=Date.now()}
+ CHAIN=CHAIN.then(job).then(w=>{if(w&&w.error)throw new Error(w.error.message);PEND.splice(PEND.indexOf(it),1);GEN++;
+   if(w&&w.snapshot)adopt(w.snapshot);
+   after();if(!PEND.length)calm()})
+  .catch(e=>{const i=PEND.indexOf(it);if(i>=0)PEND.splice(i,1);GEN++;toast("Not saved: "+(e&&e.message||"please try again"));
+   SNAP=null;DIRTY=true;dropCache();snap().then(()=>{if(PEND.length){const rest=PEND.slice();SNAP=SNAP.then(T=>{const c=clone(T);rest.forEach(p=>p.apply(c));return c})}calm()}).catch(()=>{})})
+  .finally(busyBar);
+ return CHAIN}
+addEventListener("beforeunload",e=>{if(PEND.length){e.preventDefault();e.returnValue=""}});
+const FAST=["expenses","income","complaints","notices","meetings","maintenance_log","celebrations","visitors","gallery","status","polls","votes"];
+/* the same checks Google Sheets makes, done here first so "Saved" is only shown for saves that will go through */
+function preCheck(T,t,op,p){
+ const closed=(T.closed_months||[]).map(r=>String(r.month).slice(0,7)),lk=d=>d&&closed.includes(String(d).slice(0,7));
+ if(op==="insert"||op==="upsert"){
+  if((t==="expenses"&&lk(p.spent_on))||(t==="income"&&lk(p.received_on)))return "This month is locked. Nothing can be added, changed or deleted in it.";
+  if(["expenses","income"].includes(t)&&!(+p.amount>0))return "Enter an amount above 0.";
+  if(t==="celebrations"&&p.kind!=="sponsor"&&!(+p.amount>0))return "Enter an amount above 0."}
+ if(op==="insert"){
+  if(t==="complaints"&&!String(p.title||"").trim())return "Please describe the problem.";
+  if(t==="meetings"&&(!String(p.title||"").trim()||!p.on_date||!["meeting","event"].includes(p.kind)))return "Enter a title, date and type.";
+  if(t==="polls"&&(!String(p.question||"").trim()||String(p.options||"").split("|").filter(x=>x.trim()).length<2))return "Enter a question and at least two options.";
+  if(t==="visitors"&&(!p.visit_on||!(Math.floor(+p.count)>=1&&+p.count<=100000)))return "Enter a date and a visitor count of at least 1.";
+  if(t==="votes"){const q=(T.polls||[]).find(x=>String(x.id)===String(p.poll_id));if(!q||q.status!=="open")return "This poll is closed.";
+   if((T.votes||[]).some(v=>String(v.poll_id)===String(p.poll_id)&&v.mine))return "You have already voted in this poll."}}
+ return ""}
+function applyLocal(T,t,op,pl,fl){
+ const rows=T[t]||(T[t]=[]),hit=r=>fl.every(([c,v])=>String(r[c])===String(v)),now=nowS();
+ if(op==="insert"){const r=Object.assign({id:TMPID+(++TMP),created_at:now},pl);
+  if(t==="complaints")Object.assign(r,{flat_no:cur&&cur.id,status:"open",updated_at:now});
+  if(t==="notices")r.created_on=ld();if(t==="polls")r.status="open";if(t==="gallery")r.uploaded_by=cur&&cur.id;
+  if(t==="votes"){delete r.id;delete r.created_at;r.mine=true}
+  rows.push(r)}
+ else if(op==="update")rows.filter(hit).forEach(r=>Object.assign(r,pl,t==="complaints"?{updated_at:now}:{}));
+ else if(op==="delete")T[t]=rows.filter(r=>!hit(r));
+ else if(op==="upsert"){const k=pl[1].onConflict,h=rows.find(r=>String(r[k])===String(pl[0][k]));h?Object.assign(h,pl[0]):rows.push(Object.assign({},pl[0]))}}
+function adopt(d){d=LOC(d);SNAP=Promise.resolve(d);SNAPT=Date.now();DIRTY=false;saveCache(d);if(PEND.length){const rest=PEND.slice();SNAP=SNAP.then(T=>{const c=clone(T);rest.forEach(p=>p.apply(c));return c})}if(d&&d.me&&cur)cur=d.me}
 /* Show what we already have instantly, then quietly fetch the latest in the background. */
-function refresh(){if(REFR)return;REFR=true;const old=SNAP,g=GEN;
+function refresh(){if(REFR||PEND.length)return;REFR=true;const old=SNAP,g=GEN;
  getSnap(1).then(async d=>{if(g!==GEN)return;const prev=await old;adopt(d);
   if(JSON.stringify(prev)!==JSON.stringify(d)&&me&&$("#m")&&!document.querySelector("input:focus,select:focus"))render()})
  .catch(()=>{}).finally(()=>{REFR=false})}
@@ -86,7 +135,11 @@ function Q(t){const f=[],fl=[];let op="s",pl=null,one=0,ord=null;const q={
    if(cur&&cur.role==="resident"&&t==="flats")r=r.filter(x=>x.id===cur.flat);
    if(ord)r.sort((x,y)=>(x[ord[0]]>y[ord[0]]?1:-1)*(ord[1]?-1:1));
    return{data:one?(r[0]||null):r,error:null}}
-  try{const up=op==="upsert",w=await api({a:"write",t,op,payload:up?pl[0]:pl,onConflict:up?pl[1].onConflict:null,filters:fl});GEN++;if(w.snapshot)adopt(w.snapshot);else{SNAP=null;DIRTY=true}
+  const up=op==="upsert",req={a:"write",t,op,payload:up?pl[0]:pl,onConflict:up?pl[1].onConflict:null,filters:fl};
+  if(FAST.includes(t)&&SNAP){const T=await SNAP,bad=preCheck(T,t,op,up?pl[0]:pl);if(bad)return{data:null,error:{message:bad}};
+   if(fl.some(([c,v])=>c==="id"&&+v>=TMPID))return{data:null,error:{message:"Still saving. Please try again in a moment."}};
+   bgRun(c=>applyLocal(c,t,op,pl,fl),()=>api(req,1));return{data:null,error:null}}
+  try{const w=await api(req);GEN++;if(w.snapshot)adopt(w.snapshot);else{SNAP=null;DIRTY=true}
    return{data:null,error:w.error||null}}catch(e){return{data:null,error:{message:e.message}}}}
  return q}
 const db={from:Q,rpc:async n=>({data:n==="all_flats"?(await snap()).flats.map(x=>({...x})):null,error:null}),auth:{
@@ -540,6 +593,8 @@ function makePdf(pg){const enc=new TextEncoder(),parts=[],off=[];let len=0;
  put(x+"trailer\n<< /Size "+(total+1)+" /Root 1 0 R >>\nstartxref\n"+xr+"\n%%EOF\n");
  const out=new Uint8Array(len);let o=0;parts.forEach(u=>{out.set(u,o);o+=u.length});return out}
 async function scanPdf(){const lim=Math.floor(880000/SC.length)-2000,pages=[];for(const s of SC)pages.push(await shrinkX(s.f,lim,1700));return b64(new Blob([makePdf(pages)],{type:"application/pdf"}))}
+const LID=()=>"L"+(++TMP),upOne=async(d,kind,pre)=>{let r=pre?await pre:null;if(!r||r.error||!r.id)r=await api({a:"upload",kind,img:d},1);if(r.error)throw new Error(r.error.message);PH[r.id]=Promise.resolve(d);return r.id};
+const wrIns=async(t,payload)=>{const w=await api({a:"write",t,op:"insert",payload,filters:[]},1);if(w.error)throw new Error(w.error.message);return w};
 async function upAll(id,kind){return Promise.all(PK[id].slice().map(async d=>{let r=await UP.get(d);if(!r||r.error||!r.id)r=await api({a:"upload",kind,img:d});if(r.error)throw new Error(r.error.message);PH[r.id]=Promise.resolve(d);UP.delete(d);return r.id}))}
 const phTag=id=>`<span class="phw"><img class="ph" data-ph="${esc(id)}" alt="Photo" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><button class="dl" title="Download" aria-label="Download photo">⬇</button></span>`;
 function dlImg(src,nm){const bin=atob(src.split(",")[1]),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);const mime=src.slice(5,src.indexOf(";")),url=URL.createObjectURL(new Blob([u],{type:mime})),a=document.createElement("a");a.href=url;a.download=nm+(mime.includes("png")?".png":mime.includes("webp")?".webp":".jpg");document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
@@ -559,7 +614,7 @@ async function docs(m){const{data}=await db.from("gallery").select("*").order("i
  <h2>Photos &amp; important pictures</h2>${P?`<div class="card"><b>Add pictures (everyone can see them)</b><div style="height:8px"></div><div class="r2" style="display:flex;gap:8px"><input id="gt" placeholder="Caption e.g. Annual meeting 2026" style="flex:1;min-width:0"><select id="gfo" style="flex:1;min-width:0">${FO}</select></div><div style="height:8px"></div>${pickHtml("gph")}<div style="height:8px"></div><button id="gs">Upload</button></div>`:""}
  <div class="gal">${pics.map(g=>`<div class="card">${phTag(g.photo)}<div style="margin-top:6px"><b>${esc(g.title)}</b></div><small style="color:var(--grey)">${esc(String(g.created_at).slice(0,10))} · 📂 ${esc(Fo(g))}</small>${del(g)}</div>`).join("")||`<div class="card">No pictures yet.</div>`}</div>`;
  loadPh(m);$("#gf").onchange=ev=>{DF=ev.target.value;docs(m)};
- document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=async()=>{const o=b.textContent;b.disabled=true;b.textContent="Opening…";try{const r=await api({a:"photo",id:b.dataset.pf});if(!r.img)throw new Error("File not available");const bin=atob(r.img.split(",")[1]),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([u8],{type:"application/pdf"})),a=document.createElement("a");a.href=url;a.download=b.dataset.nm+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}catch(e){toast(e.message)}b.disabled=false;b.textContent=o});
+ document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=async()=>{if(/^L/.test(b.dataset.pf))return toast("Still uploading. Please wait a moment.");const o=b.textContent;b.disabled=true;b.textContent="Opening…";try{const r=await api({a:"photo",id:b.dataset.pf});if(!r.img)throw new Error("File not available");const bin=atob(r.img.split(",")[1]),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([u8],{type:"application/pdf"})),a=document.createElement("a");a.href=url;a.download=b.dataset.nm+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}catch(e){toast(e.message)}b.disabled=false;b.textContent=o});
  if(P){pickInit("gph",6);SC.splice(0).forEach(s=>URL.revokeObjectURL(s.url));
   const scDraw=()=>{const t=$("#pst");t.innerHTML=SC.map((s,i)=>`<span class="pkp"><img src="${s.url}" alt=""><b data-i="${i}">×</b></span>`).join("")+(SC.length?`<small style="display:block;width:100%;color:var(--grey)">Scanned pages: ${SC.length} (max ${SCMAX})</small>`:"");t.querySelectorAll("b").forEach(b=>b.onclick=()=>{URL.revokeObjectURL(SC[+b.dataset.i].url);SC.splice(+b.dataset.i,1);scDraw()})};
   $("#psi").onchange=()=>{const f=$("#psi").files[0];$("#psi").value="";if(!f)return;if(SC.length>=SCMAX)return toast("Maximum "+SCMAX+" pages");SC.push({f,url:URL.createObjectURL(f)});$("#pf").value="";PRE=null;scDraw()};
@@ -567,14 +622,17 @@ async function docs(m){const{data}=await db.from("gallery").select("*").order("i
   $("#ps").onclick=async()=>{const f=$("#pf").files[0];
    if(!f&&!SC.length)return toast("Please choose a PDF file or scan a paper.");
    if(!SC.length){if(f.type!=="application/pdf")return toast("Only PDF files are allowed.");if(f.size>1e6)return toast("PDF must be under 1 MB. Please compress it first (for example at ilovepdf.com, Compress PDF) and upload again.")}
-   const b=$("#ps"),o=b.textContent;b.disabled=true;b.textContent="Uploading…";
-   try{let r,nm,ti;
-    if(SC.length){const d=await scanPdf();nm="scan-"+ld()+".pdf";ti=$("#pt").value.trim()||"Scan "+ld();r=await api({a:"upload",kind:"gallery",img:d})}
-    else{r=PRE&&PRE.f===f?await PRE.p:null;if(!r||r.error||!r.id)r=await api({a:"upload",kind:"gallery",img:await b64(f)});PRE=null;nm=f.name;ti=$("#pt").value.trim()||f.name.replace(/\.pdf$/i,"")}
-    if(r.error)throw new Error(r.error.message);
-    const{error}=await db.from("gallery").insert({title:ti,photo:r.id,kind:"pdf",name:nm,folder:$("#pfo").value});if(error)throw new Error(error.message);
-    SC.splice(0).forEach(s=>URL.revokeObjectURL(s.url));render();bgDrive()}catch(e){toast(e.message||"Could not make the PDF. Please try again.");b.disabled=false;b.textContent=o}};
-  $("#gs").onclick=async()=>{if(!PK.gph.length)return toast("Please add a photo first.");const b=$("#gs"),o=b.textContent;b.disabled=true;b.textContent="Uploading…";try{const ids=await upAll("gph","gallery");for(const id of ids){const{error}=await db.from("gallery").insert({title:$("#gt").value.trim(),photo:id,kind:"photo",folder:$("#gfo").value});if(error)throw new Error(error.message)}render();bgDrive()}catch(e){toast(e.message);b.disabled=false;b.textContent=o}};
+   const b=$("#ps"),o=b.textContent,fo=$("#pfo").value;b.disabled=true;
+   try{let d=null,pre=null,nm,ti;
+    if(SC.length){b.textContent="Making PDF…";d=await scanPdf();nm="scan-"+ld()+".pdf";ti=$("#pt").value.trim()||"Scan "+ld()}
+    else{pre=PRE&&PRE.f===f?PRE.p:null;nm=f.name;ti=$("#pt").value.trim()||f.name.replace(/\.pdf$/i,"")}
+    PRE=null;const lid=LID(),file=f;
+    bgRun(T=>applyLocal(T,"gallery","insert",{title:ti,photo:lid,kind:"pdf",name:nm,folder:fo},[]),async()=>{const id=await upOne(d||await b64(file),"gallery",pre);const w=await wrIns("gallery",{title:ti,photo:id,kind:"pdf",name:nm,folder:fo});bgDrive();return w}).catch(()=>{});
+    SC.splice(0).forEach(s=>URL.revokeObjectURL(s.url));toast("Saved");render()}catch(e){toast(e.message||"Could not make the PDF. Please try again.");b.disabled=false;b.textContent=o}};
+  $("#gs").onclick=()=>{if(!PK.gph.length)return toast("Please add a photo first.");const ti=$("#gt").value.trim(),fo=$("#gfo").value;
+ const loc=PK.gph.splice(0).map(d=>{const lid=LID();PH[lid]=Promise.resolve(d);const pre=UP.get(d);UP.delete(d);return{lid,d,pre}});
+ bgRun(T=>loc.forEach(x=>applyLocal(T,"gallery","insert",{title:ti,photo:x.lid,kind:"photo",folder:fo},[])),async()=>{let w;for(const x of loc)w=await wrIns("gallery",{title:ti,photo:await upOne(x.d,"gallery",x.pre),kind:"photo",folder:fo});bgDrive();return w}).catch(()=>{});
+ toast("Saved");render()};
   document.querySelectorAll("[data-gx]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this file?"))return;await db.from("gallery").delete().eq("id",b.dataset.gx);render()})}}
 
 async function notices(m){
@@ -616,7 +674,12 @@ async function complaints(m){
  <div class="stp">${CS.map((x,i)=>`<span class="${i<=k?"on":""}"></span>`).join("")}</div>
  ${S?`<select data-cs="${c.id}">${CS.map(x=>`<option value="${x[0]}"${x[0]===c.status?" selected":""}>${x[1]}</option>`).join("")}</select>`:`<small><b>${CS[k]?CS[k][1]:c.status}</b></small>`}${S?`<button class="ghost" style="margin-top:8px" data-cx="${c.id}">Delete</button>`:""}</div>`}).join("")||`<div class="card">No complaints. 🎉</div>`}`;
  loadPh(m);vnBind(m);pickInit("cph",3);voiceInit("cvn");
- $("#cs").onclick=async()=>{const t=$("#ct").value.trim();if(!t)return toast("Please describe the problem.");const b=$("#cs"),o=b.textContent;b.disabled=true;b.textContent="Uploading…";try{const ids=await upAll("cph","complaint"),voice=await vnUp("cvn"),{error}=await db.from("complaints").insert({title:t,details:$("#cd").value.trim(),photos:ids.join("|"),voice});if(error)throw new Error(error.message);render();bgDrive()}catch(e){toast(e.message);b.disabled=false;b.textContent=o}};
+ $("#cs").onclick=async()=>{const t=$("#ct").value.trim();if(!t)return toast("Please describe the problem.");const dt=$("#cd").value.trim(),v=VN.cvn;VN.cvn=null;
+ const loc=(PK.cph||[]).splice(0).map(d=>{const lid=LID();PH[lid]=Promise.resolve(d);const pre=UP.get(d);UP.delete(d);return{lid,d,pre}});
+ if(!SNAP){const b=$("#cs");b.disabled=true;b.textContent="Uploading…"}
+ bgRun(T=>applyLocal(T,"complaints","insert",{title:t,details:dt,photos:loc.map(x=>x.lid).join("|"),voice:""},[]),async()=>{const ids=[];for(const x of loc)ids.push(await upOne(x.d,"complaint",x.pre));
+  const voice=v?await upOne(v.d,"complaint",v.p):"";const w=await wrIns("complaints",{title:t,details:dt,photos:ids.join("|"),voice});bgDrive();return w}).catch(()=>{});
+ toast("Complaint sent");render()};
  document.querySelectorAll("[data-cs]").forEach(e=>e.onchange=async()=>{const{error}=await db.from("complaints").update({status:e.value}).eq("id",e.dataset.cs);error?toast(error.message):render()});
  document.querySelectorAll("[data-cx]").forEach(b=>b.onclick=async()=>{await db.from("complaints").delete().eq("id",b.dataset.cx);render()})}
 
