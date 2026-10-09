@@ -29,15 +29,17 @@ const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 
 const STR_COLS = ['flat_no', 'username', 'temp_password'];
 TEXT_COLS.push('token');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
+const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
+const VIS = ['admin', 'treasurer', 'secretary', 'executive'];                /* who may add / delete visitors */
 const ALL = ['admin', 'treasurer', 'secretary', 'president', 'executive', 'resident'], S = ['admin', 'treasurer', 'secretary', 'president'];
 const RULES = {
   complaints: { insert: ALL, update: S, delete: S }, meetings: { insert: N, delete: N },
-  polls: { insert: N, update: N, delete: N }, gallery: { insert: N, delete: N }, votes: { insert: ALL }, status: { upsert: W },
+  polls: { insert: N, update: N, delete: N }, gallery: { insert: DOCUP, delete: N }, votes: { insert: ALL }, status: { upsert: W },
   payments: { insert: W }, expenses: { insert: W, delete: A }, income: { insert: W, delete: A },
   maintenance_rates: { upsert: W }, closed_months: { insert: W, delete: ['admin'] },
   notices: { insert: N, delete: N }, settings: { update: A },
   maintenance_log: { insert: W, update: W, delete: W }, celebrations: { insert: W, delete: A },
-  visitors: { insert: W, delete: W }
+  visitors: { insert: VIS, delete: VIS }
 };
 const DATE_OF = { payments: ['paid_on', 'month'], expenses: ['spent_on'], income: ['received_on'], maintenance_rates: ['month'] };
 
@@ -315,7 +317,7 @@ const MAX_BYTES = 1000000, PIECE = 45000;
 function upload_(u, b) {
   const err = m => ({ error: { message: m } });
   if (!verified_(u)) return err('Please verify your e-mail first.');
-  if (b.kind === 'gallery' ? ['admin', 'president', 'secretary'].indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
+  if (b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
   const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+\/=]+)$/.exec(String(b.img || ''));
   if (!m) return err('Please choose a photo or a PDF file.');
   if (m[1] === 'application/pdf' && b.kind !== 'gallery') return err('PDF files are not allowed here.');
@@ -620,15 +622,20 @@ function fcmAuth_() {
   return { token: at, project: sa.project_id };
 }
 
-/* Send one alert to every registered phone. Dead tokens (app uninstalled) are removed automatically. */
+/* Send one alert to every registered phone. Dead tokens (app uninstalled) are removed automatically.
+   Sends BOTH a data message (Chrome / website) and an Android "notification" block (so the Android app
+   shows the alert even when it is closed). */
 function pushAll_(title, body, url) {
   const auth = fcmAuth_();
   if (!auth) return { sent: 0, note: 'Push not configured (FCM_SERVICE_ACCOUNT missing).' };
   const rows = read_('push_tokens');
   if (!rows.length) return { sent: 0, note: 'No phones registered yet.' };
   const api = 'https://fcm.googleapis.com/v1/projects/' + auth.project + '/messages:send';
+  const t80 = String(title).slice(0, 80), b180 = String(body).slice(0, 180);
   const msg = tk => ({ url: api, method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + auth.token },
-    payload: JSON.stringify({ message: { token: tk, data: { title: String(title).slice(0, 80), body: String(body).slice(0, 180), url: url || '/' }, webpush: { headers: { Urgency: 'high', TTL: '86400' } } } }) });
+    payload: JSON.stringify({ message: { token: tk, data: { title: t80, body: b180, url: url || '/' },
+      android: { priority: 'HIGH', ttl: '86400s', notification: { title: t80, body: b180 } },
+      webpush: { headers: { Urgency: 'high', TTL: '86400' } } } }) });
   let sent = 0; const dead = [];
   for (let i = 0; i < rows.length; i += 40) {
     const part = rows.slice(i, i + 40), res = UrlFetchApp.fetchAll(part.map(r => msg(String(r.token))));
@@ -651,4 +658,3 @@ function testPush() { Logger.log(JSON.stringify(pushAll_('Test alert', 'Push not
 /* Run by hand after you publish a new version of the website, if you did not use the GitHub automation. */
 function sendAppUpdateNow() { Logger.log(JSON.stringify(pushAll_('Krishna Kuteer updated', 'A new version of the app is ready. Open it to see what is new.', '/'))); }
 function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').length); }
-
