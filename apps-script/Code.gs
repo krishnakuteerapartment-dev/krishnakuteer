@@ -13,7 +13,7 @@ const TABLES = {
   users: ['username', 'role', 'flat_id', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified'],
   maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at'],
   celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at'],
-  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos'],
+  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice'],
   gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder'],
   file_data: ['file_id', 'part', 'mime', 'data'],
   login_log: ['username', 'role', 'login_at', 'logout_at', 'last_seen', 'minutes', 'device'],
@@ -27,7 +27,7 @@ const TABLES = {
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
 const STR_COLS = ['flat_no', 'username', 'temp_password'];
-TEXT_COLS.push('token');
+TEXT_COLS.push('token', 'voice');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
 const VIS = ['admin', 'treasurer', 'secretary', 'executive'];                /* who may add / delete visitors */
@@ -318,9 +318,10 @@ function upload_(u, b) {
   const err = m => ({ error: { message: m } });
   if (!verified_(u)) return err('Please verify your e-mail first.');
   if (b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
-  const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+\/=]+)$/.exec(String(b.img || ''));
+  const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf|audio\/(?:webm|ogg|mp4|mpeg));base64,([A-Za-z0-9+\/=]+)$/.exec(String(b.img || ''));
   if (!m) return err('Please choose a photo or a PDF file.');
   if (m[1] === 'application/pdf' && b.kind !== 'gallery') return err('PDF files are not allowed here.');
+  if (/^audio\//.test(m[1]) && b.kind !== 'complaint') return err('Voice notes are only allowed in complaints.');
   if (m[2].length * 0.75 > MAX_BYTES) return err('File must be under 1 MB.');
   const sh = sh_('file_data'); if (!sh) return err('Run setup() once in Apps Script to create the new tabs.');
   const id = 'f' + Utilities.getUuid().replace(/-/g, ''), rows = [];
@@ -344,7 +345,7 @@ function photo_(u, b) {
   const id = String(b.id || ''), T = tables_(), S4 = ['admin', 'treasurer', 'secretary', 'president'];
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
   const ok = T.gallery.some(r => String(r.photo) === id) ||
-    T.complaints.some(r => String(r.photos || '').split('|').indexOf(id) >= 0 && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
+    T.complaints.some(r => (String(r.photos || '').split('|').indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
   const f = ok && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
   const v = f.sh.getRange(f.first, 3, f.n, 2).getValues();
@@ -403,12 +404,15 @@ function write_(u, b) {
     const ids = String(p.photos || '').split('|').filter(Boolean);
     if (ids.length > 3 || !ids.every(mine)) return err('Photo upload failed. Please try again.');
     p.photos = ids.join('|');
+    const vid = String(p.voice || '').trim();
+    if (vid && !mine(vid)) return err('Voice note upload failed. Please try again.');
+    p.voice = vid;
   }
   if (t === 'gallery' && op === 'insert') {
     if (!mine(String(p.photo || ''))) return err('Photo upload failed. Please try again.');
     p.title = String(p.title || '').slice(0, 120); p.uploaded_by = u.username; p.kind = p.kind === 'pdf' ? 'pdf' : 'photo'; p.name = String(p.name || '').slice(0, 120); p.folder = FOLDERS.indexOf(p.folder) >= 0 ? p.folder : 'Other';
   }
-  if ((t === 'gallery' || t === 'complaints') && op === 'delete') find().forEach(r => String(r.photo || r.photos || '').split('|').filter(Boolean).forEach(delFile_));
+  if ((t === 'gallery' || t === 'complaints') && op === 'delete') find().forEach(r => [r.photo, r.photos, r.voice].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
 
   if (t === 'meetings' && op === 'insert' && (!String(p.title || '').trim() || !p.on_date || ['meeting', 'event'].indexOf(p.kind) < 0)) return err('Enter a title, date and type.');
   if (t === 'polls' && op === 'insert') {
@@ -520,6 +524,7 @@ function autoDrive_(t, rec, dirs) {
   } else {
     String(rec.photos || '').split('|').filter(Boolean).forEach((id, i) =>
       driveSave_(dirs.get('Other'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (' + (i + 1) + ')', id));
+    if (rec.voice) driveSave_(dirs.get('Other'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (voice note)', String(rec.voice));
   }
 }
 /* Run ONCE by hand and click Allow: gives the script permission to save files in your Google Drive. */
@@ -534,7 +539,7 @@ function fileBlob_(id, name) {
   const v = f.sh.getRange(f.first, 3, f.n, 2).getValues();
   return Utilities.newBlob(Utilities.base64Decode(v.map(r => r[1]).join('')), v[0][0], name);
 }
-const EXT_ = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
+const EXT_ = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf', 'audio/webm': '.webm', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/mpeg': '.mp3' };
 function exportToDrive() {
   const t0 = Date.now(), rootIt = DriveApp.getFoldersByName(ROOT_FOLDER), root = rootIt.hasNext() ? rootIt.next() : DriveApp.createFolder(ROOT_FOLDER);
   const dirs = {}; FOLDERS.forEach(n => dirs[n] = driveFolder_(root, safeName_(n)));
@@ -555,6 +560,7 @@ function exportToDrive() {
   });
   read_('complaints').forEach(c => String(c.photos || '').split('|').filter(Boolean).forEach((id, i) =>
     put(dirs['Other'], 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (' + (i + 1) + ')', id)));
+  read_('complaints').forEach(c => { if (c.voice) put(dirs['Other'], 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (voice note)', String(c.voice)); });
   const msg = (stopped ? 'Time limit reached - run exportToDrive again to continue.\n' : 'Export finished.\n') +
     'Saved: ' + saved + ', already there: ' + skipped + ', not found: ' + missing + '\nDrive folder: ' + root.getUrl();
   Logger.log(msg);
