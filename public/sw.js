@@ -1,10 +1,11 @@
-/* Krishna Kuteer service worker: app files load from the phone instantly, then refresh quietly in the background.
+/* Krishna Kuteer service worker: the app opens instantly from the copy saved on the phone, then refreshes quietly in the
+   background. When a newer version arrives, the page shows "New version ready. Tap here to refresh."
    Google Sheets data requests are never touched here (they go straight to the network). */
-const V = "kk-v36", FILES = ["./", "index.html", "lang.js", "hero.webp","fonts/poppins-Regular.woff","fonts/poppins-Medium.woff","fonts/poppins-Bold.woff","fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
+const V = "kk-v37", KEEP = ["kk-photos"], FILES = ["./", "index.html", "lang.js", "firebase-config.js", "push.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
 /* Browsers refuse to show a redirected response for a page load, so rebuild it as a plain response. */
 const clean = x => (x && x.redirected) ? new Response(x.body, { status: x.status, statusText: x.statusText, headers: x.headers }) : x;
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
-self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V && KEEP.indexOf(k) < 0).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
   const r = e.request, u = new URL(r.url);
   if (r.method !== "GET" || u.origin !== location.origin || u.pathname.endsWith("/sw.js")) return;
@@ -19,7 +20,6 @@ self.addEventListener("fetch", e => {
       return res;
     }).catch(() => hit);
     e.waitUntil(net.catch(() => {}));
-    if (r.mode === "navigate") return Promise.race([net.then(x => x || hit), new Promise(res => setTimeout(() => res(hit), 4000))]).then(x => x || net);
     return hit || net;
   }).then(clean));
 });
