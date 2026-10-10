@@ -115,6 +115,9 @@ function upgradeFeatures_() {
   /* renamed document folders: move existing documents to the new name (the Drive folder is renamed too) */
   const gs = sh_('gallery'), gc = TABLES.gallery.indexOf('folder') + 1;
   read_('gallery').forEach(g => { if (FOLDER_RENAMED[g.folder]) gs.getRange(g.__r, gc).setValue(FOLDER_RENAMED[g.folder]); });
+  try { /* the private folder used to be called '... Committee Documents (private)' */
+    const ol = DriveApp.getFoldersByName(PRIV_FOLDER_OLD); if (ol.hasNext() && !DriveApp.getFoldersByName(PRIV_FOLDER).hasNext()) ol.next().setName(PRIV_FOLDER);
+  } catch (e) { Logger.log('Drive rename skipped: ' + e); }
   try {
     [ROOT_FOLDER, PRIV_FOLDER].forEach(rn => { const it = DriveApp.getFoldersByName(rn); if (!it.hasNext()) return; const root = it.next();
       Object.keys(FOLDER_RENAMED).forEach(o => { const f = root.getFoldersByName(safeName_(o)); if (f.hasNext() && !root.getFoldersByName(safeName_(FOLDER_RENAMED[o])).hasNext()) f.next().setName(safeName_(FOLDER_RENAMED[o])); }); });
@@ -398,9 +401,9 @@ const FOLDERS = ['Agenda & M.O.M', 'Apartment Works', 'Association', 'Electricit
   'Watchmen Salary & Cleaning Purchases', 'Water (HMWSSB) & Water Related', 'Other', 'Dust Collector', 'Motor', 'CCTV Camera', 'Complaints'];
 const FOLDER_RENAMED = { 'Watchmen Salary': 'Watchmen Salary & Cleaning Purchases' }; /* old name -> new name */
 const ROOT_FOLDER = 'Krishna Kuteer Apartment Documents';
-/* 'Committee only' documents are saved in a SEPARATE Drive folder, so sharing the main folder never shows them. Do not share this one with residents. */
-const PRIV_FOLDER = 'Krishna Kuteer Committee Documents (private)';
-function privDir_(n) { const it = DriveApp.getFoldersByName(PRIV_FOLDER), root = it.hasNext() ? it.next() : DriveApp.createFolder(PRIV_FOLDER); return driveFolder_(root, safeName_(n)); }
+/* 'Association only' documents are saved in a SEPARATE Drive folder, so sharing the main folder never shows them. Do not share this one with residents. (It was called 'Krishna Kuteer Committee Documents (private)' before; setup() renames it.) */
+const PRIV_FOLDER = 'Krishna Kuteer Association Documents (private)', PRIV_FOLDER_OLD = 'Krishna Kuteer Committee Documents (private)';
+function privDir_(n) { let it = DriveApp.getFoldersByName(PRIV_FOLDER); if (!it.hasNext()) { const o = DriveApp.getFoldersByName(PRIV_FOLDER_OLD); if (o.hasNext()) { o.next().setName(PRIV_FOLDER); it = DriveApp.getFoldersByName(PRIV_FOLDER); } } const root = it.hasNext() ? it.next() : DriveApp.createFolder(PRIV_FOLDER); return driveFolder_(root, safeName_(n)); }
 const MAX_BYTES = 1000000, PIECE = 45000;
 function upload_(u, b) {
   const err = m => ({ error: { message: m } });
@@ -838,7 +841,7 @@ function removeKeepWarm() {
 /* =====================================================================================
    EXPORT ALL FILES TO GOOGLE DRIVE  (run `exportToDrive` once; safe to run again, it skips files already saved)
    Creates "Krishna Kuteer Apartment Documents" in your My Drive with one sub-folder per category.
-   Complaint photos and voice notes go into the PRIVATE folder "Krishna Kuteer Committee Documents (private)/Complaints".
+   Complaint photos and voice notes go into the PRIVATE folder "Krishna Kuteer Association Documents (private)/Complaints".
    ===================================================================================== */
 function onOpen() {
   try { SpreadsheetApp.getUi().createMenu('Krishna Kuteer').addItem('Export all files to Drive', 'exportToDrive').addToUi(); } catch (e) {}

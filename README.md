@@ -42,7 +42,7 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v43"` in `public/sw.js`.
+Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v44"` in `public/sw.js`.
 
 ## Committee features (Assets, Reminders, Meeting, Contacts, Visitor register, Complaint tracking, Audit log)
 The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
@@ -68,9 +68,9 @@ Then merge the website changes; the APK picks them up on its own (no new APK nee
 | Audit log | – | – | read only (nobody can edit it from the app) |
 
 **Privacy:** a resident's phone never receives other flats' payment references/remarks/receipt numbers, other flats'
-complaints, visitor names or phone numbers, committee-only documents, draft minutes, reminders or service costs.
-Committee-only documents and all complaint photos/voice notes are saved to the Drive folder
-**"Krishna Kuteer Committee Documents (private)"** — do not share that folder. Complaint photos saved earlier are still
+complaints, visitor names or phone numbers, Association-only documents, draft minutes, reminders or service costs.
+Association-only documents and all complaint photos/voice notes are saved to the Drive folder
+**"Krishna Kuteer Association Documents (private)"** — do not share that folder. Complaint photos saved earlier are still
 in "Krishna Kuteer Apartment Documents/Other"; move them by hand if that folder is shared with residents.
 
 **Tests:** `tests/` runs Code.gs on an in-memory Sheet (`node tests/backend.test.js apps-script/Code.gs`) and the real

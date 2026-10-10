@@ -198,7 +198,7 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
   await check('audit page fits the phone screen', () => noHScroll(ad));
   await shot(ad, 'audit-admin');
   await go(ad, 'doc');
-  await check('documents: committee-only option present', async () => { const o = await ad.locator('#pvi option').allInnerTexts(); if (!o.some(x => /Committee only/.test(x))) throw new Error(o); });
+  await check('documents: committee-only option present', async () => { const o = await ad.locator('#pvi option').allInnerTexts(); if (!o.some(x => /Association only/.test(x))) throw new Error(o); });
   await check('no script errors (treasurer/admin)', async () => { if (tr.errors.length || ad.errors.length) throw new Error(tr.errors.concat(ad.errors).join(' || ')); });
 
   /* ---------- every existing page still opens ---------- */
