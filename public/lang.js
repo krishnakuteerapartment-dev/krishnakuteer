@@ -53,8 +53,9 @@
   /* ---------- text typed by people (notices, complaints, events, polls...) ----------
      The server keeps a Telugu copy of each one (column 'te' in the Google Sheet). In తెలుగు mode the app shows that copy;
      in English mode it shows the text exactly as it was typed. Poll answers keep their English value for voting. */
-  var TEF = { notices: ["title"], complaints: ["title", "details"], meetings: ["title", "place"], polls: ["question", "options"],
-    maintenance_log: ["details"], gallery: ["title"], celebrations: ["details"], expenses: ["description", "remarks"] };
+  var TEF = { notices: ["title"], complaints: ["title", "details"], meetings: ["title", "place", "agenda", "minutes", "resolutions"], polls: ["question", "options"],
+    maintenance_log: ["details"], gallery: ["title"], celebrations: ["details"], expenses: ["description", "remarks"],
+    asset_service: ["details"], reminders: ["title"], action_items: ["task"] };
   window.KK_LOC = function (d) {
     if (!d || typeof d !== "object") return d;
     Object.keys(TEF).forEach(function (t) {
@@ -262,6 +263,66 @@
     [/^Unlocking (.*) lets its figures change again \(recorded in the audit log\)\. It locks itself again after 15 minutes\. Enter your login password to unlock\.$/,
       function (m, a) { return a + " ను అన్‌లాక్ చేస్తే లెక్కలు మళ్ళీ మార్చవచ్చు (ఆడిట్ లాగ్‌లో నమోదు అవుతుంది). 15 నిమిషాల తర్వాత అది మళ్ళీ లాక్ అవుతుంది. అన్‌లాక్ చేయడానికి మీ లాగిన్ పాస్‌వర్డ్ నమోదు చేయండి."; }]
   ];
+
+
+  /* ---------- Assets, Reminders, Meeting management, Emergency contacts, Visitor register, Complaint tracking, Audit log ---------- */
+  var TE2 = {
+    "Meeting management": "సమావేశ నిర్వహణ", "Assets": "ఆస్తులు", "Reminders": "రిమైండర్లు", "Emergency contacts": "అత్యవసర నంబర్లు", "Emergency": "అత్యవసరం", "Audit log": "ఆడిట్ లాగ్",
+    "Edit": "మార్చండి", "Show": "చూపించు", "Clear": "తొలగించు", "Print": "ప్రింట్", "Search": "వెతకండి", "Notes": "గమనికలు", "Name": "పేరు", "Phone": "ఫోన్", "Type": "రకం", "From": "నుండి", "To": "వరకు",
+    "Agenda": "అజెండా", "Minutes": "సమావేశ వివరాలు", "Attendance": "హాజరు", "Action items": "చేయవలసిన పనులు", "Meeting record": "సమావేశ రికార్డు", "Add action item": "చేయవలసిన పని జోడించండి",
+    "Resolutions & decisions": "తీర్మానాలు & నిర్ణయాలు", "Task": "పని", "Responsible": "బాధ్యులు", "Responsible person": "బాధ్యత వహించే వ్యక్తి", "Due": "గడువు", "Due date": "గడువు తేదీ",
+    "Draft": "డ్రాఫ్ట్", "Published": "ప్రచురించబడింది", "Minutes available": "సమావేశ వివరాలు అందుబాటులో ఉన్నాయి", "Edit record": "రికార్డు మార్చండి", "Record attendance & minutes": "హాజరు & వివరాలు నమోదు చేయండి",
+    "Publish to residents": "నివాసులకు ప్రచురించండి", "Unpublish": "ప్రచురణ ఆపండి", "🖨 Print minutes": "🖨 సమావేశ వివరాలు ప్రింట్", "Earlier meetings": "గత సమావేశాలు", "Done": "పూర్తయింది",
+    "Flats present": "హాజరైన ఫ్లాట్లు", "Agenda (one point per line)": "అజెండా (ఒక్కో అంశం ఒక్కో లైన్‌లో)", "Minutes (what was discussed)": "సమావేశ వివరాలు (ఏమి చర్చించారు)",
+    "Resolutions & decisions (one per line)": "తీర్మానాలు & నిర్ణయాలు (ఒక్కోటి ఒక్కో లైన్‌లో)", "Others present (committee members, guests)": "ఇతర హాజరైనవారు (కమిటీ సభ్యులు, అతిథులు)",
+    "The agenda is shown to everybody. Attendance, minutes, resolutions and action items stay with the committee until you tap “Publish to residents”.": "అజెండా అందరికీ కనిపిస్తుంది. హాజరు, వివరాలు, తీర్మానాలు, చేయవలసిన పనులు “నివాసులకు ప్రచురించండి” నొక్కే వరకు కమిటీకి మాత్రమే కనిపిస్తాయి.",
+    "Working": "పనిచేస్తోంది", "Under repair": "రిపేర్‌లో ఉంది", "Out of service": "పనిచేయడం లేదు", "Lift": "లిఫ్ట్", "Generator": "జనరేటర్", "Motor": "మోటార్", "Water pump": "నీటి పంపు", "CCTV": "CCTV", "Battery / inverter": "బ్యాటరీ / ఇన్వర్టర్", "Other": "ఇతర",
+    "Installed": "అమర్చిన తేదీ", "Installed on": "అమర్చిన తేదీ", "Warranty / AMC": "వారంటీ / AMC", "Warranty / AMC ends on": "వారంటీ / AMC ముగింపు తేదీ", "Supplier": "సరఫరాదారు", "Model / serial": "మోడల్ / సీరియల్",
+    "Last service": "చివరి సర్వీస్", "Next due": "తదుపరి గడువు", "Not recorded yet": "ఇంకా నమోదు కాలేదు", "Service & repair cost": "సర్వీస్ & రిపేర్ ఖర్చు", "📞 Call supplier": "📞 సరఫరాదారుకు కాల్", "Expired": "గడువు ముగిసింది",
+    "+ Add service / repair": "+ సర్వీస్ / రిపేర్ జోడించండి", "🖨 Print asset register": "🖨 ఆస్తుల రిజిస్టర్ ప్రింట్", "Add an item": "వస్తువు జోడించండి", "Save item": "వస్తువు సేవ్ చేయండి", "Item": "వస్తువు",
+    "Condition": "స్థితి", "Location": "స్థలం", "Supplier / service company": "సరఫరాదారు / సర్వీస్ కంపెనీ", "Supplier phone": "సరఫరాదారు ఫోన్", "Model": "మోడల్", "Serial number": "సీరియల్ నంబర్",
+    "Work done": "చేసిన పని", "Work": "పని", "Done by": "చేసినవారు", "Cost": "ఖర్చు", "Cost (₹)": "ఖర్చు (₹)", "Service": "సర్వీస్", "Repair": "రిపేర్", "Inspection": "తనిఖీ", "Replacement": "మార్పు",
+    "Next service due (optional, creates a reminder)": "తదుపరి సర్వీస్ గడువు (ఐచ్ఛికం, రిమైండర్ తయారవుతుంది)", "No service recorded yet.": "ఇంకా ఏ సర్వీస్ నమోదు కాలేదు.", "Item saved": "వస్తువు సేవ్ అయింది", "Service record saved": "సర్వీస్ రికార్డు సేవ్ అయింది",
+    "Overdue": "గడువు దాటింది", "Upcoming": "రాబోయేవి", "Completed": "పూర్తయినవి", "Due in 30 days": "30 రోజుల్లో గడువు", "Due today": "ఈరోజు గడువు", "Mark done": "పూర్తయినట్లు గుర్తించండి", "Add a reminder": "రిమైండర్ జోడించండి",
+    "Save reminder": "రిమైండర్ సేవ్ చేయండి", "What is due": "ఏమి చేయాలి", "Item (optional)": "వస్తువు (ఐచ్ఛికం)", "Due on": "గడువు తేదీ", "Repeat": "మళ్ళీ", "Alert this many days before": "ఇన్ని రోజుల ముందు హెచ్చరిక",
+    "Does not repeat": "ఒక్కసారి మాత్రమే", "Every month": "ప్రతి నెల", "Every 3 months": "ప్రతి 3 నెలలకు", "Every 6 months": "ప్రతి 6 నెలలకు", "Every year": "ప్రతి సంవత్సరం", "Warranty": "వారంటీ", "AMC renewal": "AMC పునరుద్ధరణ",
+    "Warranties & AMC": "వారంటీలు & AMC", "Nothing overdue. 👍": "గడువు దాటినవి ఏవీ లేవు. 👍", "Nothing scheduled. Add a reminder below.": "ఏమీ షెడ్యూల్ కాలేదు. క్రింద రిమైండర్ జోడించండి.",
+    "Lift servicing": "లిఫ్ట్ సర్వీసింగ్", "Generator maintenance": "జనరేటర్ నిర్వహణ", "Battery warranty ends": "బ్యాటరీ వారంటీ ముగింపు", "Water tank cleaning": "నీటి ట్యాంక్ శుభ్రపరచడం",
+    "🔔 Service reminders": "🔔 సర్వీస్ రిమైండర్లు", "Marked done": "పూర్తయినట్లు గుర్తించారు", "Reminder saved": "రిమైండర్ సేవ్ అయింది", "Done on": "పూర్తయిన తేదీ",
+    "Committee phones that turned on alerts get one reminder message a day (after 8 AM) when something is coming up or overdue.": "హెచ్చరికలు ఆన్ చేసిన కమిటీ ఫోన్లకు, ఏదైనా గడువు దగ్గరపడినా లేదా దాటినా రోజుకు ఒక రిమైండర్ (ఉదయం 8 తర్వాత) వస్తుంది.",
+    "Tap Call to phone straight away.": "వెంటనే ఫోన్ చేయడానికి కాల్ నొక్కండి.", "📞 Call": "📞 కాల్", "📞 Other no.": "📞 ఇతర నంబర్", "Not verified": "ధృవీకరించలేదు", "Mark verified today": "ఈరోజు ధృవీకరించినట్లు గుర్తించండి",
+    "Add a contact": "నంబర్ జోడించండి", "Save contact": "నంబర్ సేవ్ చేయండి", "Edit emergency numbers": "అత్యవసర నంబర్లు మార్చండి", "For": "కోసం", "Other phone (optional)": "ఇతర ఫోన్ (ఐచ్ఛికం)",
+    "Fire": "అగ్నిమాపక", "Ambulance": "అంబులెన్స్", "Police": "పోలీస్", "Lift technician": "లిఫ్ట్ టెక్నీషియన్", "Generator service": "జనరేటర్ సర్వీస్", "Electrician": "ఎలక్ట్రీషియన్", "Plumber": "ప్లంబర్", "Security / watchman": "సెక్యూరిటీ / వాచ్‌మెన్",
+    "Fire service": "అగ్నిమాపక సేవ", "All emergencies (national)": "అన్ని అత్యవసరాలు (జాతీయ)", "🖨 Print contact list": "🖨 నంబర్ల జాబితా ప్రింట్",
+    "Record a visitor": "సందర్శకుడిని నమోదు చేయండి", "Visitor name": "సందర్శకుడి పేరు", "Flat visited": "వెళ్ళిన ఫ్లాట్", "Purpose": "ఉద్దేశ్యం", "Phone (optional, committee only)": "ఫోన్ (ఐచ్ఛికం, కమిటీకి మాత్రమే)", "Entry time": "లోపలికి వచ్చిన సమయం",
+    "Save visitor": "సందర్శకుడిని సేవ్ చేయండి", "Exit now": "ఇప్పుడు బయటకు", "Inside": "లోపల ఉన్నారు", "Visitor register": "సందర్శకుల రిజిస్టర్", "Visitors to your flat": "మీ ఫ్లాట్‌కు వచ్చిన సందర్శకులు", "Visitor": "సందర్శకుడు",
+    "All flats": "అన్ని ఫ్లాట్లు", "Search name or purpose": "పేరు లేదా ఉద్దేశ్యం వెతకండి", "No visitors found.": "సందర్శకులు ఎవరూ లేరు.", "Add a visitor count (no names)": "సందర్శకుల సంఖ్య జోడించండి (పేర్లు లేకుండా)", "Save count": "సంఖ్య సేవ్ చేయండి",
+    "Visitor saved": "సందర్శకుడు సేవ్ అయ్యారు", "Exit time saved": "బయటకు వెళ్ళిన సమయం సేవ్ అయింది", "Common area / office": "కామన్ ఏరియా / ఆఫీస్", "🖨 Print register": "🖨 రిజిస్టర్ ప్రింట్",
+    "Guest / relative": "అతిథి / బంధువు", "Delivery / courier": "డెలివరీ / కొరియర్", "Service / repair": "సర్వీస్ / రిపేర్", "Cab / taxi": "క్యాబ్ / టాక్సీ", "Domestic help": "ఇంటి పనివారు", "Official visit": "అధికారిక సందర్శన",
+    "Raised": "నమోదు", "Related to": "సంబంధించినది", "Assigned to": "అప్పగించినది", "Not assigned yet": "ఇంకా ఎవరికీ అప్పగించలేదు", "Expected by": "పూర్తవుతుందని అంచనా", "Last update": "చివరి మార్పు", "Status history": "స్థితి చరిత్ర",
+    "Update status": "స్థితి మార్చండి", "Save update": "మార్పు సేవ్ చేయండి", "Expected completion": "పూర్తయ్యే అంచనా తేదీ", "Note for the resident (optional)": "నివాసికి గమనిక (ఐచ్ఛికం)", "Complaint raised": "ఫిర్యాదు నమోదైంది",
+    "Related to (optional): choose an item": "సంబంధించినది (ఐచ్ఛికం): వస్తువు ఎంచుకోండి", "No complaints match.": "సరిపోయే ఫిర్యాదులు లేవు.", "🖨 Print complaint register": "🖨 ఫిర్యాదుల రిజిస్టర్ ప్రింట్",
+    "You get a ticket number, and an alert on your phone whenever the status changes.": "మీకు టికెట్ నంబర్ వస్తుంది, స్థితి మారిన ప్రతిసారి మీ ఫోన్‌కు హెచ్చరిక వస్తుంది.", "Updated. The resident gets an alert.": "మార్చబడింది. నివాసికి హెచ్చరిక వెళ్తుంది.",
+    "Section": "విభాగం", "All sections": "అన్ని విభాగాలు", "Action": "చర్య", "All actions": "అన్ని చర్యలు", "Everybody": "అందరూ", "Added": "జోడించారు", "Changed": "మార్చారు", "Deleted": "తొలగించారు", "Loading…": "లోడ్ అవుతోంది…",
+    "Every addition, change and deletion of money entries (payments, expenses, income, month locks) and other important records, with who did it and when. Entries cannot be changed or deleted from the app.": "డబ్బు నమోదులు (చెల్లింపులు, ఖర్చులు, ఆదాయం, నెల లాక్) మరియు ఇతర ముఖ్యమైన రికార్డులలో ప్రతి జోడింపు, మార్పు, తొలగింపు – ఎవరు, ఎప్పుడు చేశారో. వీటిని యాప్ నుండి మార్చలేరు, తొలగించలేరు.",
+    "Nothing recorded for this choice.": "ఈ ఎంపికకు ఏమీ నమోదు కాలేదు.", "Committee only": "కమిటీకి మాత్రమే", "Everyone can see it": "అందరూ చూడవచ్చు", "Committee only (residents cannot see it)": "కమిటీకి మాత్రమే (నివాసులు చూడలేరు)",
+    "Add a PDF": "PDF జోడించండి", "Add pictures": "ఫోటోలు జోడించండి"
+  };
+  for (var k2 in TE2) if (Object.prototype.hasOwnProperty.call(TE2, k2)) TE[k2] = TE2[k2];
+  PAT.push(
+    [/^(\d+) days? late$/, function (m, a) { return a + " రోజులు ఆలస్యం"; }],
+    [/^In (\d+) days?$/, function (m, a) { return a + " రోజుల్లో"; }],
+    [/^(\d+) days left$/, function (m, a) { return a + " రోజులు మిగిలాయి"; }],
+    [/^(\d+) overdue$/, function (m, a) { return a + " గడువు దాటాయి"; }],
+    [/^(\d+) this week$/, function (m, a) { return "ఈ వారం " + a; }],
+    [/^Open action items · (\d+)$/, function (m, a) { return "పూర్తి కాని పనులు · " + a; }],
+    [/^Inside now · (\d+)$/, function (m, a) { return "ఇప్పుడు లోపల · " + a; }],
+    [/^(All|Open|In progress|Resolved) · (\d+)$/, function (m, a, b) { return ({ All: "అన్నీ", Open: "తెరిచి ఉన్నవి", "In progress": "జరుగుతున్నవి", Resolved: "పరిష్కరించినవి" })[a] + " · " + b; }],
+    [/^Service history \((\d+)\)$/, function (m, a) { return "సర్వీస్ చరిత్ర (" + a + ")"; }],
+    [/^Mark done: (.*)$/, function (m, a) { return "పూర్తయింది: " + a; }],
+    [/^Show all (\d+) earlier meetings$/, function (m, a) { return "గత " + a + " సమావేశాలన్నీ చూపించు"; }],
+    [/^(\d+) of (\d+) flats: (.*)$/, function (m, a, b, c) { return b + " ఫ్లాట్లలో " + a + ": " + c; }]
+  );
 
   /* ---------- the translator (also fixes anything the app draws later, like pages, pop-ups and messages) ---------- */
   var has = Object.prototype.hasOwnProperty;

@@ -13,34 +13,64 @@ const TABLES = {
   users: ['username', 'role', 'flat_id', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified'],
   maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at', 'te'],
   celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at', 'te'],
-  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te'],
-  gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder', 'te'],
+  /* NEW COLUMNS ARE ALWAYS ADDED AT THE END of a list (the Sheet's column order must match this order). */
+  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te', 'ticket_no', 'assigned_to', 'expected_on', 'asset_id', 'history'],
+  gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder', 'te', 'visibility'],
   file_data: ['file_id', 'part', 'mime', 'data'],
   login_log: ['username', 'role', 'login_at', 'logout_at', 'last_seen', 'minutes', 'device'],
-  meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te'],
+  meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'attendance', 'attendees_other', 'minutes', 'resolutions', 'status', 'published_on'],
   polls: ['id', 'question', 'options', 'status', 'created_at', 'te'],
   votes: ['id', 'poll_id', 'flat_no', 'choice', 'created_at'],
-  visitors: ['id', 'visit_on', 'count', 'created_at'],
+  visitors: ['id', 'visit_on', 'count', 'created_at', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'phone', 'added_by'],
   status: ['item', 'state', 'updated_on'],
-  push_tokens: ['token', 'username', 'role', 'updated_at']
+  push_tokens: ['token', 'username', 'role', 'updated_at'],
+  /* ---- apartment assets, service history, reminders, emergency contacts, meeting action items, audit trail ---- */
+  assets: ['id', 'name', 'kind', 'location', 'installed_on', 'vendor', 'vendor_phone', 'model', 'serial_no', 'warranty_until', 'status', 'notes', 'created_at', 'te'],
+  asset_service: ['id', 'asset_id', 'service_on', 'kind', 'done_by', 'cost', 'details', 'next_due', 'reminder_id', 'created_at', 'te'],
+  reminders: ['id', 'title', 'asset_id', 'kind', 'due_on', 'repeat_months', 'notify_days', 'status', 'done_on', 'notes', 'created_at', 'te'],
+  contacts: ['id', 'category', 'name', 'phone', 'alt_phone', 'notes', 'verified_on', 'updated_by', 'created_at'],
+  action_items: ['id', 'meeting_id', 'task', 'owner', 'due_on', 'status', 'done_on', 'created_at', 'te'],
+  audit_log: ['id', 'at', 'username', 'role', 'action', 'tbl', 'record_id', 'summary', 'before', 'after']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
-const STR_COLS = ['flat_no', 'username', 'temp_password'];
-TEXT_COLS.push('token', 'voice', 'te');
+const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time'];
+TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
+  'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
 const VIS = ['admin', 'treasurer', 'secretary', 'executive'];                /* who may add / delete visitors */
 const ALL = ['admin', 'treasurer', 'secretary', 'president', 'executive', 'resident'], S = ['admin', 'treasurer', 'secretary', 'president'];
+const COM = ['admin', 'president', 'secretary', 'treasurer', 'executive'];  /* the committee: gets service reminders */
+const AUDITV = S;                                                            /* who may read the audit log */
+const SEEVIS = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may see every visitor's details */
 const RULES = {
-  complaints: { insert: ALL, update: S, delete: S }, meetings: { insert: N, delete: N },
+  complaints: { insert: ALL, update: S, delete: S }, meetings: { insert: N, update: N, delete: N },
   polls: { insert: N, update: N, delete: N }, gallery: { insert: DOCUP, delete: N }, votes: { insert: ALL }, status: { upsert: W },
   payments: { insert: W }, expenses: { insert: W, delete: A }, income: { insert: W, delete: A },
   maintenance_rates: { upsert: W }, closed_months: { insert: W, delete: ['admin'] },
   notices: { insert: N, delete: N }, settings: { update: A },
   maintenance_log: { insert: W, update: W, delete: W }, celebrations: { insert: W, delete: A },
-  visitors: { insert: VIS, delete: VIS }
+  visitors: { insert: VIS, update: VIS, delete: VIS },
+  assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S },
+  reminders: { insert: COM, update: COM, delete: S }, contacts: { insert: S, update: S, delete: S },
+  action_items: { insert: N, update: S, delete: N }
+  /* audit_log has NO rule on purpose: nobody can add, change or delete it from the app */
 };
+/* tables whose changes are recorded in the audit log (votes never: ballots stay anonymous) */
+const AUDIT_T = ['payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
+  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status'];
+const AUDIT_BRIEF = ['visitors', 'complaints']; /* private details are NOT copied into the log for these: only what changed */
+const ENUM = {
+  assets: { kind: ['lift', 'generator', 'motor', 'water_pump', 'cctv', 'battery', 'other'], status: ['working', 'repair', 'out_of_service'] },
+  asset_service: { kind: ['service', 'repair', 'inspection', 'replacement'] },
+  reminders: { kind: ['service', 'warranty', 'amc', 'other'], status: ['pending', 'done'] },
+  contacts: { category: ['lift', 'electrician', 'plumber', 'generator', 'security', 'fire', 'ambulance', 'police', 'other'] },
+  action_items: { status: ['open', 'in_progress', 'done'] },
+  meetings: { status: ['draft', 'published'] }
+};
+/* columns the app may never set directly (the server fills them) */
+const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by'];
 const DATE_OF = { payments: ['paid_on', 'month'], expenses: ['spent_on'], income: ['received_on'], maintenance_rates: ['month'] };
 
 /* ---------- one-time setup: creates the tabs and starter data ---------- */
@@ -61,8 +91,32 @@ function setup() {
   }
   if (!read_('settings').length) sh_('settings').appendRow([1, 0, 0]);
   upgradeUsers();
+  upgradeFeatures_();
   Logger.log('Setup done. Now: Deploy > New deployment > Web app (Execute as: Me, Access: Anyone).');
 }
+
+/* Safe to run many times (setup() calls it): starter emergency numbers, ticket numbers for old complaints,
+   and a warning on the audit_log tab so nobody edits it by hand by mistake. */
+function upgradeFeatures_() {
+  if (!read_('contacts').length) {
+    [['fire', 'Fire service', '101'], ['ambulance', 'Ambulance', '108'], ['police', 'Police', '100'], ['other', 'All emergencies (national)', '112']]
+      .forEach((c, i) => sh_('contacts').appendRow([i + 1, c[0], c[1], c[2], '', 'National emergency number', '', 'setup', now_()]));
+  }
+  const sh = sh_('complaints'), col = TABLES.complaints.indexOf('ticket_no') + 1, seen = {};
+  read_('complaints').sort((a, b) => (+a.id || 0) - (+b.id || 0)).forEach(c => {
+    const y = String(c.created_at || now_()).slice(0, 4);
+    if (c.ticket_no) { const n = +String(c.ticket_no).split('-').pop() || 0; seen[y] = Math.max(seen[y] || 0, n); return; }
+  });
+  read_('complaints').sort((a, b) => (+a.id || 0) - (+b.id || 0)).forEach(c => {
+    if (c.ticket_no) return;
+    const y = String(c.created_at || now_()).slice(0, 4); seen[y] = (seen[y] || 0) + 1;
+    sh.getRange(c.__r, col).setValue(ticketOf_(y, seen[y]));
+  });
+  const a = sh_('audit_log');
+  if (a && !a.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) a.protect().setDescription('Audit log: written by the app only').setWarningOnly(true);
+  cacheDrop_('snap');
+}
+const ticketOf_ = (y, n) => 'KK-' + y + '-' + String(n).padStart(4, '0');
 
 /* Adds the 'email' and 'email_verified' columns to an existing users tab (safe to run many times). */
 function upgradeUsers() {
@@ -116,16 +170,17 @@ function route_(b) {
   if (b.a === 'photo') return photo_(u, b);
   if (b.a === 'driveSync') return driveSync_();
   if (b.a === 'after') return after_();
+  if (b.a === 'audit') return auditRead_(u, b);
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
   if (b.a === 'pw' || b.a === 'write') {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
-      if (b.a === 'pw') return pw_(u, b);
-      let r;
+      if (b.a === 'pw') { const r0 = pw_(u, b); if (r0.ok) audit_(u, 'password', 'users', u.username, 'Password changed', null, null); return r0; }
+      let r; TOUCHED_ = {};
       try { r = write_(u, b); } catch (e) { cacheDrop_('snap'); throw e; }
-      if (r && r.ok) { patchSnap_(b.t); r.snapshot = snapshot_(u); }
+      if (r && r.ok) { TOUCHED_[b.t] = 1; Object.keys(TOUCHED_).forEach(patchSnap_); r.snapshot = snapshot_(u); }
       return r;
     } finally { lock.releaseLock(); }
   }
@@ -290,6 +345,7 @@ function fpReset_(b) {
   const r = checkCode_('fp_' + String(u.username).toLowerCase(), b.code);
   if (r.error) return { error: { message: r.error } };
   const r2 = pw_(u, { password: p }); CacheService.getScriptCache().remove('f_' + String(u.username).toLowerCase());
+  if (r2.ok) audit_(u, 'password', 'users', u.username, 'Password reset with e-mail code', null, null);
   return r2;
 }
 
@@ -314,6 +370,9 @@ function logTouch_(token, out) {
 /* ---------- photos + PDFs: stored INSIDE the Google Sheet (tab 'file_data'), max 1 MB each, in 45,000-character pieces ---------- */
 const FOLDERS = ['Agenda & M.O.M', 'Apartment Works', 'Association', 'Electricity', 'Generator', 'GHMC & Plumber', 'Lift', 'Monthly Register', 'Watchmen Salary', 'Water (HMWSSB) & Water Related', 'Other'];
 const ROOT_FOLDER = 'Krishna Kuteer Apartment Documents';
+/* 'Committee only' documents are saved in a SEPARATE Drive folder, so sharing the main folder never shows them. Do not share this one with residents. */
+const PRIV_FOLDER = 'Krishna Kuteer Committee Documents (private)';
+function privDir_(n) { const it = DriveApp.getFoldersByName(PRIV_FOLDER), root = it.hasNext() ? it.next() : DriveApp.createFolder(PRIV_FOLDER); return driveFolder_(root, safeName_(n)); }
 const MAX_BYTES = 1000000, PIECE = 45000;
 function upload_(u, b) {
   const err = m => ({ error: { message: m } });
@@ -345,7 +404,7 @@ function delFile_(id) { try { const f = fileRows_(id); if (f) f.sh.deleteRows(f.
 function photo_(u, b) {
   const id = String(b.id || ''), T = tables_(), S4 = ['admin', 'treasurer', 'secretary', 'president'];
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
-  const ok = T.gallery.some(r => String(r.photo) === id) ||
+  const ok = T.gallery.some(r => String(r.photo) === id && (r.visibility !== 'committee' || u.role !== 'resident')) ||
     T.complaints.some(r => (String(r.photos || '').split('|').indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
   const f = ok && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
@@ -358,21 +417,40 @@ function tables_() {
   const hit = cacheGetBig_('snap');
   if (hit) return hit;
   const T = {};
-  ['flats', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'notices', 'settings', 'maintenance_log', 'celebrations', 'visitors', 'complaints', 'gallery', 'meetings', 'polls', 'votes', 'status'].forEach(t => T[t] = clean_(read_(t)));
+  SNAP_T.forEach(t => T[t] = clean_(read_(t)));
   cachePutBig_('snap', T, SNAP_TTL);
   return T;
 }
+const SNAP_T = ['flats', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'notices', 'settings', 'maintenance_log', 'celebrations', 'visitors', 'complaints', 'gallery', 'meetings', 'polls', 'votes', 'status',
+  'assets', 'asset_service', 'reminders', 'contacts', 'action_items'];
 /* E-mail verification is OPTIONAL: everybody may use the site without it (it is only needed for 'Forgot password'). */
 const verified_ = u => true;
+/* What each person receives. The FULL data never leaves the server for a resident: other flats' private details are removed here,
+   not just hidden on the screen. */
 function snapshot_(u) {
   if (!verified_(u)) return { me: pub_(u) }; /* e-mail is optional */
   const T = Object.assign({}, tables_());
   T.me = pub_(u);
-  const mine = String(u.username).toLowerCase();
-  if (u.role === 'resident') T.complaints = T.complaints.filter(c => String(c.flat_no).toLowerCase() === mine);
+  const mine = String(u.username).toLowerCase(), res = u.role === 'resident', myFlat = String(u.flat_id || '');
+  const pick = (rows, keys) => rows.map(r => { const o = {}; keys.forEach(k => { if (r[k] !== undefined) o[k] = r[k]; }); return o; });
+  if (res) {
+    T.complaints = T.complaints.filter(c => String(c.flat_no).toLowerCase() === mine);
+    /* payments: every flat's total stays visible for the monthly register, but receipt numbers, references and remarks only for your own flat */
+    T.payments = T.payments.map(p => String(p.flat_id) === myFlat ? p : pick([p], ['id', 'flat_id', 'month', 'amount', 'paid_on', 'mode'])[0]);
+    T.income = pick(T.income, ['id', 'received_on', 'category', 'amount', 'mode', 'created_at']);
+    T.gallery = T.gallery.filter(g => g.visibility !== 'committee');
+    /* visitors: totals stay; names, purpose and times only for visitors to your own flat; phone numbers never */
+    T.visitors = T.visitors.map(v => String(v.flat_no || '').toLowerCase() === mine ? pick([v], ['id', 'visit_on', 'count', 'name', 'flat_no', 'purpose', 'in_time', 'out_time'])[0] : pick([v], ['id', 'visit_on', 'count'])[0]);
+    /* meetings: minutes, resolutions, attendance and action items only after the committee publishes them */
+    const pub = {};
+    T.meetings = T.meetings.map(m => { if (m.status === 'published') { pub[m.id] = 1; return m; } return pick([m], ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'status'])[0]; });
+    T.action_items = T.action_items.filter(a => pub[a.meeting_id]);
+    T.asset_service = T.asset_service.map(s => { const o = Object.assign({}, s); delete o.cost; return o; });
+    T.reminders = [];
+  } else if (SEEVIS.indexOf(u.role) < 0) T.visitors = T.visitors.map(v => { const o = Object.assign({}, v); delete o.phone; return o; });
   T.votes = T.votes.map(v => ({ poll_id: v.poll_id, choice: v.choice, mine: String(v.flat_no).toLowerCase() === mine })); /* ballots stay anonymous */
   T.profiles = [{ id: u.username, role: u.role, flat_id: u.flat_id }];
-  T.balance = u.role === 'resident' ? [] : [balance_(T)];
+  T.balance = res ? [] : [balance_(T)];
   return T;
 }
 function balance_(T) {
@@ -386,19 +464,102 @@ function balance_(T) {
 }
 
 /* ---------- writing (permissions + month locks enforced here) ---------- */
+let TOUCHED_ = {}; /* every tab changed by one save, so the cached copy of each is refreshed */
+const DATE_COLS = ['installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'expected_on', 'on_date', 'visit_on'];
+const isDate_ = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
+const isTime_ = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || ''));
+const today_ = () => now_().slice(0, 10);
+/* text that starts with = + or - would become a formula inside the Sheet: store it as plain text instead */
+const cell_ = v => (typeof v === 'string' && /^[=+\-@]/.test(v) && isNaN(+v)) ? "'" + v : v;
+const addMonths_ = (d, n) => { const x = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() + n); return x.toISOString().slice(0, 10); };
+const byId_ = (t, id) => read_(t).filter(r => String(r.id) === String(id))[0] || null;
+function appendRec_(t, rec) {
+  const cols = TABLES[t];
+  if (cols.indexOf('id') >= 0 && rec.id == null) rec.id = nextId_(t, 'id');
+  if (cols.indexOf('created_at') >= 0 && !rec.created_at) rec.created_at = now_();
+  sh_(t).appendRow(cols.map(c => rec[c] == null ? '' : cell_(rec[c])));
+  TOUCHED_[t] = 1;
+  return rec;
+}
+function setCells_(t, row, p) {
+  const sh = sh_(t);
+  TABLES[t].forEach((c, i) => { if (p[c] != null && c !== 'id') sh.getRange(row, i + 1).setValue(cell_(p[c])); });
+  TOUCHED_[t] = 1;
+}
+/* marks a reminder done; a repeating one (e.g. lift service every month) gets its next due date straight away */
+function doneReminder_(u, rem, on, nextDue) {
+  if (!rem || rem.status === 'done') return;
+  on = isDate_(on) ? on : today_();
+  setCells_('reminders', rem.__r, { status: 'done', done_on: on });
+  audit_(u, 'update', 'reminders', rem.id, 'Done: ' + rem.title + ' (due ' + String(rem.due_on).slice(0, 10) + ')', { status: rem.status }, { status: 'done', done_on: on });
+  const rep = Math.floor(+rem.repeat_months || 0);
+  let next = isDate_(nextDue) ? nextDue : '';
+  if (!next && rep > 0) { next = addMonths_(rem.due_on, rep); for (let k = 0; k < 600 && next <= on; k++) next = addMonths_(next, rep); }
+  if (next) {
+    const r = appendRec_('reminders', { title: rem.title, asset_id: rem.asset_id, kind: rem.kind || 'service', due_on: next, repeat_months: rep, notify_days: rem.notify_days, status: 'pending', notes: rem.notes });
+    audit_(u, 'insert', 'reminders', r.id, 'Next reminder: ' + rem.title + ' on ' + next, null, r);
+  }
+}
 function write_(u, b) {
   const t = b.t, op = b.op, allowed = RULES[t] && RULES[t][op], err = m => ({ error: { message: m } });
   if (!allowed || allowed.indexOf(u.role) < 0) return err('You do not have permission to do this.');
   const closed = read_('closed_months').map(r => String(r.month).slice(0, 7));
   const locked = d => d && closed.indexOf(String(d).slice(0, 7)) >= 0;
   const LOCKMSG = 'This month is locked. Nothing can be added, changed or deleted in it.';
-  const cols = TABLES[t], sh = sh_(t), p = b.payload || {};
-  const find = () => read_(t).filter(r => (b.filters || []).every(f => String(r[f[0]]) === String(f[1])));
-
+  const cols = TABLES[t], sh = sh_(t), raw = b.payload || {}, p = {};
   if (!sh) return err('Run setup() once in Apps Script to create the new tabs.');
+  /* only real columns, never the ones the server fills, and no huge texts */
+  Object.keys(raw).forEach(k => {
+    if (cols.indexOf(k) < 0 || SYS_COLS.indexOf(k) >= 0) return;
+    let v = raw[k];
+    if (v != null && typeof v === 'object') v = JSON.stringify(v);
+    if (typeof v === 'string') v = v.slice(0, k === 'minutes' || k === 'agenda' || k === 'resolutions' ? 8000 : 3000);
+    p[k] = v;
+  });
+  /* edited text gets a fresh Telugu copy */
+  if (op === 'update' && TE_FIELDS[t] && cols.indexOf('te') >= 0 && TE_FIELDS[t].some(k => p[k] != null)) p.te = '';
+  const bad = DATE_COLS.filter(c => p[c] != null && p[c] !== '' && !isDate_(p[c]))[0];
+  if (bad) return err('Please enter a valid date.');
+  const E = ENUM[t] || {};
+  const badE = Object.keys(E).filter(c => p[c] != null && p[c] !== '' && E[c].indexOf(p[c]) < 0)[0];
+  if (badE) return err('Invalid ' + badE.replace(/_/g, ' ') + '.');
+  const find = () => read_(t).filter(r => (b.filters || []).every(f => String(r[f[0]]) === String(f[1])));
+  const before = (op === 'update' || op === 'delete') ? find() : [];
+  if ((op === 'update' || op === 'delete') && cols.indexOf('id') >= 0 && !(b.filters || []).length) return err('Record not found.');
+  let after = null; /* extra things to do once the main save has gone through */
+
   if (t === 'complaints') {
-    if (op === 'insert') { if (!String(p.title || '').trim()) return err('Please describe the problem.'); p.flat_no = u.username; p.status = 'open'; p.updated_at = now_(); }
-    if (op === 'update') { if (['open', 'in_progress', 'resolved'].indexOf(p.status) < 0) return err('Invalid status.'); p.updated_at = now_(); }
+    if (op === 'insert') {
+      if (!String(p.title || '').trim()) return err('Please describe the problem.');
+      p.flat_no = u.username; p.status = 'open'; p.updated_at = now_();
+      if (S.indexOf(u.role) < 0) { delete p.assigned_to; delete p.expected_on; }
+      if (p.asset_id && !byId_('assets', p.asset_id)) p.asset_id = '';
+      const y = now_().slice(0, 4), n = read_('complaints').filter(c => String(c.ticket_no || '').indexOf('KK-' + y + '-') === 0).reduce((m, c) => Math.max(m, +String(c.ticket_no).split('-').pop() || 0), 0) + 1;
+      p.ticket_no = ticketOf_(y, n);
+      p.history = JSON.stringify([{ at: now_(), by: u.username, status: 'open', note: 'Complaint raised' }]);
+    }
+    if (op === 'update') {
+      if (p.status != null && ['open', 'in_progress', 'resolved'].indexOf(p.status) < 0) return err('Invalid status.');
+      if (p.asset_id && !byId_('assets', p.asset_id)) return err('Choose an item from the list.');
+      p.updated_at = now_();
+      const note = String(raw.note || '').trim().slice(0, 500);
+      after = () => before.forEach(c => {
+        let h = []; try { h = JSON.parse(c.history || '[]'); } catch (e) {}
+        if (!h.length) h.push({ at: c.created_at, by: c.flat_no, status: 'open', note: 'Complaint raised' });
+        const e = { at: now_(), by: u.username };
+        if (p.status != null && p.status !== c.status) e.status = p.status;
+        if (p.assigned_to != null && String(p.assigned_to) !== String(c.assigned_to || '')) e.assigned_to = p.assigned_to;
+        if (p.expected_on != null && String(p.expected_on) !== String(c.expected_on || '')) e.expected_on = p.expected_on;
+        if (note) e.note = note;
+        if (Object.keys(e).length <= 2) return;
+        h.push(e);
+        sh.getRange(c.__r, cols.indexOf('history') + 1).setValue(JSON.stringify(h.slice(-60)));
+        if (e.status) {
+          const L = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
+          queuePush_('Complaint ' + (c.ticket_no || '#' + c.id) + ': ' + L[e.status], String(c.title || '') + (note ? ' - ' + note : ''), { user: c.flat_no });
+        }
+      });
+    }
   }
   const mine = id => CacheService.getScriptCache().get('up_' + id) === String(u.username);
   if (t === 'complaints' && op === 'insert') {
@@ -412,10 +573,78 @@ function write_(u, b) {
   if (t === 'gallery' && op === 'insert') {
     if (!mine(String(p.photo || ''))) return err('Photo upload failed. Please try again.');
     p.title = String(p.title || '').slice(0, 120); p.uploaded_by = u.username; p.kind = p.kind === 'pdf' ? 'pdf' : 'photo'; p.name = String(p.name || '').slice(0, 120); p.folder = FOLDERS.indexOf(p.folder) >= 0 ? p.folder : 'Other';
+    p.visibility = p.visibility === 'committee' ? 'committee' : 'all';
   }
-  if ((t === 'gallery' || t === 'complaints') && op === 'delete') find().forEach(r => [r.photo, r.photos, r.voice].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
+  if ((t === 'gallery' || t === 'complaints') && op === 'delete') before.forEach(r => [r.photo, r.photos, r.voice].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
 
-  if (t === 'meetings' && op === 'insert' && (!String(p.title || '').trim() || !p.on_date || ['meeting', 'event'].indexOf(p.kind) < 0)) return err('Enter a title, date and type.');
+  if (t === 'meetings') {
+    if (op === 'insert') { if (!String(p.title || '').trim() || !p.on_date || ['meeting', 'event'].indexOf(p.kind) < 0) return err('Enter a title, date and type.'); p.status = 'draft'; }
+    if (op === 'update') {
+      if (p.title != null && !String(p.title).trim()) return err('Enter a title, date and type.');
+      if (p.kind != null && ['meeting', 'event'].indexOf(p.kind) < 0) return err('Enter a title, date and type.');
+      if (p.status === 'published' && before.some(m => m.status !== 'published')) {
+        p.published_on = now_();
+        after = () => before.filter(m => m.status !== 'published').forEach(m => queuePush_('Meeting record published', String(p.title || m.title || '') + ' - ' + String(m.on_date || '').slice(0, 10)));
+      }
+    }
+    if (op === 'delete') after = () => before.forEach(m => read_('action_items').filter(x => String(x.meeting_id) === String(m.id)).sort((x, y) => y.__r - x.__r).forEach(x => { sh_('action_items').deleteRow(x.__r); TOUCHED_.action_items = 1; }));
+    if (p.attendance != null) p.attendance = String(p.attendance).split('|').map(x => x.trim()).filter(Boolean).slice(0, 200).join('|');
+  }
+  if (t === 'action_items') {
+    if (op === 'insert') { if (!String(p.task || '').trim()) return err('Enter the task.'); if (!byId_('meetings', p.meeting_id)) return err('Meeting not found.'); p.status = 'open'; }
+    if (p.status != null) p.done_on = p.status === 'done' ? today_() : '';
+  }
+  if (t === 'assets') {
+    if (op === 'insert') { if (!String(p.name || '').trim()) return err('Enter the name of the item.'); p.kind = p.kind || 'other'; p.status = p.status || 'working'; }
+    if (op === 'update' && p.name != null && !String(p.name).trim()) return err('Enter the name of the item.');
+    if (op === 'delete' && before.some(a => read_('asset_service').some(s => String(s.asset_id) === String(a.id))))
+      return err('This item has service records. Mark it "Out of service" instead, or delete its service records first.');
+    if (op === 'delete') after = () => before.forEach(a => read_('reminders').filter(r => String(r.asset_id) === String(a.id) && r.status !== 'done').sort((x, y) => y.__r - x.__r).forEach(r => { sh_('reminders').deleteRow(r.__r); TOUCHED_.reminders = 1; }));
+  }
+  if (t === 'asset_service' && op === 'insert') {
+    const as = byId_('assets', p.asset_id); if (!as) return err('Choose the item that was serviced.');
+    if (!isDate_(p.service_on)) return err('Please enter a valid date.');
+    p.kind = p.kind || 'service';
+    if (p.cost != null && p.cost !== '' && !(+p.cost >= 0)) return err('Enter a cost of 0 or more.');
+    const rid = p.reminder_id, nd = p.next_due;
+    after = () => {
+      const rem = rid ? byId_('reminders', rid) : null;
+      if (rem) doneReminder_(u, rem, p.service_on, nd);
+      else if (nd) { const r = appendRec_('reminders', { title: 'Service due: ' + as.name, asset_id: as.id, kind: 'service', due_on: nd, repeat_months: 0, notify_days: 7, status: 'pending' }); audit_(u, 'insert', 'reminders', r.id, r.title + ' on ' + nd, null, r); }
+    };
+  }
+  if (t === 'reminders') {
+    if (op === 'insert') { if (!String(p.title || '').trim() || !isDate_(p.due_on)) return err('Enter what is due and the due date.'); p.status = 'pending'; p.kind = p.kind || 'service'; }
+    if (p.repeat_months != null && p.repeat_months !== '') { const n = Math.floor(+p.repeat_months); if (!(n >= 0 && n <= 60)) return err('Repeat must be 0 to 60 months.'); p.repeat_months = n; }
+    if (p.notify_days != null && p.notify_days !== '') { const n = Math.floor(+p.notify_days); if (!(n >= 0 && n <= 90)) return err('Alert days must be 0 to 90.'); p.notify_days = n; }
+    if (op === 'insert' && (p.notify_days == null || p.notify_days === '')) p.notify_days = 7;
+    if (p.asset_id && !byId_('assets', p.asset_id)) p.asset_id = '';
+    if (op === 'update' && p.status === 'done') {
+      const on = raw.done_on, nd = raw.next_due; delete p.status;
+      after = () => before.forEach(r => doneReminder_(u, byId_('reminders', r.id), on, nd));
+    }
+    if (op === 'update' && p.status === 'pending') p.done_on = '';
+  }
+  if (t === 'contacts') {
+    if (op === 'insert' && (!String(p.name || '').trim() || !p.phone)) return err('Enter a name and a phone number.');
+    if (p.phone != null && !/^[0-9+\-\s()]{3,20}$/.test(String(p.phone))) return err('Enter a valid phone number.');
+    if (p.alt_phone && !/^[0-9+\-\s()]{3,20}$/.test(String(p.alt_phone))) return err('Enter a valid phone number.');
+    p.category = p.category || (op === 'insert' ? 'other' : p.category);
+    if (raw.verified === true || raw.verified === 'yes') p.verified_on = today_();
+    p.updated_by = u.username;
+  }
+  if (t === 'visitors') {
+    if (op === 'insert' && String(p.name || '').trim()) {
+      if (!String(p.flat_no || '').trim()) return err('Choose the flat visited.');
+      p.count = 1; p.added_by = u.username;
+      if (!isTime_(p.in_time)) return err('Enter the entry time.');
+    }
+    if (p.in_time != null && p.in_time !== '' && !isTime_(p.in_time)) return err('Enter a valid time.');
+    if (p.out_time != null && p.out_time !== '' && !isTime_(p.out_time)) return err('Enter a valid time.');
+    if (p.phone && !/^[0-9+\-\s()]{3,20}$/.test(String(p.phone))) return err('Enter a valid phone number.');
+    if (op === 'update') { delete p.count; delete p.visit_on; }
+  }
+
   if (t === 'polls' && op === 'insert') {
     const o = String(p.options || '').split('|').map(x => x.trim()).filter(Boolean);
     if (!String(p.question || '').trim() || o.length < 2) return err('Enter a question and at least two options.');
@@ -445,35 +674,125 @@ function write_(u, b) {
     if (cols.indexOf('created_at') >= 0) rec.created_at = now_();
     if (t === 'notices') rec.created_on = now_().slice(0, 10);
     if (t === 'closed_months') rec.closed_at = now_();
-    sh.appendRow(cols.map(c => rec[c] == null ? '' : rec[c]));
+    sh.appendRow(cols.map(c => rec[c] == null ? '' : cell_(rec[c])));
+    audit_(u, 'insert', t, rec.id != null ? rec.id : (rec.month || rec.item || ''), summary_(t, rec), null, rec);
+    if (after) after();
     try { notifyNew_(t, rec); } catch (e) { /* a failed alert must never block saving */ }
-    return { ok: true };
+    return { ok: true, id: rec.id };
   }
   if (op === 'upsert') {
     const key = b.onConflict, hit = read_(t).filter(r => String(r[key]) === String(p[key]))[0];
-    if (!hit) { sh.appendRow(cols.map(c => p[c] == null ? '' : p[c])); return { ok: true }; }
-    cols.forEach((c, i) => { if (p[c] != null && c !== key) sh.getRange(hit.__r, i + 1).setValue(p[c]); });
+    if (!hit) { sh.appendRow(cols.map(c => p[c] == null ? '' : cell_(p[c]))); audit_(u, 'insert', t, p[key], summary_(t, p), null, p); return { ok: true }; }
+    cols.forEach((c, i) => { if (p[c] != null && c !== key) sh.getRange(hit.__r, i + 1).setValue(cell_(p[c])); });
+    audit_(u, 'update', t, p[key], summary_(t, Object.assign({}, hit, p)), hit, Object.assign({}, hit, p));
     return { ok: true };
   }
   if (op === 'update') {
-    const rows = find(); if (!rows.length) return err('Record not found.');
-    rows.forEach(r => cols.forEach((c, i) => { if (p[c] != null && c !== 'id') sh.getRange(r.__r, i + 1).setValue(p[c]); }));
+    if (!before.length) return err('Record not found.');
+    if (Object.keys(p).length) {
+      before.forEach(r => cols.forEach((c, i) => { if (p[c] != null && c !== 'id') sh.getRange(r.__r, i + 1).setValue(cell_(p[c])); }));
+      before.forEach(r => audit_(u, 'update', t, r.id, summary_(t, Object.assign({}, r, p)), r, Object.assign({}, r, p), p));
+    }
+    if (after) after();
     return { ok: true };
   }
   if (op === 'delete') {
-    const rows = find();
-    if (rows.some(r => (DATE_OF[t] || []).some(c => locked(r[c])))) return err(LOCKMSG);
-    rows.map(r => r.__r).sort((x, y) => y - x).forEach(n => sh.deleteRow(n));
+    if (!before.length) return { ok: true };
+    if (before.some(r => (DATE_OF[t] || []).some(c => locked(r[c])))) return err(LOCKMSG);
+    before.forEach(r => audit_(u, 'delete', t, r.id != null ? r.id : (r.month || ''), summary_(t, r), r, null));
+    if (after) after();
+    before.map(r => r.__r).sort((x, y) => y - x).forEach(n => sh.deleteRow(n));
     return { ok: true };
   }
   return err('Unsupported action.');
+}
+
+/* ---------- AUDIT LOG (tab 'audit_log'): who added, changed or deleted what, and when. Nobody can edit it from the app. ---------- */
+let FLATNO_ = null;
+const flatNo_ = id => { if (!FLATNO_) { FLATNO_ = {}; read_('flats').forEach(f => FLATNO_[f.id] = f.flat_no); } return FLATNO_[id] != null ? FLATNO_[id] : id; };
+function summary_(t, r) {
+  r = r || {};
+  const amt = r.amount != null && r.amount !== '' ? 'Rs ' + r.amount : '', d = x => x ? String(x).slice(0, 10) : '';
+  const S1 = {
+    payments: ['Flat ' + flatNo_(r.flat_id), 'for ' + String(r.month || '').slice(0, 7), amt, r.mode, r.receipt_no ? 'receipt #' + r.receipt_no : ''],
+    expenses: [r.category, r.description, amt, d(r.spent_on)], income: [r.category, amt, d(r.received_on)],
+    maintenance_rates: ['Maintenance for ' + String(r.month || '').slice(0, 7), amt], closed_months: ['Month ' + String(r.month || '').slice(0, 7)],
+    settings: ['Opening balance: cash Rs ' + (r.opening_cash || 0) + ', bank Rs ' + (r.opening_bank || 0)],
+    celebrations: [r.kind, String(r.details || '').split('||')[0], amt, d(r.entry_on)],
+    complaints: [r.ticket_no, r.status], visitors: [d(r.visit_on), (r.count || 1) + ' visitor(s)'],
+    asset_service: ['Item #' + r.asset_id, r.kind, d(r.service_on), r.cost ? 'Rs ' + r.cost : ''],
+    contacts: [r.category, r.name], status: [r.item, r.state]
+  }[t];
+  const parts = S1 || [r.title || r.name || r.task || r.question || r.details || r.item, r.status, amt, d(r.due_on || r.on_date)];
+  return parts.filter(x => x != null && String(x).trim() !== '').join(' · ').slice(0, 300);
+}
+function audit_(u, action, tbl, id, summary, before, after, changed) {
+  try {
+    if (tbl !== 'users' && AUDIT_T.indexOf(tbl) < 0) return;
+    const sh = sh_('audit_log'); if (!sh) return;
+    const tidy = o => {
+      if (!o) return '';
+      const x = Object.assign({}, o); delete x.__r; delete x.te; delete x.history; delete x.password_hash; delete x.salt;
+      if (AUDIT_BRIEF.indexOf(tbl) >= 0) Object.keys(x).forEach(k => { if (['id', 'status', 'assigned_to', 'expected_on', 'asset_id', 'ticket_no', 'visit_on', 'count', 'in_time', 'out_time'].indexOf(k) < 0) delete x[k]; });
+      if (changed && action === 'update') Object.keys(x).forEach(k => { if (k !== 'id' && changed[k] == null) delete x[k]; });
+      return JSON.stringify(x).slice(0, 4000);
+    };
+    sh.appendRow([sh.getLastRow(), now_(), u.username, u.role, action, tbl, id == null ? '' : String(id), String(summary || '').slice(0, 300), tidy(before), tidy(after)].map(cell_));
+  } catch (e) { Logger.log('Audit failed: ' + e); }
+}
+/* the app's Audit log page: newest first, filtered; reads only the most recent 5,000 entries */
+function auditRead_(u, b) {
+  if (AUDITV.indexOf(u.role) < 0) return { error: { message: 'You do not have permission to do this.' } };
+  const sh = sh_('audit_log'); if (!sh) return { ok: true, rows: [] };
+  const last = sh.getLastRow(); if (last < 2) return { ok: true, rows: [] };
+  const first = Math.max(2, last - 4999), h = TABLES.audit_log, tz = tz_();
+  const v = sh.getRange(first, 1, last - first + 1, h.length).getValues();
+  const f = { tbl: String(b.tbl || ''), who: String(b.who || '').toLowerCase(), from: String(b.from || ''), to: String(b.to || ''), act: String(b.act || '') };
+  const rows = [];
+  for (let i = v.length - 1; i >= 0 && rows.length < 400; i--) {
+    const o = {}; h.forEach((k, j) => { let x = v[i][j]; if (x instanceof Date) x = Utilities.formatDate(x, tz, 'yyyy-MM-dd HH:mm'); o[k] = x === '' ? null : x; });
+    const day = String(o.at || '').slice(0, 10);
+    if (f.tbl && o.tbl !== f.tbl) continue;
+    if (f.act && o.action !== f.act) continue;
+    if (f.who && String(o.username || '').toLowerCase() !== f.who) continue;
+    if (f.from && day < f.from) continue;
+    if (f.to && day > f.to) continue;
+    rows.push(o);
+  }
+  return { ok: true, rows: rows, more: first > 2 };
 }
 
 
 /* ---------- SPEED: keep the backend warm (run installKeepWarm ONCE) ----------
    Google puts idle scripts to sleep, which makes the first tap slow. This trigger wakes it every 5 minutes
    and refreshes the cached data, so residents always get a fast answer. Sheet edits by hand show within 5 minutes. */
-function keepWarm() { try { after_(); } catch (e) {} try { translateMissing_(40); } catch (e) {} cacheDrop_('snap'); tables_(); }
+function keepWarm() { try { after_(); } catch (e) {} try { translateMissing_(40); } catch (e) {} try { dailyReminders_(); } catch (e) { Logger.log('Reminders failed: ' + e); } cacheDrop_('snap'); tables_(); }
+
+/* ---------- SERVICE REMINDERS: one alert a day to the committee's phones (runs from keepWarm, after 8 AM) ----------
+   An item is mentioned N days before it is due (N = its 'alert days', default 7), 1 day before, on the day,
+   and every 7 days while it stays overdue. Warranty end dates of assets are included (30 days before, and on the day). */
+function dueItems_(day) {
+  const dn = d => Math.round((new Date(String(d).slice(0, 10) + 'T00:00:00Z') - new Date(day + 'T00:00:00Z')) / 864e5);
+  const out = [];
+  read_('reminders').filter(r => r.status !== 'done' && isDate_(String(r.due_on).slice(0, 10))).forEach(r => {
+    const n = dn(r.due_on), nd = r.notify_days === null || r.notify_days === '' ? 7 : +r.notify_days;
+    if (n === nd || n === 1 || n === 0 || (n < 0 && -n % 7 === 0)) out.push({ n: n, t: r.title });
+  });
+  read_('assets').filter(a => isDate_(String(a.warranty_until || '').slice(0, 10))).forEach(a => {
+    const n = dn(a.warranty_until); if (n === 30 || n === 0) out.push({ n: n, t: 'Warranty ends: ' + a.name });
+  });
+  return out.sort((x, y) => x.n - y.n);
+}
+function dailyReminders_(force) {
+  const P = PROPS_(), day = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'), hr = +Utilities.formatDate(new Date(), tz_(), 'H');
+  if (!force && (P.getProperty('REM_DAY') === day || hr < 8)) return { skipped: true };
+  P.setProperty('REM_DAY', day);
+  const it = dueItems_(day); if (!it.length) return { sent: 0 };
+  const late = it.filter(x => x.n < 0).length, lab = x => x.t + (x.n < 0 ? ' (overdue ' + -x.n + ' days)' : x.n === 0 ? ' (today)' : ' (in ' + x.n + ' days)');
+  return pushAll_('Service reminders' + (late ? ': ' + late + ' overdue' : ''), it.slice(0, 4).map(lab).join(', ') + (it.length > 4 ? ' and ' + (it.length - 4) + ' more' : ''), '/', { roles: COM });
+}
+/* Run by hand to test the reminder alert now (sends to committee phones if anything is due). */
+function testReminders() { Logger.log(JSON.stringify(dueItems_(Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd')))); Logger.log(JSON.stringify(dailyReminders_(true))); }
 function installKeepWarm() {
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'keepWarm').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('keepWarm').timeBased().everyMinutes(5).create();
@@ -489,7 +808,7 @@ function removeKeepWarm() {
 /* =====================================================================================
    EXPORT ALL FILES TO GOOGLE DRIVE  (run `exportToDrive` once; safe to run again, it skips files already saved)
    Creates "Krishna Kuteer Apartment Documents" in your My Drive with one sub-folder per category.
-   Complaint photos go into the "Other" folder, named "Complaint 12 - Flat 101 - title".
+   Complaint photos and voice notes go into the PRIVATE folder "Krishna Kuteer Committee Documents (private)/Complaints".
    ===================================================================================== */
 function onOpen() {
   try { SpreadsheetApp.getUi().createMenu('Krishna Kuteer').addItem('Export all files to Drive', 'exportToDrive').addToUi(); } catch (e) {}
@@ -520,12 +839,12 @@ function driveSync_() {
 function autoDrive_(t, rec, dirs) {
   dirs = dirs || { get: n => driveDirs_()[n] };
   if (t === 'gallery') {
-    const d = String(rec.created_at).slice(0, 10);
-    driveSave_(dirs.get(FOLDERS.indexOf(rec.folder) >= 0 ? rec.folder : 'Other'), (rec.title || rec.name || 'file') + ' (' + d + ') #' + rec.id, String(rec.photo));
+    const d = String(rec.created_at).slice(0, 10), fo = FOLDERS.indexOf(rec.folder) >= 0 ? rec.folder : 'Other';
+    driveSave_(rec.visibility === 'committee' ? privDir_(fo) : dirs.get(fo), (rec.title || rec.name || 'file') + ' (' + d + ') #' + rec.id, String(rec.photo));
   } else {
     String(rec.photos || '').split('|').filter(Boolean).forEach((id, i) =>
-      driveSave_(dirs.get('Other'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (' + (i + 1) + ')', id));
-    if (rec.voice) driveSave_(dirs.get('Other'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (voice note)', String(rec.voice));
+      driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (' + (i + 1) + ')', id));
+    if (rec.voice) driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (voice note)', String(rec.voice));
   }
 }
 /* Run ONCE by hand and click Allow: gives the script permission to save files in your Google Drive. */
@@ -556,12 +875,12 @@ function exportToDrive() {
     folder.createFile(blob); saved++;
   };
   read_('gallery').forEach(g => {
-    const d = String(g.created_at).slice(0, 10);
-    put(dirs[FOLDERS.indexOf(g.folder) >= 0 ? g.folder : 'Other'], (g.title || g.name || 'file') + ' (' + d + ') #' + g.id, String(g.photo));
+    const d = String(g.created_at).slice(0, 10), fo = FOLDERS.indexOf(g.folder) >= 0 ? g.folder : 'Other';
+    put(g.visibility === 'committee' ? privDir_(fo) : dirs[fo], (g.title || g.name || 'file') + ' (' + d + ') #' + g.id, String(g.photo));
   });
   read_('complaints').forEach(c => String(c.photos || '').split('|').filter(Boolean).forEach((id, i) =>
-    put(dirs['Other'], 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (' + (i + 1) + ')', id)));
-  read_('complaints').forEach(c => { if (c.voice) put(dirs['Other'], 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (voice note)', String(c.voice)); });
+    put(privDir_('Complaints'), 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (' + (i + 1) + ')', id)));
+  read_('complaints').forEach(c => { if (c.voice) put(privDir_('Complaints'), 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (voice note)', String(c.voice)); });
   const msg = (stopped ? 'Time limit reached - run exportToDrive again to continue.\n' : 'Export finished.\n') +
     'Saved: ' + saved + ', already there: ' + skipped + ', not found: ' + missing + '\nDrive folder: ' + root.getUrl();
   Logger.log(msg);
@@ -611,15 +930,16 @@ function notifyNew_(t, rec) {
 }
 /* ---------- SPEED: alerts and Telugu copies are made just AFTER a save, not during it ----------
    The app calls 'after' quietly a moment after each save; keepWarm (every 5 minutes) also does it as a safety net. */
-function queuePush_(title, body) {
+/* to: {user:'101'} = only that flat's phones, {roles:[...]} = only those roles' phones, nothing = everybody */
+function queuePush_(title, body, to) {
   const P = PROPS_(), q = JSON.parse(P.getProperty('PUSH_Q') || '[]');
-  q.push({ t: title, b: body }); P.setProperty('PUSH_Q', JSON.stringify(q.slice(-20)));
+  q.push({ t: title, b: body, to: to || null }); P.setProperty('PUSH_Q', JSON.stringify(q.slice(-20)));
 }
 function flushPush_() {
   const P = PROPS_(), q = JSON.parse(P.getProperty('PUSH_Q') || '[]');
   if (!q.length) return 0;
   P.deleteProperty('PUSH_Q');
-  q.forEach(m => { try { pushAll_(m.t, m.b, '/'); } catch (e) { Logger.log('Push failed: ' + e); } });
+  q.forEach(m => { try { pushAll_(m.t, m.b, '/', m.to); } catch (e) { Logger.log('Push failed: ' + e); } });
   return q.length;
 }
 function after_() {
@@ -658,10 +978,12 @@ function fcmAuth_() {
 /* Send one alert to every registered phone. Dead tokens (app uninstalled) are removed automatically.
    Sends BOTH a data message (Chrome / website) and an Android "notification" block (so the Android app
    shows the alert even when it is closed). */
-function pushAll_(title, body, url) {
+function pushAll_(title, body, url, to) {
   const auth = fcmAuth_();
   if (!auth) return { sent: 0, note: 'Push not configured (FCM_SERVICE_ACCOUNT missing).' };
-  const rows = read_('push_tokens');
+  const rows = read_('push_tokens').filter(r => !to ||
+    (to.user != null && String(r.username).toLowerCase() === String(to.user).toLowerCase()) ||
+    (to.roles && to.roles.indexOf(String(r.role || '').trim().toLowerCase()) >= 0));
   if (!rows.length) return { sent: 0, note: 'No phones registered yet.' };
   const api = 'https://fcm.googleapis.com/v1/projects/' + auth.project + '/messages:send';
   const t80 = String(title).slice(0, 80), b180 = String(body).slice(0, 180);
@@ -700,15 +1022,23 @@ function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').
    Run translateAll() ONCE by hand (click Allow) to translate everything posted before this update.
    Free Google account limit: about 5,000 translations a day; the app uses one per field, only when posting. */
 const TE_FIELDS = {
-  notices: ['title'], complaints: ['title', 'details'], meetings: ['title', 'place'], polls: ['question', 'options'],
-  maintenance_log: ['details'], gallery: ['title'], celebrations: ['details'], expenses: ['description', 'remarks']
+  notices: ['title'], complaints: ['title', 'details'], meetings: ['title', 'place', 'agenda', 'minutes', 'resolutions'], polls: ['question', 'options'],
+  maintenance_log: ['details'], gallery: ['title'], celebrations: ['details'], expenses: ['description', 'remarks'],
+  asset_service: ['details'], reminders: ['title'], action_items: ['task']
 };
 const TE_RX = /[\u0C00-\u0C7F]/;
 let TE_FAIL_ = false; /* set when Google Translate refuses (daily limit): rows are then left for a later try */
 function teOne_(x) {
   x = String(x == null ? '' : x).trim();
   if (!x || TE_RX.test(x) || !/[A-Za-z]/.test(x)) return null; /* already Telugu, or only numbers */
-  try { const r = String(LanguageApp.translate(x.slice(0, 4000), '', 'te') || '').trim(); return r && r !== x ? r : null; }
+  try {
+    /* long text (meeting minutes) is translated a few lines at a time */
+    const parts = [], lines = x.split('\n'); let cur = '';
+    lines.forEach(l => { if ((cur + '\n' + l).length > 3500 && cur) { parts.push(cur); cur = l; } else cur = cur ? cur + '\n' + l : l; });
+    if (cur) parts.push(cur.slice(0, 3900));
+    const r = parts.map(s => s.slice(0, 4500)).map(s => /[A-Za-z]/.test(s) ? String(LanguageApp.translate(s, '', 'te') || '').trim() : s).join('\n').trim();
+    return r && r !== x ? r : null;
+  }
   catch (e) { TE_FAIL_ = true; return null; }
 }
 function te_(t, rec) {
