@@ -267,7 +267,7 @@
 
   /* ---------- Assets, Reminders, Meeting management, Emergency contacts, Visitor register, Complaint tracking, Audit log ---------- */
   var TE2 = {
-    "Meeting management": "సమావేశ నిర్వహణ", "Assets": "ఆస్తులు", "Reminders": "రిమైండర్లు", "Emergency contacts": "అత్యవసర నంబర్లు", "Emergency": "అత్యవసరం", "Audit log": "ఆడిట్ లాగ్",
+    "Meeting management": "సమావేశ నిర్వహణ", "Meeting": "సమావేశం", "Contacts": "కాంటాక్ట్‌లు", "Assets": "ఆస్తులు", "Reminders": "రిమైండర్లు", "Emergency contacts": "అత్యవసర నంబర్లు", "Emergency": "అత్యవసరం", "Audit log": "ఆడిట్ లాగ్",
     "Edit": "మార్చండి", "Show": "చూపించు", "Clear": "తొలగించు", "Print": "ప్రింట్", "Search": "వెతకండి", "Notes": "గమనికలు", "Name": "పేరు", "Phone": "ఫోన్", "Type": "రకం", "From": "నుండి", "To": "వరకు",
     "Agenda": "అజెండా", "Minutes": "సమావేశ వివరాలు", "Attendance": "హాజరు", "Action items": "చేయవలసిన పనులు", "Meeting record": "సమావేశ రికార్డు", "Add action item": "చేయవలసిన పని జోడించండి",
     "Resolutions & decisions": "తీర్మానాలు & నిర్ణయాలు", "Task": "పని", "Responsible": "బాధ్యులు", "Responsible person": "బాధ్యత వహించే వ్యక్తి", "Due": "గడువు", "Due date": "గడువు తేదీ",
@@ -294,7 +294,7 @@
     "Add a contact": "నంబర్ జోడించండి", "Save contact": "నంబర్ సేవ్ చేయండి", "Edit emergency numbers": "అత్యవసర నంబర్లు మార్చండి", "For": "కోసం", "Other phone (optional)": "ఇతర ఫోన్ (ఐచ్ఛికం)",
     "Fire": "అగ్నిమాపక", "Ambulance": "అంబులెన్స్", "Police": "పోలీస్", "Lift technician": "లిఫ్ట్ టెక్నీషియన్", "Generator service": "జనరేటర్ సర్వీస్", "Electrician": "ఎలక్ట్రీషియన్", "Plumber": "ప్లంబర్", "Security / watchman": "సెక్యూరిటీ / వాచ్‌మెన్",
     "Fire service": "అగ్నిమాపక సేవ", "All emergencies (national)": "అన్ని అత్యవసరాలు (జాతీయ)", "🖨 Print contact list": "🖨 నంబర్ల జాబితా ప్రింట్",
-    "Record a visitor": "సందర్శకుడిని నమోదు చేయండి", "Visitor name": "సందర్శకుడి పేరు", "Flat visited": "వెళ్ళిన ఫ్లాట్", "Purpose": "ఉద్దేశ్యం", "Phone (optional, committee only)": "ఫోన్ (ఐచ్ఛికం, కమిటీకి మాత్రమే)", "Entry time": "లోపలికి వచ్చిన సమయం",
+    "Record a visitor": "సందర్శకుడిని నమోదు చేయండి", "Visitor name": "సందర్శకుడి పేరు", "Flat visited": "వెళ్ళిన ఫ్లాట్", "Purpose": "ఉద్దేశ్యం", "Phone (optional, committee only)": "ఫోన్ (ఐచ్ఛికం, కమిటీకి మాత్రమే)", "Entry time": "లోపలికి వచ్చిన సమయం", "Exit time (leave empty if still inside)": "బయటకు వెళ్ళిన సమయం (ఇంకా లోపల ఉంటే ఖాళీగా వదలండి)", "Exit time must be after the entry time": "బయటకు వెళ్ళిన సమయం లోపలికి వచ్చిన సమయం తర్వాత ఉండాలి",
     "Save visitor": "సందర్శకుడిని సేవ్ చేయండి", "Exit now": "ఇప్పుడు బయటకు", "Inside": "లోపల ఉన్నారు", "Visitor register": "సందర్శకుల రిజిస్టర్", "Visitors to your flat": "మీ ఫ్లాట్‌కు వచ్చిన సందర్శకులు", "Visitor": "సందర్శకుడు",
     "All flats": "అన్ని ఫ్లాట్లు", "Search name or purpose": "పేరు లేదా ఉద్దేశ్యం వెతకండి", "No visitors found.": "సందర్శకులు ఎవరూ లేరు.", "Add a visitor count (no names)": "సందర్శకుల సంఖ్య జోడించండి (పేర్లు లేకుండా)", "Save count": "సంఖ్య సేవ్ చేయండి",
     "Visitor saved": "సందర్శకుడు సేవ్ అయ్యారు", "Exit time saved": "బయటకు వెళ్ళిన సమయం సేవ్ అయింది", "Common area / office": "కామన్ ఏరియా / ఆఫీస్", "🖨 Print register": "🖨 రిజిస్టర్ ప్రింట్",

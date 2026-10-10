@@ -251,7 +251,7 @@ let lastTab="";
 Object.assign(IC,{comp:ic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),meet:ic('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),poll:ic('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>')});
 async function render(){const chg=lastTab!==tab,y=chg?0:window.scrollY;
  const staff=me.role!=="resident",canW=WRITE.includes(me.role);
- const tabs=[["dash","Home"],["work","Maintenance"],["maint","Payments"]].concat(staff?[["exp","Expenses"],["st","Statement"]]:[],[["cel","Celebrations"],["vis","Visitors"],["doc","Documents"],["not","Notices"],["comp","Complaints"],["meet","Meeting management"],["poll","Voting"],["assets","Assets"]],isIn(R_COM)?[["rem","Reminders"]]:[],[["sos","Emergency contacts"]],isIn(R_S)?[["audit","Audit log"]]:[]);
+ const tabs=[["dash","Home"],["work","Maintenance"],["maint","Payments"]].concat(staff?[["exp","Expenses"],["st","Statement"]]:[],[["cel","Celebrations"],["vis","Visitors"],["doc","Documents"],["not","Notices"],["comp","Complaints"],["meet","Meeting"],["poll","Voting"],["assets","Assets"]],isIn(R_COM)?[["rem","Reminders"]]:[],[["sos","Contacts"]],isIn(R_S)?[["audit","Audit log"]]:[]);
  if(!tabs.some(t=>t[0]===tab))tab="dash";
  app.innerHTML=`<header><div class="hl"><button class="menubtn" id="hb" aria-label="Open menu" aria-expanded="false"><svg class="l" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg><svg class="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="brand"><span class="logo"><img src="${LOGO}" alt="Krishna Kuteer logo"></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div></div>${LG()}<div class="hdr-actions"><button class="ghost" style="width:auto" id="cp">Password</button> <button class="ghost" style="width:auto" id="out">Sign out</button></div></header>
  <div id="scrim"></div>
@@ -659,7 +659,7 @@ async function homeHtml(F,staff,who){
   cards=[[F.fl.length,"Total flats"],[inr(paid),"Collected in "+month],[inr(Math.max(0,due-paid)),"Pending in "+month],[inr(sp),"Expenses in "+month]]}
  else{const f=F.fl.find(x=>String(x.flat_no)===String(me.id))||F.fl[0];
   if(f){const r=rate(f),p=pm(f);cards=[[inr(r),"Maintenance for "+month],[inr(p),"Paid this month"],[inr(Math.max(0,r-p)),"Pending amount"],[inr(F.p.filter(x=>String(x.flat_id)===String(f.id)).reduce((a,x)=>a+ +x.amount,0)),"Total contributions"]]}}
- const QA=[["maint","💳","Payments"],["comp","🛠","Complaints"],["doc","📄","Documents"],["not","📢","Notices"],["poll","🗳","Voting"],["meet","📅","Meetings"],["assets","🛗","Assets"],["sos","🚨","Emergency"]];
+ const QA=[["maint","💳","Payments"],["comp","🛠","Complaints"],["doc","📄","Documents"],["not","📢","Notices"],["poll","🗳","Voting"],["meet","📅","Meeting"],["assets","🛗","Assets"],["sos","📞","Contacts"]];
  if(staff)QA.splice(2,1,["exp","🧾","Expenses"]),QA.splice(3,1,["st","📊","Statement"]);if(isIn(R_COM))QA.splice(6,1,["rem","🔔","Reminders"]);
  const[n1,n2,n3,n4,n5,n6]=await Promise.all(["notices","status","maintenance_log","complaints","meetings","visitors"].map(t=>db.from(t).select("*"))),
   nts=(n1.data||[]).sort((a,b)=>b.id-a.id),sm=Object.fromEntries((n2.data||[]).map(r=>[r.item,r.state])),canS=WRITE.includes(me.role),today=ld(),vday=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,10)===today).reduce((a,r)=>a+(+r.count||0),0),vmon=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,7)===today.slice(0,7)).reduce((a,r)=>a+(+r.count||0),0),

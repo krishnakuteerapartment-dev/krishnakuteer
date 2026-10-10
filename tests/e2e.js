@@ -61,7 +61,7 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
 
   /* ---------- secretary: assets, reminders, meeting, contacts ---------- */
   const S = await session(browser, 'secretary', DEV), p = S.page;
-  await check('menu has the 5 new pages and the renamed one', async () => { const t = await p.locator('nav').innerText(); ['Meeting management', 'Assets', 'Reminders', 'Emergency contacts', 'Audit log'].forEach(x => { if (!t.includes(x)) throw new Error('no ' + x); }); });
+  await check('menu has the 5 new pages and the renamed one', async () => { const t = await p.locator('nav').innerText(); ['Meeting', 'Assets', 'Reminders', 'Contacts', 'Audit log'].forEach(x => { if (!t.includes(x)) throw new Error('no ' + x); }); });
   await go(p, 'assets');
   await check('add lift asset', async () => {
     await p.fill('#an', 'Lift'); await p.selectOption('#ak', 'lift'); await p.fill('#al', 'Main stairwell'); await p.fill('#ai', '2020-01-15'); await p.fill('#av', 'Otis'); await p.fill('#avp', '9848012345'); await p.fill('#aw', '2026-11-05');
@@ -97,7 +97,7 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
   await check('home shows reminders card for committee', async () => { await go(p, 'dash'); await has(p, /Service reminders/); });
 
   await go(p, 'meet');
-  await check('page title renamed', async () => { const t = await p.locator('nav button.on').innerText(); if (!/Meeting management/.test(t)) throw new Error(t); });
+  await check('page title renamed', async () => { const t = await p.locator('nav button.on').innerText(); if (!/^\s*Meeting\s*$/.test(t)) throw new Error(t); });
   await check('add meeting with agenda', async () => {
     await p.fill('#mt', 'Annual General Meeting'); await p.fill('#md', '2026-10-25'); await p.fill('#mp', 'Terrace'); await p.fill('#mag', '1. Accounts 2025-26\n2. Lift AMC renewal'); await p.click('#ms'); await settle(p);
     await has(p, /Annual General Meeting[\s\S]*Draft[\s\S]*Lift AMC renewal/); });
@@ -133,8 +133,12 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
     await e.fill('#vnm', 'Courier Ravi'); await e.selectOption('#vfl', '101'); await e.fill('#vpu', 'Delivery / courier'); await e.fill('#vph', '99999 11111'); await e.click('#vsv'); await settle(e);
     await e.fill('#vnm', 'Plumber Suresh'); await e.selectOption('#vfl', '102'); await e.fill('#vpu', 'Service / repair'); await e.click('#vsv'); await settle(e);
     await has(e, /Inside now · 2/); });
+  await check('record a visitor with entry and exit time', async () => {
+    await e.fill('#vnm', 'Guest Lakshmi'); await e.selectOption('#vfl', '201'); await e.fill('#vin', '09:00'); await e.fill('#vout', '09:45'); await e.click('#vsv'); await settle(e);
+    await has(e, /Inside now · 2/); const t = await e.locator('.tbl').first().innerText(); if (!/Lakshmi/.test(t) || !/9:00 AM – 9:45 AM/.test(t)) throw new Error(t.slice(0, 300)); });
+  await check('exit before entry is refused', async () => { await e.fill('#vnm', 'X'); await e.fill('#vin', '10:00'); await e.fill('#vout', '09:00'); await e.click('#vsv'); await e.waitForTimeout(300); if (/\bX\b/.test(await e.locator('.tbl').first().innerText())) throw new Error('saved'); await e.fill('#vnm', ''); await e.fill('#vout', ''); });
   await check('mark exit', async () => { await e.locator('h2:has-text("Inside now") + .card [data-vout]').first().click(); await settle(e); await has(e, /Inside now · 1/); });
-  await check('old-style count still adds to totals', async () => { await e.fill('#vn', '10'); await e.click('#vs'); await settle(e); const t = await e.locator('.tiles').first().innerText(); if (!/12\s*Today/.test(t)) throw new Error(t); });
+  await check('old-style count still adds to totals', async () => { await e.fill('#vn', '10'); await e.click('#vs'); await settle(e); const t = await e.locator('.tiles').first().innerText(); if (!/13\s*Today/.test(t)) throw new Error(t); });
   await check('filter by flat', async () => { await e.selectOption('#vffl', '102'); await e.click('#vfgo'); await e.waitForTimeout(300); const t = await e.locator('.tbl').first().innerText(); if (!/Suresh/.test(t) || /Ravi/.test(t)) throw new Error(t); });
   await check('visitor page fits the phone screen', () => noHScroll(e));
   await shot(e, 'visitors-executive');

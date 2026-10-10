@@ -42,9 +42,9 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v39"` in `public/sw.js`.
+Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v40"` in `public/sw.js`.
 
-## Committee features (Assets, Reminders, Meeting management, Emergency contacts, Visitor register, Complaint tracking, Audit log)
+## Committee features (Assets, Reminders, Meeting, Contacts, Visitor register, Complaint tracking, Audit log)
 The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
 
 **Update the backend FIRST** (the new Code.gs also works with the old app, so phones keep working while you do this):

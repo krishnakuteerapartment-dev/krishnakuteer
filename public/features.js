@@ -298,7 +298,7 @@ async function contacts(m) {
   ${rest.map(row).join("") || `<div class="card">No apartment contacts yet.${can ? " Add the lift technician, electrician, plumber, generator service and watchman below." : ""}</div>`}
   ${can ? `<h2>Edit emergency numbers</h2>${top.map(row).join("")}<h2>Add a contact</h2><div class="card">${ctForm()}<div class="f"><button class="w" id="csv">Save contact</button></div></div>` : ""}
   <div class="f">${prBtn("pct", "Print contact list")}</div>`;
-  $("#pct").onclick = () => printHTML("Emergency contacts", sheetHead("Emergency contacts") + ptable(["For", "Name", "Phone", "Other phone", "Notes", "Verified"], top.concat(rest).map(x => [esc((CC[x.category] || CC.other)[1]), esc(x.name), "<b>" + esc(x.phone) + "</b>", esc(x.alt_phone || ""), esc(x.notes || ""), dmx(x.verified_on) || "-"])));
+  $("#pct").onclick = () => printHTML("Contacts", sheetHead("Contacts") + ptable(["For", "Name", "Phone", "Other phone", "Notes", "Verified"], top.concat(rest).map(x => [esc((CC[x.category] || CC.other)[1]), esc(x.name), "<b>" + esc(x.phone) + "</b>", esc(x.alt_phone || ""), esc(x.notes || ""), dmx(x.verified_on) || "-"])));
   if (!can) return;
   $("#csv").onclick = async () => { const v = ctVals(); if (!v.name || !v.phone) return toast("Enter a name and a phone number"); const e = await saveBg("contacts", "insert", Object.assign(v, v.verified ? { verified_on: ld() } : {})); e ? toast(e) : (toast("Contact saved"), render()); };
   m.querySelectorAll("[data-ced]").forEach(b => b.onclick = () => { const x = C.find(q => String(q.id) === b.dataset.ced);
@@ -334,7 +334,7 @@ async function visitors(m, canW0) {
   const flatOpts = [["", res ? "" : "All flats"]].concat(flats.map(f => [String(f.flat_no), "Flat " + f.flat_no]), [["Common area", "Common area / office"]]);
   m.innerHTML = `<div class="card" style="padding:12px"><div class="tiles">${cards.map(([l, v]) => `<div><b>${v}</b><small>${l}</small></div>`).join("")}</div></div>
   ${canW ? `<h2>Record a visitor</h2><div class="card"><div class="f">${fld("Visitor name", inp("vnm", "", 'autocomplete="off" placeholder="Name"'))}${fld("Flat visited", sel("vfl", flatOpts.slice(1), ""))}${fld("Purpose", `<input id="vpu" list="vpul" placeholder="Choose or type"><datalist id="vpul">${PURP.map(p => `<option value="${esc(p)}">`).join("")}</datalist>`)}${fld("Phone (optional, committee only)", inp("vph", "", 'type="tel" inputmode="tel"'))}
-   ${fld("Date", dinp("vdt", T))}${fld("Entry time", `<input id="vin" type="time" value="${hmNow()}">`)}<button class="w" id="vsv">Save visitor</button></div></div>
+   ${fld("Date", dinp("vdt", T))}${fld("Entry time", `<input id="vin" type="time" value="${hmNow()}">`)}${fld("Exit time (leave empty if still inside)", `<input id="vout" type="time">`)}<button class="w" id="vsv">Save visitor</button></div></div>
    ${inside.length ? `<h2>Inside now · ${inside.length}</h2><div class="card">${inside.map(r => `<div class="it"><div><b>${esc(r.name)}</b><small>Flat ${esc(r.flat_no)} · ${esc(r.purpose || "")} · in ${t12(r.in_time)}</small></div><button data-vout="${r.id}">Exit now</button></div>`).join("")}</div>` : ""}` : ""}
   <h2>${res ? "Visitors to your flat" : "Visitor register"}</h2>
   <div class="card"><div class="f">${fld("From", dinp("vff", VF.from))}${fld("To", dinp("vft", VF.to))}${res ? "" : fld("Flat", sel("vffl", flatOpts, VF.flat))}${fld("Search name or purpose", inp("vfq", VF.q, 'type="search" placeholder="e.g. courier"'), res)}</div>
@@ -350,8 +350,9 @@ async function visitors(m, canW0) {
   if ($("#vpr")) $("#vpr").onclick = () => printHTML("Visitor register", sheetHead("Visitor register", [VF.from && "From " + dmx(VF.from), VF.to && "to " + dmx(VF.to), VF.flat && "Flat " + VF.flat].filter(Boolean).join(" ")) +
     ptable(["Sl.No", "Date", "In", "Out", "Visitor", "Flat", "Purpose"].concat(seePh ? ["Phone"] : []), F.map((r, i) => [i + 1, dm(r.d), t12(r.in_time), t12(r.out_time), esc(r.name), esc(r.flat_no || ""), esc(r.purpose || "")].concat(seePh ? [esc(r.phone || "")] : [])), null, ["c"]) + SIG, true);
   if (!canW) return;
-  $("#vsv").onclick = async () => { const v = { name: val("vnm"), flat_no: val("vfl"), purpose: val("vpu"), phone: val("vph"), visit_on: val("vdt"), in_time: val("vin") };
+  $("#vsv").onclick = async () => { const v = { name: val("vnm"), flat_no: val("vfl"), purpose: val("vpu"), phone: val("vph"), visit_on: val("vdt"), in_time: val("vin"), out_time: val("vout") };
     if (!v.name) return toast("Enter the visitor's name"); if (!v.visit_on || !/^\d{2}:\d{2}$/.test(v.in_time)) return toast("Enter the date and entry time");
+    if (v.out_time && v.out_time < v.in_time) return toast("Exit time must be after the entry time");
     const e = await saveBg("visitors", "insert", Object.assign(v, { count: 1 })); e ? toast(e) : (toast("Visitor saved"), render()); };
   $("#vs").onclick = async () => { const d = gd("vd"), n = Math.floor(+$("#vn").value); if (!d) return toast("Enter a valid date (dd/mm/yyyy)"); if (!(n >= 1)) return toast("Enter the number of visitors");
     const { error } = await db.from("visitors").insert({ visit_on: d, count: n }); error ? toast(error.message) : (toast("Saved: " + n + " visitors on " + dm(d)), render()); };
@@ -412,7 +413,7 @@ async function complaints(m) {
    ===================================================================================== */
 const AT = { payments: "Payments", expenses: "Expenses", income: "Income", maintenance_rates: "Maintenance per flat", closed_months: "Month lock", settings: "Opening balance", celebrations: "Celebrations",
   complaints: "Complaints", meetings: "Meetings", action_items: "Action items", notices: "Notices", polls: "Polls", gallery: "Documents", visitors: "Visitors", assets: "Assets", asset_service: "Service records",
-  reminders: "Reminders", contacts: "Emergency contacts", maintenance_log: "Maintenance log", status: "Apartment status", users: "Passwords" };
+  reminders: "Reminders", contacts: "Contacts", maintenance_log: "Maintenance log", status: "Apartment status", users: "Passwords" };
 const AA = { insert: ["Added", "grn"], update: ["Changed", "amb"], delete: ["Deleted", "red"], password: ["Password", "gry"] };
 let AF = { tbl: "", act: "", who: "", from: "", to: "" }, AR = null;
 async function auditLog(m) {
