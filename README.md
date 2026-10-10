@@ -42,7 +42,7 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v44"` in `public/sw.js`.
+Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v45"` in `public/sw.js`.
 
 ## Committee features (Assets, Reminders, Meeting, Contacts, Visitor register, Complaint tracking, Audit log)
 The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
@@ -101,3 +101,13 @@ Add `[skip notify]` to a commit message when you do NOT want users alerted.
 Push the files to GitHub. Each user opens the app once and taps **Turn on** on the home screen, then Allow.
 In PWABuilder > Android options, keep **Notification delegation** ON (rebuild the APK only if it was OFF).
 Android and desktop Chrome are supported. iPhones only get alerts if the site is added to the Home Screen from Safari.
+
+## Visitor approval (gate)
+1. Run `addWatchman()` once in Apps Script: it creates the **Watchman** sign-in and shows its starting password in View > Logs.
+   The watchman signs in on the gate phone and taps **Turn on** for alerts; that login sees only Visitors and Contacts.
+2. Watchman: enter the visitor and tap **Ask flat to approve**. The flat's phones get an alert with **Approve / Deny**
+   (and **Leave at gate** for deliveries). The gate screen turns green or red within a few seconds.
+   No answer for 3 minutes: **Call Flat** (the number the flat saved under Visitors > Phone number for the gate) or **Ask again**.
+3. Residents: **Guest passes** on the Visitors page. One visit = a 6-digit code to send the guest; Always allowed = daily help.
+   The gate types the code (or taps the name) and lets them in without a call.
+The one-time code inside each alert is kept only in the script cache for 30 minutes, never in the Sheet.

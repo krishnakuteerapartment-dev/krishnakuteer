@@ -92,7 +92,7 @@ function create(opts = {}) {
   const code = fs.readFileSync(opts.file, 'utf8');
   vm.runInContext(code + '\n;this.__x={route_,setup,addCommittee,read_,clearCache,keepWarm,dailyReminders_,dueItems_,snapshot_,findUser_,pushAll_,TABLES};', ctx);
   /* capture pushes instead of calling Firebase */
-  vm.runInContext("pushAll_ = function(t,b,u,to){ __push.push({t:t,b:b,to:to||null}); return {sent:1}; };", Object.assign(ctx, { __push: pushes }));
+  vm.runInContext("pushAll_ = function(t,b,u,to,ex){ __push.push({t:t,b:b,to:to||null,ex:ex||null}); return {sent:1}; };", Object.assign(ctx, { __push: pushes }));
   const call = body => { const out = ctx.doPost({ postData: { contents: JSON.stringify(body) } }); return JSON.parse(out.s); };
   return { ctx, ss, sheets, call, pushes, logs, props, drive, x: ctx.__x, run: s => vm.runInContext(s, ctx) };
 }

@@ -2,7 +2,7 @@
    Paste into Extensions > Apps Script of your Google Sheet, run setup() once, then Deploy > Web app. */
 
 const TABLES = {
-  flats: ['id', 'flat_no', 'monthly_amount'],
+  flats: ['id', 'flat_no', 'monthly_amount', 'phone'],
   payments: ['id', 'receipt_no', 'flat_id', 'month', 'amount', 'paid_on', 'mode', 'reference', 'remarks', 'created_at'],
   expenses: ['id', 'spent_on', 'category', 'amount', 'paid_to', 'mode', 'description', 'remarks', 'created_at', 'te'],
   income: ['id', 'received_on', 'category', 'amount', 'mode', 'remarks', 'created_at'],
@@ -21,7 +21,7 @@ const TABLES = {
   meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'attendance', 'attendees_other', 'minutes', 'resolutions', 'status', 'published_on'],
   polls: ['id', 'question', 'options', 'status', 'created_at', 'te'],
   votes: ['id', 'poll_id', 'flat_no', 'choice', 'created_at'],
-  visitors: ['id', 'visit_on', 'count', 'created_at', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'phone', 'added_by'],
+  visitors: ['id', 'visit_on', 'count', 'created_at', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'phone', 'added_by', 'status', 'decided_by', 'decided_at', 'pass_id'],
   status: ['item', 'state', 'updated_on'],
   push_tokens: ['token', 'username', 'role', 'updated_at'],
   /* ---- apartment assets, service history, reminders, emergency contacts, meeting action items, audit trail ---- */
@@ -30,20 +30,23 @@ const TABLES = {
   reminders: ['id', 'title', 'asset_id', 'kind', 'due_on', 'repeat_months', 'notify_days', 'status', 'done_on', 'notes', 'created_at', 'te'],
   contacts: ['id', 'category', 'name', 'phone', 'alt_phone', 'notes', 'verified_on', 'updated_by', 'created_at'],
   action_items: ['id', 'meeting_id', 'task', 'owner', 'due_on', 'status', 'done_on', 'created_at', 'te'],
-  audit_log: ['id', 'at', 'username', 'role', 'action', 'tbl', 'record_id', 'summary', 'before', 'after']
+  audit_log: ['id', 'at', 'username', 'role', 'action', 'tbl', 'record_id', 'summary', 'before', 'after'],
+  /* guest passes made by a flat: 'once' (a 6-digit code for one visit) or 'always' (daily help, milk, newspaper) */
+  guest_passes: ['id', 'flat_no', 'name', 'purpose', 'kind', 'valid_from', 'valid_to', 'code', 'status', 'used_at', 'created_by', 'created_at']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
-const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time'];
+const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by'];
 TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
-  'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary');
+  'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
+  'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
-const VIS = ['admin', 'treasurer', 'secretary', 'executive'];                /* who may add / delete visitors */
+const VIS = ['admin', 'treasurer', 'secretary', 'executive', 'watchman'];    /* who may add / delete visitors (the gate) */
 const ALL = ['admin', 'treasurer', 'secretary', 'president', 'executive', 'resident'], S = ['admin', 'treasurer', 'secretary', 'president'];
 const COM = ['admin', 'president', 'secretary', 'treasurer', 'executive'];  /* the committee: gets service reminders */
 const AUDITV = S;                                                            /* who may read the audit log */
-const SEEVIS = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may see every visitor's details */
+const SEEVIS = ['admin', 'president', 'secretary', 'treasurer', 'executive', 'watchman']; /* who may see every visitor's details */
 const RULES = {
   complaints: { insert: ALL, update: S, delete: S }, meetings: { insert: N, update: N, delete: N },
   polls: { insert: N, update: N, delete: N }, gallery: { insert: DOCUP, delete: N }, votes: { insert: ALL }, status: { upsert: W },
@@ -54,13 +57,14 @@ const RULES = {
   visitors: { insert: VIS, update: VIS, delete: VIS },
   assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S },
   reminders: { insert: COM, update: COM, delete: S }, contacts: { insert: S, update: S, delete: S },
-  action_items: { insert: N, update: S, delete: N }
+  action_items: { insert: N, update: S, delete: N },
+  guest_passes: { insert: ALL, update: ALL }
   /* audit_log has NO rule on purpose: nobody can add, change or delete it from the app */
 };
 /* tables whose changes are recorded in the audit log (votes never: ballots stay anonymous) */
 const AUDIT_T = ['payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
-  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status'];
-const AUDIT_BRIEF = ['visitors', 'complaints']; /* private details are NOT copied into the log for these: only what changed */
+  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats'];
+const AUDIT_BRIEF = ['visitors', 'complaints', 'guest_passes', 'flats']; /* private details are NOT copied into the log for these: only what changed */
 const ENUM = {
   assets: { kind: ['lift', 'generator', 'motor', 'water_pump', 'cctv', 'battery', 'other'], status: ['working', 'repair', 'out_of_service'] },
   asset_service: { kind: ['service', 'repair', 'inspection', 'replacement'] },
@@ -70,7 +74,7 @@ const ENUM = {
   meetings: { status: ['draft', 'published'] }
 };
 /* columns the app may never set directly (the server fills them) */
-const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by'];
+const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by', 'decided_by', 'decided_at', 'pass_id', 'code', 'used_at', 'created_by'];
 const DATE_OF = { payments: ['paid_on', 'month'], expenses: ['spent_on'], income: ['received_on'], maintenance_rates: ['month'] };
 
 /* ---------- one-time setup: creates the tabs and starter data ---------- */
@@ -146,9 +150,11 @@ function authorizeMail() { Logger.log('Mail quota left today: ' + MailApp.getRem
 
 /* Run once by hand: adds sign-in IDs for secretary, treasurer, executive (and president) if they are missing.
    Each gets a random starting password, shown in View > Logs. They must change it on first sign-in. */
+/* Run once by hand: adds the 'watchman' sign-in for the gate phone (sees only Visitors and Contacts). The password is in View > Logs. */
+function addWatchman() { addCommittee(); }
 function addCommittee() {
   const have = read_('users').map(u => String(u.username).trim().toLowerCase());
-  ['secretary', 'treasurer', 'executive', 'president'].forEach(role => {
+  ['secretary', 'treasurer', 'executive', 'president', 'watchman'].forEach(role => {
     if (have.indexOf(role) >= 0) { Logger.log(role + ': already exists, skipped'); return; }
     const pw = String(100000 + Math.floor(Math.random() * 900000));
     sh_('users').appendRow([role, role, '', pw, '', '', '', '']);
@@ -170,6 +176,8 @@ function route_(b) {
     try { return b.a === 'fpSend' ? fpSend_(b) : fpReset_(b); } finally { lock.releaseLock(); }
   }
   if (b.a === 'deployPing') return deployPing_(b);
+  /* Approve / Deny tapped on the alert itself: the phone sends the visitor id and the one-time code that came in that flat's alert */
+  if (b.a === 'visitorDecide' && b.code && !b.token) { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return decideByCode_(b); } finally { lock.releaseLock(); } }
   const u = session_(b.token);
   if (!u) return { auth: true, error: { message: 'Session expired. Please sign in again.' } };
   if (b.a === 'me') return { user: pub_(u) };
@@ -183,6 +191,12 @@ function route_(b) {
   if (b.a === 'after') return after_();
   if (b.a === 'audit') return auditRead_(u, b);
   if (b.a === 'folders') return folderLinks_(u);
+  if (b.a === 'visitorStatus') return visitorStatus_(u, b);
+  if (b.a === 'passCheck') return passCheck_(u, b);
+  if (b.a === 'visitorDecide' || b.a === 'flatPhone') {
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try { const r = b.a === 'flatPhone' ? flatPhone_(u, b) : decideByUser_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); }
+  }
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
@@ -190,7 +204,7 @@ function route_(b) {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try {
       if (b.a === 'pw') { const r0 = pw_(u, b); if (r0.ok) audit_(u, 'password', 'users', u.username, 'Password changed', null, null); return r0; }
-      let r; TOUCHED_ = {};
+      let r; TOUCHED_ = {}; ASK_ = false;
       try { r = write_(u, b); } catch (e) { cacheDrop_('snap'); throw e; }
       if (r && r.ok) { TOUCHED_[b.t] = 1; Object.keys(TOUCHED_).forEach(patchSnap_); r.snapshot = snapshot_(u); }
       return r;
@@ -232,7 +246,7 @@ function clearCache() { cacheDrop_('snap'); Logger.log('Cache cleared.'); }
 /* Google Sheets turns typed text such as "10:15" or "2026-10-10 08:18" into its own date/time values.
    Dates are read back as yyyy-MM-dd (with the time for the columns below); a cell holding only a time (Sheets
    stores it on 30/12/1899) is read from what the Sheet SHOWS, so it is never shifted by old time-zone rules. */
-const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen'];
+const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen', 'decided_at', 'used_at'];
 function timeText_(disp, k) {
   const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?/.exec(String(disp || ''));
   if (!m) return String(disp || '');
@@ -453,17 +467,31 @@ function tables_() {
   return T;
 }
 const SNAP_T = ['flats', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'notices', 'settings', 'maintenance_log', 'celebrations', 'visitors', 'complaints', 'gallery', 'meetings', 'polls', 'votes', 'status',
-  'assets', 'asset_service', 'reminders', 'contacts', 'action_items'];
+  'assets', 'asset_service', 'reminders', 'contacts', 'action_items', 'guest_passes'];
 /* E-mail verification is OPTIONAL: everybody may use the site without it (it is only needed for 'Forgot password'). */
 const verified_ = u => true;
 /* What each person receives. The FULL data never leaves the server for a resident: other flats' private details are removed here,
    not just hidden on the screen. */
 function snapshot_(u) {
   if (!verified_(u)) return { me: pub_(u) }; /* e-mail is optional */
-  const T = Object.assign({}, tables_());
+  const T0 = tables_(), T = Object.assign({}, T0);
   T.me = pub_(u);
   const mine = String(u.username).toLowerCase(), res = u.role === 'resident', myFlat = String(u.flat_id || '');
   const pick = (rows, keys) => rows.map(r => { const o = {}; keys.forEach(k => { if (r[k] !== undefined) o[k] = r[k]; }); return o; });
+  T.guest_passes = T.guest_passes || [];
+  const noCode = rows => rows.map(r => { const o = Object.assign({}, r); delete o.code; return o; });
+  /* the gate phone gets only what the gate needs: flats (with their gate phone), visitors, contacts and today's guest passes without their codes */
+  if (u.role === 'watchman') {
+    const W = {}; SNAP_T.forEach(t => W[t] = []);
+    W.flats = pick(T0.flats, ['id', 'flat_no', 'phone']); W.visitors = T0.visitors; W.contacts = T0.contacts;
+    W.guest_passes = noCode(T0.guest_passes.filter(g => g.status === 'active'));
+    W.me = T.me; W.profiles = [{ id: u.username, role: u.role, flat_id: u.flat_id }]; W.balance = []; W.votes = [];
+    return W;
+  }
+  if (res) {
+    T.guest_passes = T.guest_passes.filter(g => String(g.flat_no).toLowerCase() === mine);
+    T.flats = T.flats.map(f => String(f.flat_no).toLowerCase() === mine ? f : pick([f], ['id', 'flat_no', 'monthly_amount'])[0]);
+  } else T.guest_passes = noCode(T.guest_passes);
   if (res) {
     T.complaints = T.complaints.filter(c => String(c.flat_no).toLowerCase() === mine);
     /* payments: every flat's total stays visible for the monthly register, but receipt numbers, references and remarks only for your own flat */
@@ -471,7 +499,7 @@ function snapshot_(u) {
     T.income = pick(T.income, ['id', 'received_on', 'category', 'amount', 'mode', 'created_at']);
     T.gallery = T.gallery.filter(g => g.visibility !== 'committee');
     /* visitors: totals stay; names, purpose and times only for visitors to your own flat; phone numbers never */
-    T.visitors = T.visitors.map(v => String(v.flat_no || '').toLowerCase() === mine ? pick([v], ['id', 'visit_on', 'count', 'name', 'flat_no', 'purpose', 'in_time', 'out_time'])[0] : pick([v], ['id', 'visit_on', 'count'])[0]);
+    T.visitors = T.visitors.map(v => String(v.flat_no || '').toLowerCase() === mine ? pick([v], ['id', 'visit_on', 'count', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'status', 'decided_by', 'decided_at', 'created_at'])[0] : pick([v], ['id', 'visit_on', 'count'])[0]);
     /* meetings: minutes, resolutions, attendance and action items only after the committee publishes them */
     const pub = {};
     T.meetings = T.meetings.map(m => { if (m.status === 'published') { pub[m.id] = 1; return m; } return pick([m], ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'status'])[0]; });
@@ -495,7 +523,7 @@ function balance_(T) {
 }
 
 /* ---------- writing (permissions + month locks enforced here) ---------- */
-let TOUCHED_ = {}; /* every tab changed by one save, so the cached copy of each is refreshed */
+let TOUCHED_ = {}, ASK_ = false; /* every tab changed by one save, so the cached copy of each is refreshed */
 const DATE_COLS = ['installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'expected_on', 'on_date', 'visit_on'];
 const isDate_ = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const isTime_ = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || ''));
@@ -667,10 +695,32 @@ function write_(u, b) {
     p.updated_by = u.username;
   }
   if (t === 'visitors') {
+    if (op === 'insert') delete p.status;
+    /* entry with a guest pass: a 6-digit code (one visit) or a flat's 'always allowed' person */
+    if (op === 'insert' && (raw.pass_code || raw.always_pass_id)) {
+      const g = raw.pass_code ? findPass_(raw.pass_code) : read_('guest_passes').filter(x => String(x.id) === String(raw.always_pass_id) && x.kind === 'always' && x.status === 'active')[0];
+      if (!g || !passValid_(g)) return err(raw.pass_code ? 'This code is not valid today.' : 'This person is no longer on the allowed list.');
+      p.flat_no = String(g.flat_no); p.name = String(p.name || '').trim() || g.name; p.purpose = p.purpose || g.purpose || '';
+      p.status = g.kind === 'always' ? 'always' : 'pre_approved'; p.pass_id = g.id; p.decided_by = String(g.flat_no); p.decided_at = now_();
+      after = () => {
+        if (g.kind !== 'always') { setCells_('guest_passes', g.__r, { status: 'used', used_at: now_() }); queuePush_('Your guest has arrived', p.name + ' (pre-approved) entered at ' + (p.in_time || ''), { user: g.flat_no }); }
+      };
+    }
     if (op === 'insert' && String(p.name || '').trim()) {
       if (!String(p.flat_no || '').trim()) return err('Choose the flat visited.');
       p.count = 1; p.added_by = u.username;
       if (!isTime_(p.in_time)) return err('Enter the entry time.');
+      /* ask the flat: their phones get an alert with Approve / Deny */
+      if (raw.ask === true && !p.status) {
+        if (!read_('flats').some(f => String(f.flat_no) === String(p.flat_no))) return err('Approval can only be asked from a flat.');
+        p.status = 'waiting';
+        after = () => {};
+        ASK_ = true;
+      }
+    }
+    if (op === 'update') {
+      if (p.status != null && ['no_answer', 'cancelled', 'waiting'].indexOf(p.status) < 0) return err('Invalid status.');
+      if (p.status === 'waiting') ASK_ = 'again';
     }
     if (p.in_time != null && p.in_time !== '' && !isTime_(p.in_time)) return err('Enter a valid time.');
     if (p.out_time != null && p.out_time !== '' && !isTime_(p.out_time)) return err('Enter a valid time.');
@@ -678,6 +728,24 @@ function write_(u, b) {
     if (op === 'update') { delete p.count; delete p.visit_on; }
   }
 
+  if (t === 'guest_passes') {
+    if (op === 'insert') {
+      if (u.role === 'resident') p.flat_no = u.username;
+      else if (!read_('flats').some(f => String(f.flat_no) === String(p.flat_no))) return err('Choose the flat.');
+      if (!String(p.name || '').trim()) return err('Enter the guest\'s name.');
+      p.kind = p.kind === 'always' ? 'always' : 'once';
+      p.valid_from = isDate_(p.valid_from) ? p.valid_from : today_();
+      if (p.kind === 'once') { p.valid_to = isDate_(p.valid_to) ? p.valid_to : p.valid_from; if (p.valid_to < p.valid_from) return err('The last day must be on or after the first day.'); if (p.valid_to < today_()) return err('Choose today or a later day.'); }
+      else p.valid_to = isDate_(p.valid_to) ? p.valid_to : '';
+      const used = {}; read_('guest_passes').forEach(g => { if (g.status === 'active') used[String(g.code)] = 1; });
+      let c; do { c = String(100000 + parseInt(Utilities.getUuid().replace(/-/g, '').slice(0, 8), 16) % 900000); } while (used[c]);
+      p.code = c; p.status = 'active'; p.created_by = u.username;
+    }
+    if (op === 'update') {
+      if (Object.keys(p).some(k => k !== 'status') || p.status !== 'cancelled') return err('A guest pass can only be cancelled.');
+      if (u.role === 'resident' && before.some(g => String(g.flat_no).toLowerCase() !== String(u.username).toLowerCase())) return err('You do not have permission to do this.');
+    }
+  }
   if (t === 'polls' && op === 'insert') {
     const o = String(p.options || '').split('|').map(x => x.trim()).filter(Boolean);
     if (!String(p.question || '').trim() || o.length < 2) return err('Enter a question and at least two options.');
@@ -710,6 +778,8 @@ function write_(u, b) {
     sh.appendRow(cols.map(c => rec[c] == null ? '' : cell_(rec[c])));
     audit_(u, 'insert', t, rec.id != null ? rec.id : (rec.month || rec.item || ''), summary_(t, rec), null, rec);
     if (after) after();
+    if (t === 'visitors' && rec.status === 'waiting') askFlat_(rec);
+    if (t === 'guest_passes') return { ok: true, id: rec.id, code: rec.code };
     try { notifyNew_(t, rec); } catch (e) { /* a failed alert must never block saving */ }
     return { ok: true, id: rec.id };
   }
@@ -722,6 +792,7 @@ function write_(u, b) {
   }
   if (op === 'update') {
     if (!before.length) return err('Record not found.');
+    if (t === 'visitors' && ASK_ === 'again') before.forEach(r => { if (r.status !== 'no_answer') return; askFlat_(Object.assign({}, r, { status: 'waiting' })); });
     if (Object.keys(p).length) {
       before.forEach(r => cols.forEach((c, i) => { if (p[c] != null && c !== 'id') sh.getRange(r.__r, i + 1).setValue(cell_(p[c])); }));
       before.forEach(r => audit_(u, 'update', t, r.id, summary_(t, Object.assign({}, r, p)), r, Object.assign({}, r, p), p));
@@ -738,6 +809,82 @@ function write_(u, b) {
     return { ok: true };
   }
   return err('Unsupported action.');
+}
+
+/* ---------- VISITOR APPROVAL ----------
+   The gate asks a flat; that flat's phones get an alert with Approve / Deny (and Leave at gate). A one-time code in the alert lets the
+   phone answer straight from the alert; it is kept only in the script cache for 30 minutes, never in the Sheet. */
+const GATE_ALERT = ['watchman', 'executive', 'secretary', 'treasurer', 'admin']; /* who hears the answer */
+const VS_LABEL = { approved: 'approved', denied: 'denied', leave_at_gate: 'said: leave it at the gate' };
+function askFlat_(rec) {
+  const code = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+  const c = CacheService.getScriptCache(); c.put('vc_' + rec.id, code, 1800); c.put('vs_' + rec.id, 'waiting', 21600);
+  let api = ''; try { api = ScriptApp.getService().getUrl(); } catch (e) {}
+  try {
+    pushAll_('Visitor at the gate for Flat ' + rec.flat_no, rec.name + (rec.purpose ? ' (' + rec.purpose + ')' : '') + ' is waiting. Tap Approve or Deny.', '/#vis', { user: rec.flat_no },
+      { type: 'visit', vid: String(rec.id), code: code, api: api, purpose: String(rec.purpose || '') });
+  } catch (e) { Logger.log('Visitor alert failed: ' + e); }
+}
+function decide_(row, decision, by, u) {
+  const st = { approve: 'approved', deny: 'denied', gate: 'leave_at_gate' }[decision];
+  if (!st) return { error: { message: 'Choose Approve or Deny.' } };
+  if (['waiting', 'no_answer'].indexOf(row.status) < 0) return { ok: true, status: row.status, already: true };
+  setCells_('visitors', row.__r, { status: st, decided_by: by, decided_at: now_() });
+  CacheService.getScriptCache().put('vs_' + row.id, st, 21600); CacheService.getScriptCache().remove('vc_' + row.id);
+  audit_(u, 'update', 'visitors', row.id, 'Flat ' + row.flat_no + ' ' + VS_LABEL[st], { status: row.status }, { status: st });
+  try { pushAll_('Flat ' + row.flat_no + ' ' + VS_LABEL[st], String(row.name || 'Visitor') + (st === 'approved' ? ' can come in.' : st === 'denied' ? ' must not come in.' : ''), '/#vis', { roles: GATE_ALERT }); } catch (e) {}
+  return { ok: true, status: st };
+}
+function decideByCode_(b) {
+  const id = String(b.id || ''), want = CacheService.getScriptCache().get('vc_' + id);
+  if (!want || String(b.code) !== want) return { error: { message: 'This request has expired. Please open the app to answer.' } };
+  const row = read_('visitors').filter(v => String(v.id) === id)[0];
+  if (!row) return { error: { message: 'Visitor not found.' } };
+  const r = decide_(row, b.decision, String(row.flat_no) + ' (alert)', { username: String(row.flat_no), role: 'resident' });
+  if (r.ok) patchSnap_('visitors');
+  return r;
+}
+function decideByUser_(u, b) {
+  const row = read_('visitors').filter(v => String(v.id) === String(b.id))[0];
+  if (!row) return { error: { message: 'Visitor not found.' } };
+  if (u.role !== 'resident' || String(row.flat_no).toLowerCase() !== String(u.username).toLowerCase()) return { error: { message: 'Only the flat being visited can answer.' } };
+  const r = decide_(row, b.decision, String(u.username), u);
+  if (r.ok) patchSnap_('visitors');
+  return r;
+}
+/* the gate screen asks every few seconds: answered quickly from the cache, the Sheet is read only if needed */
+function visitorStatus_(u, b) {
+  if (VIS.indexOf(u.role) < 0 && u.role !== 'resident') return { error: { message: 'You do not have permission to do this.' } };
+  const ids = (b.ids || []).slice(0, 30).map(String), c = CacheService.getScriptCache(), out = {}, miss = [];
+  const got = c.getAll(ids.map(i => 'vs_' + i));
+  ids.forEach(i => { const v = got['vs_' + i]; if (v) out[i] = v; else miss.push(i); });
+  if (miss.length) read_('visitors').forEach(v => { if (miss.indexOf(String(v.id)) >= 0) { out[v.id] = v.status || ''; c.put('vs_' + v.id, v.status || 'entered', 21600); } });
+  return { ok: true, status: out };
+}
+function findPass_(code) { code = String(code || '').trim(); return /^\d{6}$/.test(code) ? read_('guest_passes').filter(g => String(g.code) === code && g.status === 'active')[0] || null : null; }
+function passValid_(g) {
+  const d = today_(), f = String(g.valid_from || '').slice(0, 10), to = String(g.valid_to || '').slice(0, 10);
+  return g.status === 'active' && (!f || f <= d) && (!to || to >= d);
+}
+/* the gate checks a 6-digit guest code (10 wrong tries per 10 minutes) */
+function passCheck_(u, b) {
+  if (VIS.indexOf(u.role) < 0) return { error: { message: 'You do not have permission to do this.' } };
+  const c = CacheService.getScriptCache(), k = 'pc_' + u.username, n = +c.get(k) || 0;
+  if (n >= 10) return { error: { message: 'Too many wrong codes. Please wait 10 minutes.' } };
+  const g = findPass_(b.code);
+  if (!g || !passValid_(g)) { c.put(k, String(n + 1), 600); return { error: { message: 'This code is not valid today.' } }; }
+  return { ok: true, pass: { id: g.id, name: g.name, flat_no: g.flat_no, purpose: g.purpose, kind: g.kind } };
+}
+/* the phone number the gate calls when a flat does not answer: a resident sets their own, the Association any flat's */
+function flatPhone_(u, b) {
+  const fno = String(b.flat_no || '').trim(), ph = String(b.phone || '').trim();
+  if (u.role === 'resident' ? fno.toLowerCase() !== String(u.username).toLowerCase() : S.indexOf(u.role) < 0) return { error: { message: 'You do not have permission to do this.' } };
+  if (ph && !/^[0-9+\-\s()]{6,20}$/.test(ph)) return { error: { message: 'Enter a valid phone number.' } };
+  const f = read_('flats').filter(x => String(x.flat_no) === fno)[0]; if (!f) return { error: { message: 'Flat not found.' } };
+  setCells_('flats', f.__r, { phone: ph });
+  audit_(u, 'update', 'flats', f.id, 'Gate phone number ' + (ph ? 'saved' : 'removed') + ' for Flat ' + fno, null, null);
+  patchSnap_('flats');
+  return { ok: true };
 }
 
 /* ---------- AUDIT LOG (tab 'audit_log'): who added, changed or deleted what, and when. Nobody can edit it from the app. ---------- */
@@ -1050,7 +1197,7 @@ function fcmAuth_() {
 /* Send one alert to every registered phone. Dead tokens (app uninstalled) are removed automatically.
    Sends BOTH a data message (Chrome / website) and an Android "notification" block (so the Android app
    shows the alert even when it is closed). */
-function pushAll_(title, body, url, to) {
+function pushAll_(title, body, url, to, ex) {
   const auth = fcmAuth_();
   if (!auth) return { sent: 0, note: 'Push not configured (FCM_SERVICE_ACCOUNT missing).' };
   const rows = read_('push_tokens').filter(r => !to ||
@@ -1060,9 +1207,9 @@ function pushAll_(title, body, url, to) {
   const api = 'https://fcm.googleapis.com/v1/projects/' + auth.project + '/messages:send';
   const t80 = String(title).slice(0, 80), b180 = String(body).slice(0, 180);
   const msg = tk => ({ url: api, method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + auth.token },
-    payload: JSON.stringify({ message: { token: tk, data: { title: t80, body: b180, url: url || '/' },
-      android: { priority: 'HIGH', ttl: '86400s', notification: { title: t80, body: b180 } },
-      webpush: { headers: { Urgency: 'high', TTL: '86400' } } } }) });
+    payload: JSON.stringify({ message: { token: tk, data: Object.assign({ title: t80, body: b180, url: url || '/' }, ex || {}),
+      android: { priority: 'HIGH', ttl: ex ? '600s' : '86400s', notification: { title: t80, body: b180 } },
+      webpush: { headers: { Urgency: 'high', TTL: ex ? '600' : '86400' } } } }) });
   let sent = 0; const dead = [];
   for (let i = 0; i < rows.length; i += 40) {
     const part = rows.slice(i, i + 40), res = UrlFetchApp.fetchAll(part.map(r => msg(String(r.token))));

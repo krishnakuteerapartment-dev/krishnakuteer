@@ -182,12 +182,12 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const CATS=["Electricity","Water","Lift","Generator","Diesel","Watchman","Cleaning","Plumbing","Electrical","Repairs","Pest Control","Garden","Festival","Administrative","Other"];
 const WRITE=["admin","treasurer","secretary"],NOTICE=["admin","president","secretary"];
 const LG=()=>window.KK_LGSW?window.KK_LGSW():"";
-let me=null,tab="dash",month="2026-10";
+let me=null,tab=location.hash==="#vis"?"vis":"dash",month="2026-10";
 function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",2800)}
 
 const toEmail=u=>{u=u.trim().toLowerCase();return u.includes("@")?u:u+"@krishnakuteer.app"};
 /* Sign-in dropdown: fixed list, shown instantly (no network needed). */
-const IDS=[..."101 102 201 202 301 302 401 402 501 502".split(" ").map(u=>({u,l:"Flat "+u})),{u:"executive",l:"Executive"},{u:"president",l:"President"},{u:"secretary",l:"Secretary"},{u:"treasurer",l:"Treasurer"}];
+const IDS=[..."101 102 201 202 301 302 401 402 501 502".split(" ").map(u=>({u,l:"Flat "+u})),{u:"executive",l:"Executive"},{u:"president",l:"President"},{u:"secretary",l:"Secretary"},{u:"treasurer",l:"Treasurer"},{u:"watchman",l:"Watchman (gate)"}];
 function fillIds(){const el=document.getElementById("em");if(!el||el.tagName!=="SELECT")return;
  el.innerHTML='<option value="">Select your ID</option>'+IDS.map(x=>`<option value="${esc(x.u)}">${esc(x.l)}</option>`).join("")}
 function loginView(msg=""){document.body.classList.remove("menu-open");app.innerHTML=`<div class="login card${msg?" shake":""}">${LG()}<img class="hero-img" src="${HERO}" width="640" height="344" fetchpriority="high" decoding="async" alt="Krishna Kuteer Apartment building" onload="this.classList.add('ld')"><div class="logo"><img src="${LOGO}" alt=""></div><h2>Krishna Kuteer Apartment</h2><p class="sub">Sign in to your account</p>
@@ -252,7 +252,8 @@ Object.assign(IC,{comp:ic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h
 async function render(){const chg=lastTab!==tab,y=chg?0:window.scrollY;
  const staff=me.role!=="resident",canW=WRITE.includes(me.role);
  const tabs=[["dash","Home"],["work","Maintenance"],["maint","Payments"]].concat(staff?[["exp","Expenses"],["st","Statement"]]:[],[["cel","Celebrations"],["vis","Visitors"],["doc","Documents"],["not","Notices"],["comp","Complaints"],["meet","Meeting"],["poll","Voting"],["assets","Assets"]],isIn(R_COM)?[["rem","Reminders"]]:[],[["sos","Contacts"]],isIn(R_S)?[["audit","Audit log"]]:[]);
- if(!tabs.some(t=>t[0]===tab))tab="dash";
+ if(me.role==="watchman")tabs.splice(0,tabs.length,["vis","Visitors"],["sos","Contacts"]);
+ if(!tabs.some(t=>t[0]===tab))tab=tabs[0][0];
  app.innerHTML=`<header><div class="hl"><button class="menubtn" id="hb" aria-label="Open menu" aria-expanded="false"><svg class="l" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg><svg class="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="brand"><span class="logo"><img src="${LOGO}" alt="Krishna Kuteer logo"></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div></div>${LG()}<div class="hdr-actions"><button class="ghost" style="width:auto" id="cp">Password</button> <button class="ghost" style="width:auto" id="out">Sign out</button></div></header>
  <div id="scrim"></div>
  <main id="m" aria-busy="true">${SKEL}</main><nav><div class="navhead"><span class="logo"><img src="${LOGO}" alt=""></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div>${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===tab?"on":""}">${IC[k]||FIC[k]||""}<span>${l}</span></button>`).join("")}<div class="navfoot"><button id="cp2">Change password</button><button id="out2" class="so">Sign out</button></div></nav>`;
@@ -263,7 +264,7 @@ async function render(){const chg=lastTab!==tab,y=chg?0:window.scrollY;
  document.onkeydown=e=>{if(e.key==="Escape")setMenu(false)};
  {const hd=app.querySelector("header"),sh=()=>document.documentElement.style.setProperty("--hh",hd.offsetHeight+"px");sh();if(window.ResizeObserver)new ResizeObserver(sh).observe(hd);else addEventListener("resize",sh)}
  document.querySelectorAll(".brand,.navhead").forEach(el=>{el.setAttribute("role","link");el.setAttribute("tabindex","0");el.setAttribute("aria-label","Go to Home");
-  const go=()=>{tab="dash";document.body.classList.remove("menu-open");window.scrollTo(0,0);render()};el.onclick=go;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
+  const go=()=>{tab=me.role==="watchman"?"vis":"dash";document.body.classList.remove("menu-open");window.scrollTo(0,0);render()};el.onclick=go;el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.body.classList.remove("menu-open");render()});
  const m=$("#m");
  try{const lk=await isClosed(),cW=canW&&!lk;if(tab==="dash")await dash(m,staff);else if(tab==="maint"){await maint(m,cW);await incomeBox(m,cW)}
@@ -669,7 +670,7 @@ async function homeHtml(F,staff,who){
  const[n1,n2,n3,n4,n5,n6]=await Promise.all(["notices","status","maintenance_log","complaints","meetings","visitors"].map(t=>db.from(t).select("*"))),
   nts=(n1.data||[]).sort((a,b)=>b.id-a.id),sm=Object.fromEntries((n2.data||[]).map(r=>[r.item,r.state])),canS=WRITE.includes(me.role),today=ld(),vday=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,10)===today).reduce((a,r)=>a+(+r.count||0),0),vmon=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,7)===today.slice(0,7)).reduce((a,r)=>a+(+r.count||0),0),
   ev=(n5.data||[]).filter(e=>String(e.on_date)>=today).sort((a,b)=>String(a.on_date).localeCompare(b.on_date)||String(a.at_time).localeCompare(b.at_time)).slice(0,3),
-  remc=await remHome(),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
+  remc=(await gateHome())+(await remHome()),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
  return `${window.KKPush?KKPush.card():""}<div class="wel"><h1>Namaste 🙏, ${esc(who)}</h1><small>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small></div>
  ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l])=>`<div class="card"><b>${v}</b><span>${esc(l)}</span></div>`).join("")}</div>`:""}
  <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today"],[vmon,"This month"]].map(([v,l])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div></div>

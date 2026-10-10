@@ -308,6 +308,22 @@
     "Nothing recorded for this choice.": "ఈ ఎంపికకు ఏమీ నమోదు కాలేదు.", "Association only": "అసోసియేషన్‌కు మాత్రమే", "Everyone can see it": "అందరూ చూడవచ్చు", "Association only (residents cannot see it)": "అసోసియేషన్‌కు మాత్రమే (నివాసులు చూడలేరు)",
     "Add a PDF": "PDF జోడించండి", "Apartment documents in Google Drive": "గూగుల్ డ్రైవ్‌లో అపార్ట్‌మెంట్ పత్రాలు", "Choose a folder…": "ఫోల్డర్ ఎంచుకోండి…", "Folder": "ఫోల్డర్", "Open folder in Google Drive": "గూగుల్ డ్రైవ్‌లో ఫోల్డర్ తెరవండి", "Could not load the folder links.": "ఫోల్డర్ లింకులు లోడ్ కాలేదు.", "Add pictures": "ఫోటోలు జోడించండి"
   };
+  var TE3 = {
+    "🔔 Ask flat to approve": "🔔 ఫ్లాట్ అనుమతి అడగండి", "Save without asking": "అడగకుండా సేవ్ చేయండి", "Waiting for flat": "ఫ్లాట్ సమాధానం కోసం", "No answer": "సమాధానం లేదు",
+    "Approved": "అనుమతించారు", "Denied": "నిరాకరించారు", "Leave at gate": "గేట్ వద్ద ఉంచండి", "Pre-approved": "ముందే అనుమతి", "Always allowed": "ఎల్లప్పుడూ అనుమతి", "Cancelled": "రద్దు",
+    "Approve": "అనుమతించు", "Deny": "నిరాకరించు", "Ask again": "మళ్ళీ అడగండి", "Mark no answer": "సమాధానం లేదని గుర్తించండి", "Mark exit": "బయటకు వెళ్ళినట్లు గుర్తించండి", "Let in": "లోపలికి అనుమతించండి",
+    "Guest code": "అతిథి కోడ్", "Check": "చెక్ చేయండి", "Answered": "సమాధానం వచ్చింది", "At the gate now": "ఇప్పుడు గేట్ వద్ద",
+    "Guest passes": "అతిథి పాస్‌లు", "Guest's name": "అతిథి పేరు", "One visit (code)": "ఒక్కసారి (కోడ్)", "Make guest pass": "అతిథి పాస్ తయారు చేయండి", "Share code": "కోడ్ పంపండి", "One visit": "ఒక్కసారి",
+    "To (same day if one day)": "వరకు (ఒక్క రోజైతే అదే రోజు)", "Phone number for the gate": "గేట్ కోసం ఫోన్ నంబర్", "Watchman (gate)": "వాచ్‌మెన్ (గేట్)", "Watchman": "వాచ్‌మెన్",
+    "If you don't answer the alert, the watchman can call this number. Only the gate and the Association can see it.": "మీరు హెచ్చరికకు సమాధానం ఇవ్వకపోతే వాచ్‌మెన్ ఈ నంబర్‌కు కాల్ చేయవచ్చు. గేట్ మరియు అసోసియేషన్ మాత్రమే చూడగలరు.",
+    "Phone number saved": "ఫోన్ నంబర్ సేవ్ అయింది", "Pass cancelled": "పాస్ రద్దు అయింది", "Approval": "అనుమతి", "Guest passes & gate phone numbers": "అతిథి పాస్‌లు & గేట్ ఫోన్ నంబర్లు"
+  };
+  for (var k3 in TE3) if (Object.prototype.hasOwnProperty.call(TE3, k3)) TE[k3] = TE3[k3];
+  PAT.push(
+    [/^Waiting for an answer · (\d+)$/, function (m, a) { return "సమాధానం కోసం ఎదురుచూస్తున్నవి · " + a; }],
+    [/^(\d+) min waiting$/, function (m, a) { return a + " నిమిషాలుగా ఎదురుచూస్తున్నారు"; }],
+    [/^Call Flat (.+)$/, function (m, a) { return "ఫ్లాట్ " + a + " కు కాల్"; }]
+  );
   for (var k2 in TE2) if (Object.prototype.hasOwnProperty.call(TE2, k2)) TE[k2] = TE2[k2];
   PAT.push(
     [/^(\d+) days? late$/, function (m, a) { return a + " రోజులు ఆలస్యం"; }],
