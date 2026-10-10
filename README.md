@@ -64,7 +64,7 @@ Then merge the website changes; the APK picks them up on its own (no new APK nee
 | Meeting records | agenda; minutes, attendance, resolutions, action items only after **Publish** | same as residents | president/secretary/admin edit; treasurer updates action items |
 | Emergency contacts | view + one-tap call | view + call | add / edit / verify |
 | Visitor register | totals + visitors to their own flat (no phone numbers) | record / exit / delete | see everything |
-| Complaints | raise, see their own + history | – | assign, set expected date, change status |
+| Complaints | raise, see their own + history | – | assign, set expected date, change status; president, secretary and treasurer are alerted of each new complaint |
 | Audit log | – | – | read only (nobody can edit it from the app) |
 
 **Privacy:** a resident's phone never receives other flats' payment references/remarks/receipt numbers, other flats'

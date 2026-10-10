@@ -927,7 +927,16 @@ function notifyNew_(t, rec) {
   if (t === 'notices') queuePush_('New notice', String(rec.title || ''));
   else if (t === 'meetings') queuePush_(rec.kind === 'event' ? 'New event' : 'New meeting', String(rec.title || '') + (rec.on_date ? ' - ' + String(rec.on_date).slice(0, 10) : ''));
   else if (t === 'polls') queuePush_('New poll - please vote', String(rec.question || ''));
+  else if (t === 'gallery') {
+    /* several photos uploaded together give ONE alert; committee-only files alert only the committee */
+    const c = CacheService.getScriptCache(), k = ('gal_' + String(rec.title || '') + '|' + rec.folder + '|' + rec.visibility).slice(0, 200);
+    if (c.get(k)) return; c.put(k, '1', 600);
+    queuePush_(rec.kind === 'pdf' ? 'New document' : 'New photos', (String(rec.title || rec.name || '') || 'Added') + ' - ' + (rec.folder || 'Other'), rec.visibility === 'committee' ? { roles: COM } : null);
+  }
+  else if (t === 'complaints') queuePush_('New complaint ' + (rec.ticket_no || ''), 'Flat ' + rec.flat_no + ': ' + String(rec.title || ''), { roles: COMPLAINT_ALERT });
 }
+/* who is alerted when a resident raises a complaint */
+const COMPLAINT_ALERT = ['president', 'secretary', 'treasurer'];
 /* ---------- SPEED: alerts and Telugu copies are made just AFTER a save, not during it ----------
    The app calls 'after' quietly a moment after each save; keepWarm (every 5 minutes) also does it as a safety net. */
 /* to: {user:'101'} = only that flat's phones, {roles:[...]} = only those roles' phones, nothing = everybody */

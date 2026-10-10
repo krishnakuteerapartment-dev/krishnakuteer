@@ -109,7 +109,9 @@ console.log('6. Complaint tracking');
 let c1;
 t('resident raises complaint linked to lift, gets ticket number', () => { ok(W('f101', 'complaints', 'insert', { title: 'Lift stuck', details: 'Between 2nd and 3rd floor', asset_id: liftId, assigned_to: 'me' })); const c = snap('f101').complaints[0]; c1 = c.id;
   assert(/^KK-\d{4}-0001$/.test(c.ticket_no), c.ticket_no); assert.strictEqual(String(c.asset_id), String(liftId)); assert(!c.assigned_to, 'resident must not assign'); assert.strictEqual(JSON.parse(c.history).length, 1); });
-t('second ticket number increments', () => { ok(W('f102', 'complaints', 'insert', { title: 'Tap leaking' })); assert(/-0002$/.test(snap('f102').complaints[0].ticket_no)); });
+t('new complaint alerts only president, secretary, treasurer', () => { G.pushes.length = 0; ok(W('f102', 'complaints', 'insert', { title: 'Alert test' })); G.call({ token: tok.f102, a: 'after' });
+  const p = G.pushes.find(x => /Alert test/.test(x.b)); assert(p && /Flat 102: Alert test/.test(p.b), JSON.stringify(G.pushes)); assert.deepStrictEqual(p.to.roles, ['president', 'secretary', 'treasurer']); });
+t('second ticket number increments', () => { ok(W('f102', 'complaints', 'insert', { title: 'Tap leaking' })); assert(/-0003$/.test(snap('f102').complaints.find(c => c.title === 'Tap leaking').ticket_no)); });
 t('flat 102 cannot see flat 101 complaint', () => assert(!snap('f102').complaints.some(c => c.id === c1)));
 t('secretary assigns, sets expected date, moves to In progress; resident alerted', () => {
   G.pushes.length = 0;
@@ -144,6 +146,14 @@ t('committee-only document hidden from residents and its file refused', () => {
   ok(W('sec', 'gallery', 'insert', { title: 'Bank statement', photo: fid, kind: 'photo', folder: 'Association', visibility: 'committee' }));
   assert(!snap('f101').gallery.some(g => g.photo === fid)); assert(snap('tre').gallery.some(g => g.photo === fid));
   no(G.call({ token: tok.f101, a: 'photo', id: fid })); assert(G.call({ token: tok.tre, a: 'photo', id: fid }).ok); });
+t('document upload alerts everyone, once per batch; committee-only alerts committee', () => {
+  const cache = G.ctx.CacheService.getScriptCache(), up = n => { const id = 'f' + String(n).repeat(32).slice(0, 32); cache.put('up_' + id, 'secretary'); G.sheets.file_data.appendRow([id, 1, 'image/png', 'iVBORw0KGgo=']); return id; };
+  G.pushes.length = 0;
+  ok(W('sec', 'gallery', 'insert', { title: 'Diwali 2026', photo: up(1), kind: 'photo', folder: 'Association' })); ok(W('sec', 'gallery', 'insert', { title: 'Diwali 2026', photo: up(2), kind: 'photo', folder: 'Association' }));
+  ok(W('sec', 'gallery', 'insert', { title: 'Bye-laws', photo: up(3), kind: 'pdf', folder: 'Association', visibility: 'committee' }));
+  G.call({ token: tok.sec, a: 'after' });
+  const ph = G.pushes.filter(x => x.t === 'New photos' && /Diwali/.test(x.b)), pd = G.pushes.find(x => x.t === 'New document');
+  assert.strictEqual(ph.length, 1, JSON.stringify(G.pushes)); assert.strictEqual(ph[0].to, null); assert(pd && pd.to.roles.includes('executive') && !pd.to.roles.includes('resident'), JSON.stringify(G.pushes)); });
 t('update without a filter is refused (no mass edits)', () => no(W('sec', 'contacts', 'update', { phone: '1' }, []), /not found/));
 t('formula text stored as plain text', () => { ok(W('f101', 'complaints', 'insert', { title: '=IMPORTXML("http://x","//a")' })); const row = G.sheets.complaints.rows.find(r => String(r[2]).includes('IMPORTXML')); assert(row, 'stored'); });
 t('server-only columns ignored (te, history)', () => { ok(W('sec', 'assets', 'update', { te: '{"name":"hack"}' }, [['id', genId]])); assert.notStrictEqual(snap('sec').assets.find(a => a.id === genId).te, '{"name":"hack"}'); });
