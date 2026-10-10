@@ -310,7 +310,9 @@ async function contacts(m) {
 /* =====================================================================================
    5. VISITOR REGISTER (names + flat + purpose + times; old daily counts still count)
    ===================================================================================== */
-let vp = "d", VF = null, GATE_T = null, PASSHOW = null;
+let vp = "d", VF = null, GATE_T = null, PASSHOW = null, ALF = "";
+/* gate: the Always allowed list's flat filter starts at "All flats" whenever the app is opened again or comes back from the background */
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && ALF) { ALF = ""; if (typeof tab !== "undefined" && tab === "vis" && me && isIn(R_VIS)) calm(); } });
 const PURP = ["Guest / relative", "Delivery / courier", "Service / repair", "Cab / taxi", "Domestic help", "Official visit", "Other"];
 /* visitor approval: what each status means on screen */
 const VST = { waiting: ["Waiting for flat", "amb"], no_answer: ["No answer", "red"], approved: ["Approved", "grn"], denied: ["Denied", "red"], leave_at_gate: ["Leave at gate", "gry"],
@@ -387,7 +389,7 @@ async function visitors(m, canW0) {
     <div class="btnrow"><button id="vask">🔔 Ask flat to approve</button><button class="ghost" id="vsv">Save without asking</button></div>
     <p class="note" style="margin:8px 0 0">“Ask flat to approve” sends an alert with Approve / Deny to the flat's phones. This screen turns green or red when they answer.</p></div>
    <h2>Guest code</h2><div class="card"><div style="display:flex;gap:8px"><input id="gpc" inputmode="numeric" maxlength="6" placeholder="6-digit code from the guest" style="flex:1;min-width:0"><button id="gpck" style="width:auto">Check</button></div><div id="gpres"></div></div>
-   ${always.length ? `<h2>Always allowed</h2><div class="card">${always.map(p => `<div class="it"><div><b>${esc(p.name)}</b><small>Flat ${esc(p.flat_no)}${p.purpose ? " · " + esc(p.purpose) : ""}</small></div><button data-vall="${p.id}">Let in</button></div>`).join("")}</div>` : ""}
+   ${always.length ? `<h2>Always allowed · ${always.length}</h2><div class="card"><label class="fl" for="alf">Show</label>${sel("alf", [["", "All flats (" + always.length + ")"]].concat([...new Set(always.map(p => String(p.flat_no)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).map(f => [f, "Flat " + f + " (" + always.filter(p => String(p.flat_no) === f).length + ")"])), ALF)}<div style="height:6px"></div>${always.filter(p => !ALF || String(p.flat_no) === ALF).map(p => `<div class="it"><div><b>${esc(p.name)}</b><small>Flat ${esc(p.flat_no)}${p.purpose ? " · " + esc(p.purpose) : ""}</small></div><button data-vall="${p.id}">Let in</button></div>`).join("")}</div>` : ""}
    ${inside.length ? `<h2>Inside now · ${inside.length}</h2><div class="card">${inside.map(r => `<div class="it"><div><b>${esc(r.name)}</b> ${vTag(r)}<small>Flat ${esc(r.flat_no)} · ${esc(r.purpose || "")} · in ${t12(r.in_time)}</small></div><button data-vout="${r.id}">Exit now</button></div>`).join("")}</div>` : ""}` : "";
   /* ---- resident screens: answer the gate, guest passes, gate phone ---- */
   const myWait = res ? waiting.filter(r => String(r.flat_no) === String(me.id)) : [];
@@ -459,6 +461,7 @@ async function visitors(m, canW0) {
     catch (e) { box.innerHTML = `<p class="err">⛔ ${esc(e.message)}</p>`; } };
   if ($("#vs")) $("#vs").onclick = async () => { const d = gd("vd"), n = Math.floor(+$("#vn").value); if (!d) return toast("Enter a valid date (dd/mm/yyyy)"); if (!(n >= 1)) return toast("Enter the number of visitors");
     const { error } = await db.from("visitors").insert({ visit_on: d, count: n }); error ? toast(error.message) : (toast("Saved: " + n + " visitors on " + dm(d)), render()); };
+  if ($("#alf")) { if (ALF && !always.some(p => String(p.flat_no) === ALF)) ALF = ""; $("#alf").onchange = e => { ALF = e.target.value; render(); }; }
   m.querySelectorAll("[data-vall]").forEach(b => b.onclick = async () => { const p = always.find(x => String(x.id) === b.dataset.vall);
     const rec = { visit_on: ld(), in_time: hmNow(), name: p.name, purpose: p.purpose || "", count: 1 };
     try { await instant(c => applyLocal(c, "visitors", "insert", Object.assign({}, rec, { flat_no: p.flat_no, status: "always", decided_by: p.flat_no, decided_at: nowS() }), []), wbody("visitors", "insert", Object.assign({}, rec, { always_pass_id: p.id }))); } catch (e) { return toast(e.message); }

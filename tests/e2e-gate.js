@@ -59,6 +59,15 @@ const txt = p => p.locator('#m').innerText();
   await check('always-allowed person appears at the gate and is let in with one tap', async () => { await r.fill('#pnm', 'Lakshmi'); await r.fill('#ppu', 'Domestic help'); await r.selectOption('#pkd', 'always'); await r.click('#psv'); await r.waitForTimeout(800);
     await fresh(w); await go(w, 'vis'); await w.locator('[data-vall]').first().click(); await w.waitForTimeout(800); if (!G.x.read_('visitors').some(x => x.name === 'Lakshmi' && x.status === 'always')) throw new Error('not saved'); });
   await check('always-allowed pass has no end date, so it still works tomorrow', async () => { const g = G.x.read_('guest_passes').find(x => x.name === 'Lakshmi'); if (g.valid_to) throw new Error('ends on ' + g.valid_to); });
+  await check('Always allowed list: All flats by default, choose one flat, back to All after the app returns from background', async () => {
+    const id = G.call({ token: G.call({ a: 'login', u: '102', p: '123456x' }).token, a: 'write', t: 'guest_passes', op: 'insert', payload: { name: 'Milk Ravi', purpose: 'Milk', kind: 'always' }, filters: [] }).id;
+    await fresh(w); await go(w, 'vis'); if (await w.inputValue('#alf') !== '') throw new Error('not All by default');
+    const card = () => w.locator('h2:has-text("Always allowed") + .card').innerText();
+    let t = await card(); if (!/Lakshmi/.test(t) || !/Milk Ravi/.test(t)) throw new Error('All should list both: ' + t);
+    await w.selectOption('#alf', '102'); await w.waitForTimeout(300); t = await card(); if (/Lakshmi/.test(t) || !/Milk Ravi/.test(t)) throw new Error('flat 102 only: ' + t);
+    await fresh(w); await go(w, 'vis'); if (await w.inputValue('#alf') !== '102') throw new Error('choice lost while still using the app');
+    await w.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }); await w.waitForTimeout(400);
+    if (await w.inputValue('#alf') !== '') throw new Error('not reset to All'); });
   await check('register shows the approval status', async () => { const t = await w.locator('.tbl').first().innerText(); if (!/Approved/.test(t) || !/Pre-approved/.test(t) || !/Always allowed/.test(t)) throw new Error(t.slice(0, 400)); });
   const r2 = await session(b, '102'); await go(r2, 'vis');
   await check('Flat 102 sees none of Flat 101\'s visitors, passes or phone', async () => { const t = await txt(r2); if (/Ramu|Mother|Lakshmi|98480/.test(t)) throw new Error('leak'); });

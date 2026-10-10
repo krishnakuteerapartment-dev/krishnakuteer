@@ -42,7 +42,7 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v47"` in `public/sw.js`.
+Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v48"` in `public/sw.js`.
 
 ## Committee features (Assets, Reminders, Meeting, Contacts, Visitor register, Complaint tracking, Audit log)
 The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
