@@ -217,14 +217,31 @@ function cachePutBig_(name, obj, ttl) {
 const cacheDrop_ = name => CacheService.getScriptCache().remove(name + '_meta');
 /* Run this by hand after editing the Sheet directly, to see your edits immediately. */
 function clearCache() { cacheDrop_('snap'); Logger.log('Cache cleared.'); }
+/* Google Sheets turns typed text such as "10:15" or "2026-10-10 08:18" into its own date/time values.
+   Dates are read back as yyyy-MM-dd (with the time for the columns below); a cell holding only a time (Sheets
+   stores it on 30/12/1899) is read from what the Sheet SHOWS, so it is never shifted by old time-zone rules. */
+const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen'];
+function timeText_(disp, k) {
+  const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?/.exec(String(disp || ''));
+  if (!m) return String(disp || '');
+  let h = +m[1]; const mi = m[2], ap = m[3] ? m[3].toUpperCase() : '';
+  if (ap === 'PM' && h < 12) h += 12; if (ap === 'AM' && h === 12) h = 0;
+  return k === 'at_time' ? ((h % 12) || 12) + ':' + mi + ' ' + (h < 12 ? 'AM' : 'PM') : String(h).padStart(2, '0') + ':' + mi;
+}
+function cellOut_(x, k, disp, tz) {
+  if (!(x instanceof Date)) return x;
+  if (x.getFullYear() < 1900) return timeText_(disp, k);
+  return Utilities.formatDate(x, tz, STAMP_COLS.indexOf(k) >= 0 ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd');
+}
 function read_(t) {
   const sh0 = sh_(t); if (!sh0) return [];
-  const v = sh0.getDataRange().getValues(), h = v[0], tz = tz_();
+  const rg = sh0.getDataRange(), v = rg.getValues(), h = v[0], tz = tz_();
+  let dv = null; const disp = (i, j) => (dv || (dv = rg.getDisplayValues()))[i][j];
   return v.slice(1).map((r, i) => {
     const o = { __r: i + 2 };
     h.forEach((k, j) => {
       let x = r[j];
-      if (x instanceof Date) x = Utilities.formatDate(x, tz, k === 'created_at' || k === 'closed_at' ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd');
+      if (x instanceof Date) x = cellOut_(x, k, x.getFullYear() < 1900 ? disp(i + 1, j) : '', tz);
       o[k] = x === '' ? null : (STR_COLS.indexOf(k) >= 0 ? String(x) : x);
     });
     return o;
@@ -470,7 +487,9 @@ const isDate_ = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const isTime_ = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || ''));
 const today_ = () => now_().slice(0, 10);
 /* text that starts with = + or - would become a formula inside the Sheet: store it as plain text instead */
-const cell_ = v => (typeof v === 'string' && /^[=+\-@]/.test(v) && isNaN(+v)) ? "'" + v : v;
+/* A leading ' keeps it as text. It is also used for times ("10:15", "6:00 PM") and numbers with a leading 0 (phone numbers),
+   which Sheets would otherwise change into its own time value or drop the 0 from. Dates (yyyy-MM-dd) are left alone. */
+const cell_ = v => (typeof v === 'string' && ((/^[=+\-@]/.test(v) && isNaN(+v)) || /^\d{1,2}:\d{2}/.test(v) || /^0\d+$/.test(v))) ? "'" + v : v;
 const addMonths_ = (d, n) => { const x = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() + n); return x.toISOString().slice(0, 10); };
 const byId_ = (t, id) => read_(t).filter(r => String(r.id) === String(id))[0] || null;
 function appendRec_(t, rec) {
@@ -750,7 +769,7 @@ function auditRead_(u, b) {
   const f = { tbl: String(b.tbl || ''), who: String(b.who || '').toLowerCase(), from: String(b.from || ''), to: String(b.to || ''), act: String(b.act || '') };
   const rows = [];
   for (let i = v.length - 1; i >= 0 && rows.length < 400; i--) {
-    const o = {}; h.forEach((k, j) => { let x = v[i][j]; if (x instanceof Date) x = Utilities.formatDate(x, tz, 'yyyy-MM-dd HH:mm'); o[k] = x === '' ? null : x; });
+    const o = {}; h.forEach((k, j) => { let x = v[i][j]; if (x instanceof Date) x = x.getFullYear() < 1900 ? '' : Utilities.formatDate(x, tz, 'yyyy-MM-dd HH:mm'); o[k] = x === '' ? null : x; });
     const day = String(o.at || '').slice(0, 10);
     if (f.tbl && o.tbl !== f.tbl) continue;
     if (f.act && o.action !== f.act) continue;

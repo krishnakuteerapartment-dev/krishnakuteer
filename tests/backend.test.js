@@ -162,5 +162,22 @@ t('month lock/unlock appear in the log', () => { ok(W('admin', 'closed_months', 
 t('password change is logged without the password', () => { ok(G.call({ token: tok.f102, a: 'pw', password: 'secret-123' })); const a = G.call({ token: tok.admin, a: 'audit', tbl: 'users' }).rows; assert(a.length && !JSON.stringify(a).includes('secret-123')); });
 t('audit filters by person and date', () => { const a = G.call({ token: tok.admin, a: 'audit', who: 'treasurer', from: today, to: today }).rows; assert(a.length && a.every(r => r.username === 'treasurer')); });
 
+console.log('8. Times and dates are never shown wrong');
+t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
+  const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });
+t('exit time set later comes back as typed', () => { const v = snap('sec').visitors.find(x => x.name === 'Courier Ravi'); assert.strictEqual(v.in_time, '10:15'); assert.strictEqual(v.out_time, '10:40'); });
+t('times already saved by the old version (as Sheet time values) read correctly', () => {
+  const sh = G.sheets.visitors, H = G.x.TABLES.visitors; sh.appendRow([999, today, 1, '2026-10-10 08:00', 'Old Row', '102', 'Delivery', '10:15', '23:05', '', 'executive']);
+  const r = sh.rows[sh.getLastRow() - 1]; assert(r[H.indexOf('in_time')] instanceof Date, 'mock did not convert');
+  G.x.clearCache(); const v = snap('sec').visitors.find(x => x.name === 'Old Row'); assert.strictEqual(v.in_time, '10:15'); assert.strictEqual(v.out_time, '23:05'); });
+t('meeting time keeps its AM/PM form, also for old rows', () => { const m = snap('sec').meetings.find(x => x.title === 'AGM 2026'); assert.strictEqual(m.at_time, '6:00 PM');
+  const sh = G.sheets.meetings; sh.appendRow([998, 'Old meeting', '2026-11-01', '7:30 PM', 'Hall', 'meeting', '2026-10-01 10:00']); G.x.clearCache();
+  assert.strictEqual(snap('sec').meetings.find(x => x.title === 'Old meeting').at_time, '7:30 PM'); });
+t('saved-at times keep hour and minute (complaints, audit)', () => { const c = snap('sec').complaints[0]; assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(c.created_at), c.created_at); assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(c.updated_at), c.updated_at);
+  const a = G.call({ token: tok.admin, a: 'audit' }).rows[0]; assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(a.at), a.at); });
+t('dates stay yyyy-mm-dd (payments, expenses, reminders, warranty)', () => { const s2 = snap('tre');
+  [s2.payments[0].paid_on, s2.payments[0].month, s2.reminders[0].due_on, s2.assets.find(a => a.warranty_until).warranty_until, s2.asset_service[0].service_on].forEach(d => assert(/^\d{4}-\d{2}-\d{2}$/.test(d), String(d))); });
+t('phone number with leading 0 keeps its 0', () => { const id = ok(W('sec', 'contacts', 'insert', { name: 'Landline', phone: '04024001234' })).id; assert.strictEqual(snap('f101').contacts.find(c => c.id === id).phone, '04024001234'); });
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

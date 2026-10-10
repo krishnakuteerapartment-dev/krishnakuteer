@@ -135,7 +135,9 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
     await has(e, /Inside now · 2/); });
   await check('record a visitor with entry and exit time', async () => {
     await e.fill('#vnm', 'Guest Lakshmi'); await e.selectOption('#vfl', '201'); await e.fill('#vin', '09:00'); await e.fill('#vout', '09:45'); await e.click('#vsv'); await settle(e);
-    await has(e, /Inside now · 2/); const t = await e.locator('.tbl').first().innerText(); if (!/Lakshmi/.test(t) || !/9:00 AM – 9:45 AM/.test(t)) throw new Error(t.slice(0, 300)); });
+    await has(e, /Inside now · 2/); await e.evaluate(() => { SNAP = null; DIRTY = true; dropCache(); }); await go(e, 'vis');
+    const t = await e.locator('.tbl').first().innerText(); if (!/Lakshmi/.test(t) || !/9:00 AM – 9:45 AM/.test(t)) throw new Error(t.slice(0, 300)); });
+  await check('times read back from the Sheet show correctly (not 1899)', async () => { const t = await e.locator('#m').innerText(); if (/1899/.test(t)) throw new Error('1899 shown'); if (!/\d{1,2}:\d{2} (AM|PM)/.test(t)) throw new Error('no time shown'); });
   await check('exit before entry is refused', async () => { await e.fill('#vnm', 'X'); await e.fill('#vin', '10:00'); await e.fill('#vout', '09:00'); await e.click('#vsv'); await e.waitForTimeout(300); if (/\bX\b/.test(await e.locator('.tbl').first().innerText())) throw new Error('saved'); await e.fill('#vnm', ''); await e.fill('#vout', ''); });
   await check('mark exit', async () => { await e.locator('h2:has-text("Inside now") + .card [data-vout]').first().click(); await settle(e); await has(e, /Inside now · 1/); });
   await check('old-style count still adds to totals', async () => { await e.fill('#vn', '10'); await e.click('#vs'); await settle(e); const t = await e.locator('.tiles').first().innerText(); if (!/13\s*Today/.test(t)) throw new Error(t); });
@@ -198,7 +200,7 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
 
   /* ---------- every existing page still opens ---------- */
   for (const t of ['dash', 'work', 'maint', 'exp', 'st', 'cel', 'vis', 'doc', 'not', 'comp', 'meet', 'poll', 'assets', 'rem', 'sos', 'audit']) {
-    await check('admin page opens: ' + t, async () => { await go(ad, t); const x = await txt(ad); if (/Could not load this page/.test(x)) throw new Error(x.slice(0, 200)); await noHScroll(ad); });
+    await check('admin page opens: ' + t, async () => { await go(ad, t); const x = await txt(ad); if (/Could not load this page/.test(x)) throw new Error(x.slice(0, 200)); const bad = /1899|1900-|Invalid Date|NaN|undefined|\d{4}-\d{2}-\d{2}T\d/.exec(x); if (bad) throw new Error('wrong value "' + bad[0] + '" near: ' + x.slice(Math.max(0, bad.index - 80), bad.index + 40).replace(/\n/g, ' | ')); await noHScroll(ad); });
   }
   await check('no script errors on any page', async () => { if (ad.errors.length) throw new Error(ad.errors.join(' || ')); });
   await ad.evaluate(() => localStorage.setItem('kk_lang', 'te')); await ad.reload(); await ad.waitForSelector('nav button[data-t]');

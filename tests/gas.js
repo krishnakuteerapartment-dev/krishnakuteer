@@ -4,7 +4,21 @@ const TZ = 'Asia/Kolkata';
 
 function makeSheet(name) {
   const rows = []; let maxRows = 1000; const prot = [];
-  const strip = v => (typeof v === 'string' && v[0] === "'") ? v.slice(1) : v;
+  /* like real Google Sheets: text that looks like a time, date or number is changed into a time/date/number value,
+     unless it starts with ' (kept as text) */
+  const IST = 330 * 60000;
+  const strip = v => {
+    if (typeof v !== 'string') return v;
+    if (v[0] === "'") return v.slice(1);
+    let m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?$/.exec(v);
+    if (m) { let h = +m[1]; const ap = (m[4] || '').toUpperCase(); if (ap === 'PM' && h < 12) h += 12; if (ap === 'AM' && h === 12) h = 0;
+      /* Sheets keeps a time on 30/12/1899; old local-time rules shift the clock reading, so only the displayed text is reliable */
+      const d = new Date(Date.UTC(1899, 11, 30, h, +m[2]) - IST - 1270000); d._disp = ap ? ((h % 12) || 12) + ':' + m[2] + ':00 ' + (h < 12 ? 'AM' : 'PM') : h + ':' + m[2] + ':00'; return d; }
+    m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?$/.exec(v);
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) - IST);
+    if (/^\d+(\.\d+)?$/.test(v) && !/^0\d/.test(v)) return +v;
+    return v;
+  };
   const width = () => rows.reduce((m, r) => Math.max(m, r.length), 0);
   const lastRow = () => { for (let i = rows.length - 1; i >= 0; i--) if (rows[i] && rows[i].some(v => v !== '' && v != null)) return i + 1; return 0; };
   const get = (r, c) => (rows[r - 1] && rows[r - 1][c - 1] != null) ? rows[r - 1][c - 1] : '';
@@ -12,6 +26,7 @@ function makeSheet(name) {
   const range = (r, c, nr = 1, nc = 1) => ({
     getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => get(r + i, c + j))),
     getValue: () => get(r, c),
+    getDisplayValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => { const x = get(r + i, c + j); return x instanceof Date ? (x._disp || x.toISOString()) : String(x); })),
     setValues: v => { v.forEach((row, i) => row.forEach((x, j) => set(r + i, c + j, x))); return range(r, c, nr, nc); },
     setValue: v => { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) set(r + i, c + j, v); return range(r, c, nr, nc); },
     setFontWeight: () => range(r, c, nr, nc), setNumberFormat: () => range(r, c, nr, nc),
