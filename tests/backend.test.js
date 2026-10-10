@@ -162,6 +162,20 @@ t('month lock/unlock appear in the log', () => { ok(W('admin', 'closed_months', 
 t('password change is logged without the password', () => { ok(G.call({ token: tok.f102, a: 'pw', password: 'secret-123' })); const a = G.call({ token: tok.admin, a: 'audit', tbl: 'users' }).rows; assert(a.length && !JSON.stringify(a).includes('secret-123')); });
 t('audit filters by person and date', () => { const a = G.call({ token: tok.admin, a: 'audit', who: 'treasurer', from: today, to: today }).rows; assert(a.length && a.every(r => r.username === 'treasurer')); });
 
+console.log('9. Document folders and the Complaints folder');
+t('new folders accepted (Dust Collector, Motor, CCTV Camera, Complaints)', () => { const cache = G.ctx.CacheService.getScriptCache();
+  ['Dust Collector', 'Motor', 'CCTV Camera', 'Complaints', 'Watchmen Salary & Cleaning Purchases'].forEach((fo, i) => { const id = 'f' + String(5 + i).repeat(32).slice(0, 32); cache.put('up_' + id, 'secretary'); G.sheets.file_data.appendRow([id, 1, 'image/png', 'iVBORw0KGgo=']);
+    ok(W('sec', 'gallery', 'insert', { title: 'Folder ' + fo, photo: id, kind: 'photo', folder: fo })); assert.strictEqual(snap('sec').gallery.find(g => g.title === 'Folder ' + fo).folder, fo); }); });
+t('old name "Watchmen Salary" is moved to the new name by setup', () => { const sh = G.sheets.gallery, H = G.x.TABLES.gallery, r = sh.rows.find(x => x[H.indexOf('title')] === 'Folder Motor'); r[H.indexOf('folder')] = 'Watchmen Salary';
+  G.x.setup(); assert.strictEqual(snap('sec').gallery.find(g => g.title === 'Folder Motor').folder, 'Watchmen Salary & Cleaning Purchases'); });
+t('every complaint is saved as a text file in the private Complaints folder', () => { G.call({ token: tok.sec, a: 'driveSync' });
+  const priv = G.drive.top.folders.find(f => f.name === 'Krishna Kuteer Committee Documents (private)'), cf = priv && priv.folders.find(f => f.name === 'Complaints');
+  assert(cf, 'no Complaints folder'); const txt = cf.files.filter(f => /\.txt$/.test(f.name)); assert(txt.length >= 1, JSON.stringify(cf.files.map(f => f.name)));
+  assert(/Ticket: KK-\d{4}-\d{4}/.test(txt[0].body) && /Flat: /.test(txt[0].body), txt[0].body);
+  const pub = G.drive.top.folders.find(f => f.name === 'Krishna Kuteer Apartment Documents'); assert(!pub || !JSON.stringify(pub.folders.map(f => f.files.map(x => x.name))).includes('.txt'), 'complaint leaked into shared folder'); });
+t('saving again does not make duplicates', () => { G.call({ token: tok.sec, a: 'driveSync' }); const cf = G.drive.top.folders.find(f => f.name === 'Krishna Kuteer Committee Documents (private)').folders.find(f => f.name === 'Complaints'), n = cf.files.map(f => f.name);
+  assert.strictEqual(new Set(n).size, n.length); });
+
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
   const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });

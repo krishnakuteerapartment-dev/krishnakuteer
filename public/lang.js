@@ -189,7 +189,7 @@
     "Only PDF files are allowed.": "PDF ఫైళ్లు మాత్రమే అనుమతించబడతాయి.", "File not available": "ఫైల్ అందుబాటులో లేదు", "Could not read that photo": "ఆ ఫోటోను చదవలేకపోయాము",
     "PDF must be under 1 MB. Please compress it first (for example at ilovepdf.com, Compress PDF) and upload again.": "PDF 1 MB కంటే తక్కువ ఉండాలి. దయచేసి ముందు దాన్ని కుదించి (ఉదా. ilovepdf.com లో Compress PDF) మళ్ళీ అప్‌లోడ్ చేయండి.",
     "Agenda & M.O.M": "ఎజెండా & సమావేశ నివేదికలు", "Apartment Works": "అపార్ట్‌మెంట్ పనులు", "Association": "అసోసియేషన్", "GHMC & Plumber": "GHMC & ప్లంబర్", "Monthly Register": "నెలవారీ రిజిస్టర్",
-    "Watchmen Salary": "వాచ్‌మెన్ జీతాలు", "Water (HMWSSB) & Water Related": "నీరు (HMWSSB) & నీటికి సంబంధించినవి", "Other": "ఇతరాలు",
+    "Watchmen Salary": "వాచ్‌మెన్ జీతాలు", "Watchmen Salary & Cleaning Purchases": "వాచ్‌మెన్ జీతాలు & శుభ్రత కొనుగోళ్లు", "Dust Collector": "డస్ట్ కలెక్టర్", "Motor": "మోటార్", "CCTV Camera": "CCTV కెమెరా", "Complaints": "ఫిర్యాదులు", "Water (HMWSSB) & Water Related": "నీరు (HMWSSB) & నీటికి సంబంధించినవి", "Other": "ఇతరాలు",
     "📷 Take photo": "📷 ఫోటో తీయండి", "🖼 From gallery": "🖼 గ్యాలరీ నుండి", "📷 Add photo": "📷 ఫోటో జోడించండి",
     "📷 Scan paper with camera": "📷 పేపర్‌ను కెమెరాతో స్కాన్ చేయండి", "Please choose a PDF file or scan a paper.": "దయచేసి PDF ఫైల్‌ను ఎంచుకోండి లేదా పేపర్‌ను స్కాన్ చేయండి.",
     "Could not make the PDF. Please try again.": "PDF తయారు చేయలేకపోయాము. దయచేసి మళ్ళీ ప్రయత్నించండి.",

@@ -112,6 +112,13 @@ function upgradeFeatures_() {
     const y = String(c.created_at || now_()).slice(0, 4); seen[y] = (seen[y] || 0) + 1;
     sh.getRange(c.__r, col).setValue(ticketOf_(y, seen[y]));
   });
+  /* renamed document folders: move existing documents to the new name (the Drive folder is renamed too) */
+  const gs = sh_('gallery'), gc = TABLES.gallery.indexOf('folder') + 1;
+  read_('gallery').forEach(g => { if (FOLDER_RENAMED[g.folder]) gs.getRange(g.__r, gc).setValue(FOLDER_RENAMED[g.folder]); });
+  try {
+    [ROOT_FOLDER, PRIV_FOLDER].forEach(rn => { const it = DriveApp.getFoldersByName(rn); if (!it.hasNext()) return; const root = it.next();
+      Object.keys(FOLDER_RENAMED).forEach(o => { const f = root.getFoldersByName(safeName_(o)); if (f.hasNext() && !root.getFoldersByName(safeName_(FOLDER_RENAMED[o])).hasNext()) f.next().setName(safeName_(FOLDER_RENAMED[o])); }); });
+  } catch (e) { Logger.log('Drive rename skipped: ' + e); }
   const a = sh_('audit_log');
   if (a && !a.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) a.protect().setDescription('Audit log: written by the app only').setWarningOnly(true);
   cacheDrop_('snap');
@@ -385,7 +392,9 @@ function logTouch_(token, out) {
 }
 
 /* ---------- photos + PDFs: stored INSIDE the Google Sheet (tab 'file_data'), max 1 MB each, in 45,000-character pieces ---------- */
-const FOLDERS = ['Agenda & M.O.M', 'Apartment Works', 'Association', 'Electricity', 'Generator', 'GHMC & Plumber', 'Lift', 'Monthly Register', 'Watchmen Salary', 'Water (HMWSSB) & Water Related', 'Other'];
+const FOLDERS = ['Agenda & M.O.M', 'Apartment Works', 'Association', 'Electricity', 'Generator', 'GHMC & Plumber', 'Lift', 'Monthly Register',
+  'Watchmen Salary & Cleaning Purchases', 'Water (HMWSSB) & Water Related', 'Other', 'Dust Collector', 'Motor', 'CCTV Camera', 'Complaints'];
+const FOLDER_RENAMED = { 'Watchmen Salary': 'Watchmen Salary & Cleaning Purchases' }; /* old name -> new name */
 const ROOT_FOLDER = 'Krishna Kuteer Apartment Documents';
 /* 'Committee only' documents are saved in a SEPARATE Drive folder, so sharing the main folder never shows them. Do not share this one with residents. */
 const PRIV_FOLDER = 'Krishna Kuteer Committee Documents (private)';
@@ -591,7 +600,7 @@ function write_(u, b) {
   }
   if (t === 'gallery' && op === 'insert') {
     if (!mine(String(p.photo || ''))) return err('Photo upload failed. Please try again.');
-    p.title = String(p.title || '').slice(0, 120); p.uploaded_by = u.username; p.kind = p.kind === 'pdf' ? 'pdf' : 'photo'; p.name = String(p.name || '').slice(0, 120); p.folder = FOLDERS.indexOf(p.folder) >= 0 ? p.folder : 'Other';
+    p.title = String(p.title || '').slice(0, 120); p.uploaded_by = u.username; p.kind = p.kind === 'pdf' ? 'pdf' : 'photo'; p.name = String(p.name || '').slice(0, 120); p.folder = FOLDER_RENAMED[p.folder] || p.folder; p.folder = FOLDERS.indexOf(p.folder) >= 0 ? p.folder : 'Other';
     p.visibility = p.visibility === 'committee' ? 'committee' : 'all';
   }
   if ((t === 'gallery' || t === 'complaints') && op === 'delete') before.forEach(r => [r.photo, r.photos, r.voice].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
@@ -844,6 +853,16 @@ function driveSave_(folder, base, id) {
   if (folder.getFilesByName(name).hasNext()) return;
   const blob = fileBlob_(id, name); if (blob) folder.createFile(blob);
 }
+/* every complaint is also kept as a small text file: ticket, flat, date, problem, details, related item, status */
+function saveComplaintText_(rec) {
+  const dir = privDir_('Complaints'), name = safeName_((rec.ticket_no || 'Complaint ' + rec.id) + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '')) + '.txt';
+  if (dir.getFilesByName(name).hasNext()) return;
+  const it = rec.asset_id ? (read_('assets').filter(a => String(a.id) === String(rec.asset_id))[0] || {}).name : '';
+  const body = ['KRISHNA KUTEER APARTMENT - COMPLAINT', '', 'Ticket: ' + (rec.ticket_no || '#' + rec.id), 'Flat: ' + rec.flat_no, 'Raised on: ' + String(rec.created_at || ''),
+    'Problem: ' + (rec.title || ''), 'Details: ' + (rec.details || '-'), 'Related to: ' + (it || '-'), 'Status when raised: ' + (rec.status || 'open'),
+    'Photos: ' + String(rec.photos || '').split('|').filter(Boolean).length + (rec.voice ? ', voice note: yes' : ''), '', 'The latest status is always in the app (Complaints).'].join('\n');
+  dir.createFile(name, body, 'text/plain');
+}
 function driveSync_() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return { ok: true };
@@ -863,6 +882,7 @@ function autoDrive_(t, rec, dirs) {
   } else {
     String(rec.photos || '').split('|').filter(Boolean).forEach((id, i) =>
       driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (' + (i + 1) + ')', id));
+    saveComplaintText_(rec);
     if (rec.voice) driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (voice note)', String(rec.voice));
   }
 }
@@ -899,6 +919,7 @@ function exportToDrive() {
   });
   read_('complaints').forEach(c => String(c.photos || '').split('|').filter(Boolean).forEach((id, i) =>
     put(privDir_('Complaints'), 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (' + (i + 1) + ')', id)));
+  read_('complaints').forEach(c => { try { saveComplaintText_(c); } catch (e) {} });
   read_('complaints').forEach(c => { if (c.voice) put(privDir_('Complaints'), 'Complaint ' + c.id + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' (voice note)', String(c.voice)); });
   const msg = (stopped ? 'Time limit reached - run exportToDrive again to continue.\n' : 'Export finished.\n') +
     'Saved: ' + saved + ', already there: ' + skipped + ', not found: ' + missing + '\nDrive folder: ' + root.getUrl();
