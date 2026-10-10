@@ -314,7 +314,7 @@
     "Approve": "అనుమతించు", "Deny": "నిరాకరించు", "Ask again": "మళ్ళీ అడగండి", "Mark no answer": "సమాధానం లేదని గుర్తించండి", "Mark exit": "బయటకు వెళ్ళినట్లు గుర్తించండి", "Let in": "లోపలికి అనుమతించండి",
     "Guest code": "అతిథి కోడ్", "Check": "చెక్ చేయండి", "Answered": "సమాధానం వచ్చింది", "At the gate now": "ఇప్పుడు గేట్ వద్ద",
     "Guest passes": "అతిథి పాస్‌లు", "Guest's name": "అతిథి పేరు", "One visit (code)": "ఒక్కసారి (కోడ్)", "Make guest pass": "అతిథి పాస్ తయారు చేయండి", "Share code": "కోడ్ పంపండి", "One visit": "ఒక్కసారి",
-    "To (same day if one day)": "వరకు (ఒక్క రోజైతే అదే రోజు)", "Phone number for the gate": "గేట్ కోసం ఫోన్ నంబర్", "Watchman (gate)": "వాచ్‌మెన్ (గేట్)", "Watchman": "వాచ్‌మెన్",
+    "To (same day if one day)": "వరకు (ఒక్క రోజైతే అదే రోజు)", "Until (leave empty: no end date)": "వరకు (ఖాళీగా వదిలితే: ముగింపు లేదు)", "Phone number for the gate": "గేట్ కోసం ఫోన్ నంబర్", "Watchman (gate)": "వాచ్‌మెన్ (గేట్)", "Watchman": "వాచ్‌మెన్",
     "If you don't answer the alert, the watchman can call this number. Only the gate and the Association can see it.": "మీరు హెచ్చరికకు సమాధానం ఇవ్వకపోతే వాచ్‌మెన్ ఈ నంబర్‌కు కాల్ చేయవచ్చు. గేట్ మరియు అసోసియేషన్ మాత్రమే చూడగలరు.",
     "Phone number saved": "ఫోన్ నంబర్ సేవ్ అయింది", "Pass cancelled": "పాస్ రద్దు అయింది", "Approval": "అనుమతి", "Guest passes & gate phone numbers": "అతిథి పాస్‌లు & గేట్ ఫోన్ నంబర్లు"
   };
