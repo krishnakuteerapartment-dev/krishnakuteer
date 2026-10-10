@@ -42,7 +42,39 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` changes, bump `V = "kk-v26"` in `public/sw.js`.
+Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v39"` in `public/sw.js`.
+
+## Committee features (Assets, Reminders, Meeting management, Emergency contacts, Visitor register, Complaint tracking, Audit log)
+The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
+
+**Update the backend FIRST** (the new Code.gs also works with the old app, so phones keep working while you do this):
+1. Apps Script > replace all of `Code.gs` with the new file > Save.
+2. Run `setup()` once. It adds the new tabs (`assets`, `asset_service`, `reminders`, `contacts`, `action_items`, `audit_log`),
+   adds new columns at the END of `complaints`, `meetings`, `visitors`, `gallery`, gives old complaints ticket numbers
+   (KK-2026-0001…), and fills in the national emergency numbers 101 / 108 / 100 / 112. Safe to run again.
+3. Deploy > Manage deployments > Edit > Version: **New version** > Deploy (the URL stays the same).
+4. Run `testReminders` once to check the daily reminder alert (it also runs by itself from `keepWarm`, once a day after 8 AM).
+Then merge the website changes; the APK picks them up on its own (no new APK needed).
+
+**Who can do what** (change the lists at the top of Code.gs):
+| | Residents | Executive | President / Secretary / Treasurer / Admin |
+|---|---|---|---|
+| Assets & service history | view (no costs) | view, add service records | add / edit / delete |
+| Reminders | – | view, add, mark done | everything |
+| Meeting records | agenda; minutes, attendance, resolutions, action items only after **Publish** | same as residents | president/secretary/admin edit; treasurer updates action items |
+| Emergency contacts | view + one-tap call | view + call | add / edit / verify |
+| Visitor register | totals + visitors to their own flat (no phone numbers) | record / exit / delete | see everything |
+| Complaints | raise, see their own + history | – | assign, set expected date, change status |
+| Audit log | – | – | read only (nobody can edit it from the app) |
+
+**Privacy:** a resident's phone never receives other flats' payment references/remarks/receipt numbers, other flats'
+complaints, visitor names or phone numbers, committee-only documents, draft minutes, reminders or service costs.
+Committee-only documents and all complaint photos/voice notes are saved to the Drive folder
+**"Krishna Kuteer Committee Documents (private)"** — do not share that folder. Complaint photos saved earlier are still
+in "Krishna Kuteer Apartment Documents/Other"; move them by hand if that folder is shared with residents.
+
+**Tests:** `tests/` runs Code.gs on an in-memory Sheet (`node tests/backend.test.js apps-script/Code.gs`) and the real
+website in a phone-sized and a desktop browser (`node tests/e2e.js . out`, needs Playwright).
 The APK itself loads your live site, so website updates reach the app without a new APK.
 
 ## 4. Push notifications (alerts on every installed phone)

@@ -19,6 +19,9 @@
 /lang.js
   Cache-Control: no-cache
 
+/features.js
+  Cache-Control: no-cache
+
 /manifest.webmanifest
   Cache-Control: no-cache
 

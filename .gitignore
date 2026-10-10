@@ -5,3 +5,4 @@ node_modules/
 *.jks
 signing.keystore
 signing-key-info.txt
+tests/out/

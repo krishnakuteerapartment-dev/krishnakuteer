@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2563eb"><meta name="color-scheme" content="only light"><meta name="supported-color-schemes" content="light">
-<link rel="manifest" href="manifest.webmanifest"><script src="firebase-config.js"></script><script src="lang.js"></script><script src="push.js" defer></script>
+<link rel="manifest" href="manifest.webmanifest"><script src="firebase-config.js"></script><script src="lang.js"></script><script src="features.js"></script><script src="push.js" defer></script>
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Krishna Kuteer">
@@ -89,7 +89,7 @@ function bgRun(apply,job){
   .finally(busyBar);
  return CHAIN}
 addEventListener("beforeunload",e=>{if(PEND.length){e.preventDefault();e.returnValue=""}});
-const FAST=["expenses","income","complaints","notices","meetings","maintenance_log","celebrations","visitors","gallery","status","polls","votes"];
+const FAST=["expenses","income","complaints","notices","meetings","maintenance_log","celebrations","visitors","gallery","status","polls","votes","assets","asset_service","reminders","contacts","action_items"];
 /* the same checks Google Sheets makes, done here first so "Saved" is only shown for saves that will go through */
 function preCheck(T,t,op,p){
  const closed=(T.closed_months||[]).map(r=>String(r.month).slice(0,7)),lk=d=>d&&closed.includes(String(d).slice(0,7));
@@ -102,13 +102,19 @@ function preCheck(T,t,op,p){
   if(t==="meetings"&&(!String(p.title||"").trim()||!p.on_date||!["meeting","event"].includes(p.kind)))return "Enter a title, date and type.";
   if(t==="polls"&&(!String(p.question||"").trim()||String(p.options||"").split("|").filter(x=>x.trim()).length<2))return "Enter a question and at least two options.";
   if(t==="visitors"&&(!p.visit_on||!(Math.floor(+p.count)>=1&&+p.count<=100000)))return "Enter a date and a visitor count of at least 1.";
+  if(t==="visitors"&&p.name&&!String(p.flat_no||"").trim())return "Choose the flat visited.";
+  if(t==="assets"&&!String(p.name||"").trim())return "Enter the name of the item.";
+  if(t==="reminders"&&(!String(p.title||"").trim()||!p.due_on))return "Enter what is due and the due date.";
+  if(t==="contacts"&&(!String(p.name||"").trim()||!p.phone))return "Enter a name and a phone number.";
+  if(t==="action_items"&&!String(p.task||"").trim())return "Enter the task.";
   if(t==="votes"){const q=(T.polls||[]).find(x=>String(x.id)===String(p.poll_id));if(!q||q.status!=="open")return "This poll is closed.";
    if((T.votes||[]).some(v=>String(v.poll_id)===String(p.poll_id)&&v.mine))return "You have already voted in this poll."}}
  return ""}
 function applyLocal(T,t,op,pl,fl){
  const rows=T[t]||(T[t]=[]),hit=r=>fl.every(([c,v])=>String(r[c])===String(v)),now=nowS();
  if(op==="insert"){const r=Object.assign({id:TMPID+(++TMP),created_at:now},pl);
-  if(t==="complaints")Object.assign(r,{flat_no:cur&&cur.id,status:"open",updated_at:now});
+  if(t==="complaints")Object.assign(r,{flat_no:cur&&cur.id,status:"open",updated_at:now,history:JSON.stringify([{at:now,by:cur&&cur.id,status:"open",note:"Complaint raised"}])});
+  if(t==="meetings")r.status="draft";if(t==="reminders")r.status="pending";if(t==="action_items")r.status="open";if(t==="visitors"&&r.name)r.added_by=cur&&cur.id;
   if(t==="notices")r.created_on=ld();if(t==="polls")r.status="open";if(t==="gallery")r.uploaded_by=cur&&cur.id;
   if(t==="votes"){delete r.id;delete r.created_at;r.mine=true}
   rows.push(r)}
@@ -245,10 +251,11 @@ let lastTab="";
 Object.assign(IC,{comp:ic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),meet:ic('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),poll:ic('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>')});
 async function render(){const chg=lastTab!==tab,y=chg?0:window.scrollY;
  const staff=me.role!=="resident",canW=WRITE.includes(me.role);
- const tabs=[["dash","Home"],["work","Maintenance"],["maint","Payments"]].concat(staff?[["exp","Expenses"],["st","Statement"]]:[],[["cel","Celebrations"],["vis","Visitors"],["doc","Documents"],["not","Notices"],["comp","Complaints"],["meet","Meetings"],["poll","Voting"]]);
+ const tabs=[["dash","Home"],["work","Maintenance"],["maint","Payments"]].concat(staff?[["exp","Expenses"],["st","Statement"]]:[],[["cel","Celebrations"],["vis","Visitors"],["doc","Documents"],["not","Notices"],["comp","Complaints"],["meet","Meeting management"],["poll","Voting"],["assets","Assets"]],isIn(R_COM)?[["rem","Reminders"]]:[],[["sos","Emergency contacts"]],isIn(R_S)?[["audit","Audit log"]]:[]);
+ if(!tabs.some(t=>t[0]===tab))tab="dash";
  app.innerHTML=`<header><div class="hl"><button class="menubtn" id="hb" aria-label="Open menu" aria-expanded="false"><svg class="l" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg><svg class="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="brand"><span class="logo"><img src="${LOGO}" alt="Krishna Kuteer logo"></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div></div>${LG()}<div class="hdr-actions"><button class="ghost" style="width:auto" id="cp">Password</button> <button class="ghost" style="width:auto" id="out">Sign out</button></div></header>
  <div id="scrim"></div>
- <main id="m" aria-busy="true">${SKEL}</main><nav><div class="navhead"><span class="logo"><img src="${LOGO}" alt=""></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div>${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===tab?"on":""}">${IC[k]}<span>${l}</span></button>`).join("")}<div class="navfoot"><button id="cp2">Change password</button><button id="out2" class="so">Sign out</button></div></nav>`;
+ <main id="m" aria-busy="true">${SKEL}</main><nav><div class="navhead"><span class="logo"><img src="${LOGO}" alt=""></span><div><b>Krishna Kuteer</b><small>${esc(me.role)}</small></div></div>${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===tab?"on":""}">${IC[k]||FIC[k]||""}<span>${l}</span></button>`).join("")}<div class="navfoot"><button id="cp2">Change password</button><button id="out2" class="so">Sign out</button></div></nav>`;
  const doOut=async()=>{try{const r=JSON.parse(sessionStorage.getItem("kk_relock")||"null");if(r)await autoLock(r.s)}catch(e){}await db.auth.signOut();document.body.classList.remove("menu-open");loginView()};
  $("#out").onclick=doOut;$("#out2").onclick=doOut;$("#cp").onclick=$("#cp2").onclick=()=>{document.body.classList.remove("menu-open");pwView(false)};
  const setMenu=o=>{document.body.classList.toggle("menu-open",o);$("#hb").setAttribute("aria-expanded",o);$("#hb").setAttribute("aria-label",o?"Close menu":"Open menu")};
@@ -260,7 +267,7 @@ async function render(){const chg=lastTab!==tab,y=chg?0:window.scrollY;
  document.querySelectorAll("nav button[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.body.classList.remove("menu-open");render()});
  const m=$("#m");
  try{const lk=await isClosed(),cW=canW&&!lk;if(tab==="dash")await dash(m,staff);else if(tab==="maint"){await maint(m,cW);await incomeBox(m,cW)}
- else if(tab==="work")await works(m,canW);else if(tab==="cel")await celeb(m,canW);else if(tab==="vis")await visitors(m,canW);else if(tab==="doc")docs(m);else if(tab==="exp")await exps(m,cW);else if(tab==="st")await stmt(m);else if(tab==="comp")await complaints(m);else if(tab==="meet")await meetings(m);else if(tab==="poll")await polls(m);else await notices(m);addPrint(m,(tabs.find(t=>t[0]===tab)||["","Page"])[1]);if(lk&&(tab==="maint"||tab==="exp"))m.insertAdjacentHTML("afterbegin",`<div class="card" style="background:#fff8e6;border-color:#f0d58a">🔒 <b>${month} is locked.</b> Nothing in this month can be added, changed or deleted.${me.role==="admin"?" To make a change, unlock it from the Statement tab (password required).":""}</div>`)}catch(err){m.innerHTML=`<div class="card"><b>Could not load this page.</b><p class="err">${esc(err.message)}</p><button id="rt2">Retry</button></div>`;$("#rt2").onclick=render}lastTab=tab;window.scrollTo(0,y);m.removeAttribute("aria-busy");enter(m,chg);fx(m)}
+ else if(tab==="work")await works(m,canW);else if(tab==="cel")await celeb(m,canW);else if(tab==="vis")await visitors(m,canW);else if(tab==="doc")docs(m);else if(tab==="exp")await exps(m,cW);else if(tab==="st")await stmt(m);else if(tab==="comp")await complaints(m);else if(tab==="meet")await meetings(m);else if(tab==="poll")await polls(m);else if(tab==="assets")await assets(m);else if(tab==="rem")await reminders(m);else if(tab==="sos")await contacts(m);else if(tab==="audit")await auditLog(m);else await notices(m);addPrint(m,(tabs.find(t=>t[0]===tab)||["","Page"])[1]);if(lk&&(tab==="maint"||tab==="exp"))m.insertAdjacentHTML("afterbegin",`<div class="card" style="background:#fff8e6;border-color:#f0d58a">🔒 <b>${month} is locked.</b> Nothing in this month can be added, changed or deleted.${me.role==="admin"?" To make a change, unlock it from the Statement tab (password required).":""}</div>`)}catch(err){m.innerHTML=`<div class="card"><b>Could not load this page.</b><p class="err">${esc(err.message)}</p><button id="rt2">Retry</button></div>`;$("#rt2").onclick=render}lastTab=tab;window.scrollTo(0,y);m.removeAttribute("aria-busy");enter(m,chg);fx(m)}
 
 async function dash(m,staff){
  let bal="";
@@ -609,10 +616,10 @@ const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onerror=no;r.onloa
 async function docs(m){const{data}=await db.from("gallery").select("*").order("id",{ascending:false}),P=["admin","president","secretary"].includes(me.role),Fo=g=>g.folder||"Other",vis=(data||[]).filter(g=>!DF||Fo(g)===DF),pdfs=vis.filter(g=>g.kind==="pdf"),pics=vis.filter(g=>g.kind!=="pdf"),del=g=>P?`<button class="ghost" style="margin-top:8px" data-gx="${g.id}">Delete</button>`:"";
  m.innerHTML=`<div class="card" style="text-align:center;padding:30px 16px"><div style="font-size:2.4rem">📁</div><b style="font-size:1.1rem">Apartment documents</b><p style="color:var(--grey);margin:6px 0 18px">Open the shared Google Drive folder to view all documents.</p><a href="${DOCS_URL}" target="_blank" rel="noopener noreferrer" style="display:block;background:var(--navy);color:#fff;text-decoration:none;padding:12px;border-radius:10px;font-weight:600">View documents</a></div>
  <div class="card"><b>📂 Folder</b><div style="height:8px"></div><select id="gf"><option value="">All folders</option>${FOLDERS.map(f=>`<option${f===DF?" selected":""}>${esc(f)}</option>`).join("")}</select></div>
- <h2>PDF documents</h2>${P?`<div class="card"><b>Add a PDF (everyone can open it)</b><div style="height:8px"></div><div class="r2" style="display:flex;gap:8px"><input id="pt" placeholder="Title e.g. Bye-laws 2026" style="flex:1;min-width:0"><select id="pfo" style="flex:1;min-width:0">${FO}</select></div><div style="height:8px"></div><input id="pf" type="file" accept="application/pdf"><div style="height:8px"></div><label class="pkb">📷 Scan paper with camera<input id="psi" type="file" accept="image/*" capture="environment" hidden></label><div class="pkt" id="pst"></div><div style="height:8px"></div><button id="ps">Upload PDF</button></div>`:""}
- ${pdfs.map(g=>`<div class="card"><div style="display:flex;gap:12px;align-items:center"><div style="font-size:2rem">📄</div><div style="flex:1;min-width:0"><b>${esc(g.title||g.name)}</b><br><small style="color:var(--grey)">${esc(String(g.created_at).slice(0,10))} · 📂 ${esc(Fo(g))}</small></div></div><button style="margin-top:10px" data-pf="${esc(g.photo)}" data-nm="${esc(g.title||"document")}">Open / Download</button>${del(g)}</div>`).join("")||`<div class="card">No PDF files yet.</div>`}
- <h2>Photos &amp; important pictures</h2>${P?`<div class="card"><b>Add pictures (everyone can see them)</b><div style="height:8px"></div><div class="r2" style="display:flex;gap:8px"><input id="gt" placeholder="Caption e.g. Annual meeting 2026" style="flex:1;min-width:0"><select id="gfo" style="flex:1;min-width:0">${FO}</select></div><div style="height:8px"></div>${pickHtml("gph")}<div style="height:8px"></div><button id="gs">Upload</button></div>`:""}
- <div class="gal">${pics.map(g=>`<div class="card">${phTag(g.photo)}<div style="margin-top:6px"><b>${esc(g.title)}</b></div><small style="color:var(--grey)">${esc(String(g.created_at).slice(0,10))} · 📂 ${esc(Fo(g))}</small>${del(g)}</div>`).join("")||`<div class="card">No pictures yet.</div>`}</div>`;
+ <h2>PDF documents</h2>${P?`<div class="card"><b>Add a PDF</b><div style="height:8px"></div><div class="r2" style="display:flex;gap:8px"><input id="pt" placeholder="Title e.g. Bye-laws 2026" style="flex:1;min-width:0"><select id="pfo" style="flex:1;min-width:0">${FO}</select></div><div style="height:8px"></div><select id="pvi" aria-label="Who can see it"><option value="all">Everyone can see it</option><option value="committee">Committee only (residents cannot see it)</option></select><div style="height:8px"></div><input id="pf" type="file" accept="application/pdf"><div style="height:8px"></div><label class="pkb">📷 Scan paper with camera<input id="psi" type="file" accept="image/*" capture="environment" hidden></label><div class="pkt" id="pst"></div><div style="height:8px"></div><button id="ps">Upload PDF</button></div>`:""}
+ ${pdfs.map(g=>`<div class="card"><div style="display:flex;gap:12px;align-items:center"><div style="font-size:2rem">📄</div><div style="flex:1;min-width:0"><b>${esc(g.title||g.name)}</b><br><small style="color:var(--grey)">${esc(String(g.created_at).slice(0,10))} · 📂 ${esc(Fo(g))}${g.visibility==="committee"?' · <span class="tag amb">Committee only</span>':""}</small></div></div><button style="margin-top:10px" data-pf="${esc(g.photo)}" data-nm="${esc(g.title||"document")}">Open / Download</button>${del(g)}</div>`).join("")||`<div class="card">No PDF files yet.</div>`}
+ <h2>Photos &amp; important pictures</h2>${P?`<div class="card"><b>Add pictures</b><div style="height:8px"></div><div class="r2" style="display:flex;gap:8px"><input id="gt" placeholder="Caption e.g. Annual meeting 2026" style="flex:1;min-width:0"><select id="gfo" style="flex:1;min-width:0">${FO}</select></div><div style="height:8px"></div><select id="gvi" aria-label="Who can see it"><option value="all">Everyone can see it</option><option value="committee">Committee only (residents cannot see it)</option></select><div style="height:8px"></div>${pickHtml("gph")}<div style="height:8px"></div><button id="gs">Upload</button></div>`:""}
+ <div class="gal">${pics.map(g=>`<div class="card">${phTag(g.photo)}<div style="margin-top:6px"><b>${esc(g.title)}</b></div><small style="color:var(--grey)">${esc(String(g.created_at).slice(0,10))} · 📂 ${esc(Fo(g))}${g.visibility==="committee"?' · <span class="tag amb">Committee only</span>':""}</small>${del(g)}</div>`).join("")||`<div class="card">No pictures yet.</div>`}</div>`;
  loadPh(m);$("#gf").onchange=ev=>{DF=ev.target.value;docs(m)};
  document.querySelectorAll("[data-pf]").forEach(b=>b.onclick=async()=>{if(/^L/.test(b.dataset.pf))return toast("Still uploading. Please wait a moment.");const o=b.textContent;b.disabled=true;b.textContent="Opening…";try{const r=await api({a:"photo",id:b.dataset.pf});if(!r.img)throw new Error("File not available");const bin=atob(r.img.split(",")[1]),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([u8],{type:"application/pdf"})),a=document.createElement("a");a.href=url;a.download=b.dataset.nm+".pdf";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}catch(e){toast(e.message)}b.disabled=false;b.textContent=o});
  if(P){pickInit("gph",6);SC.splice(0).forEach(s=>URL.revokeObjectURL(s.url));
@@ -622,16 +629,16 @@ async function docs(m){const{data}=await db.from("gallery").select("*").order("i
   $("#ps").onclick=async()=>{const f=$("#pf").files[0];
    if(!f&&!SC.length)return toast("Please choose a PDF file or scan a paper.");
    if(!SC.length){if(f.type!=="application/pdf")return toast("Only PDF files are allowed.");if(f.size>1e6)return toast("PDF must be under 1 MB. Please compress it first (for example at ilovepdf.com, Compress PDF) and upload again.")}
-   const b=$("#ps"),o=b.textContent,fo=$("#pfo").value;b.disabled=true;
+   const b=$("#ps"),o=b.textContent,fo=$("#pfo").value,vi=$("#pvi").value;b.disabled=true;
    try{let d=null,pre=null,nm,ti;
     if(SC.length){b.textContent="Making PDF…";d=await scanPdf();nm="scan-"+ld()+".pdf";ti=$("#pt").value.trim()||"Scan "+ld()}
     else{pre=PRE&&PRE.f===f?PRE.p:null;nm=f.name;ti=$("#pt").value.trim()||f.name.replace(/\.pdf$/i,"")}
     PRE=null;const lid=LID(),file=f;
-    bgRun(T=>applyLocal(T,"gallery","insert",{title:ti,photo:lid,kind:"pdf",name:nm,folder:fo},[]),async()=>{const id=await upOne(d||await b64(file),"gallery",pre);const w=await wrIns("gallery",{title:ti,photo:id,kind:"pdf",name:nm,folder:fo});bgDrive();return w}).catch(()=>{});
+    bgRun(T=>applyLocal(T,"gallery","insert",{title:ti,photo:lid,kind:"pdf",name:nm,folder:fo,visibility:vi},[]),async()=>{const id=await upOne(d||await b64(file),"gallery",pre);const w=await wrIns("gallery",{title:ti,photo:id,kind:"pdf",name:nm,folder:fo,visibility:vi});bgDrive();return w}).catch(()=>{});
     SC.splice(0).forEach(s=>URL.revokeObjectURL(s.url));toast("Saved");render()}catch(e){toast(e.message||"Could not make the PDF. Please try again.");b.disabled=false;b.textContent=o}};
-  $("#gs").onclick=()=>{if(!PK.gph.length)return toast("Please add a photo first.");const ti=$("#gt").value.trim(),fo=$("#gfo").value;
+  $("#gs").onclick=()=>{if(!PK.gph.length)return toast("Please add a photo first.");const ti=$("#gt").value.trim(),fo=$("#gfo").value,vi=$("#gvi").value;
  const loc=PK.gph.splice(0).map(d=>{const lid=LID();PH[lid]=Promise.resolve(d);const pre=UP.get(d);UP.delete(d);return{lid,d,pre}});
- bgRun(T=>loc.forEach(x=>applyLocal(T,"gallery","insert",{title:ti,photo:x.lid,kind:"photo",folder:fo},[])),async()=>{let w;for(const x of loc)w=await wrIns("gallery",{title:ti,photo:await upOne(x.d,"gallery",x.pre),kind:"photo",folder:fo});bgDrive();return w}).catch(()=>{});
+ bgRun(T=>loc.forEach(x=>applyLocal(T,"gallery","insert",{title:ti,photo:x.lid,kind:"photo",folder:fo,visibility:vi},[])),async()=>{let w;for(const x of loc)w=await wrIns("gallery",{title:ti,photo:await upOne(x.d,"gallery",x.pre),kind:"photo",folder:fo,visibility:vi});bgDrive();return w}).catch(()=>{});
  toast("Saved");render()};
   document.querySelectorAll("[data-gx]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this file?"))return;await db.from("gallery").delete().eq("id",b.dataset.gx);render()})}}
 
@@ -652,14 +659,14 @@ async function homeHtml(F,staff,who){
   cards=[[F.fl.length,"Total flats"],[inr(paid),"Collected in "+month],[inr(Math.max(0,due-paid)),"Pending in "+month],[inr(sp),"Expenses in "+month]]}
  else{const f=F.fl.find(x=>String(x.flat_no)===String(me.id))||F.fl[0];
   if(f){const r=rate(f),p=pm(f);cards=[[inr(r),"Maintenance for "+month],[inr(p),"Paid this month"],[inr(Math.max(0,r-p)),"Pending amount"],[inr(F.p.filter(x=>String(x.flat_id)===String(f.id)).reduce((a,x)=>a+ +x.amount,0)),"Total contributions"]]}}
- const QA=[["maint","💳","Payments"],["comp","🛠","Complaints"],["doc","📄","Documents"],["not","📢","Notices"],["poll","🗳","Voting"],["meet","📅","Meetings"]];
- if(staff)QA.splice(2,1,["exp","🧾","Expenses"]),QA.splice(3,1,["st","📊","Statement"]);
+ const QA=[["maint","💳","Payments"],["comp","🛠","Complaints"],["doc","📄","Documents"],["not","📢","Notices"],["poll","🗳","Voting"],["meet","📅","Meetings"],["assets","🛗","Assets"],["sos","🚨","Emergency"]];
+ if(staff)QA.splice(2,1,["exp","🧾","Expenses"]),QA.splice(3,1,["st","📊","Statement"]);if(isIn(R_COM))QA.splice(6,1,["rem","🔔","Reminders"]);
  const[n1,n2,n3,n4,n5,n6]=await Promise.all(["notices","status","maintenance_log","complaints","meetings","visitors"].map(t=>db.from(t).select("*"))),
   nts=(n1.data||[]).sort((a,b)=>b.id-a.id),sm=Object.fromEntries((n2.data||[]).map(r=>[r.item,r.state])),canS=WRITE.includes(me.role),today=ld(),vday=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,10)===today).reduce((a,r)=>a+(+r.count||0),0),vmon=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,7)===today.slice(0,7)).reduce((a,r)=>a+(+r.count||0),0),
   ev=(n5.data||[]).filter(e=>String(e.on_date)>=today).sort((a,b)=>String(a.on_date).localeCompare(b.on_date)||String(a.at_time).localeCompare(b.at_time)).slice(0,3),
-  act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
+  remc=await remHome(),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
  return `${window.KKPush?KKPush.card():""}<div class="wel"><h1>Namaste 🙏, ${esc(who)}</h1><small>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small></div>
- ${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l])=>`<div class="card"><b>${v}</b><span>${esc(l)}</span></div>`).join("")}</div>`:""}
+ ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l])=>`<div class="card"><b>${v}</b><span>${esc(l)}</span></div>`).join("")}</div>`:""}
  <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today"],[vmon,"This month"]].map(([v,l])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div></div>
  <div class="qa">${QA.map(([k,e,l])=>`<button data-go="${k}" type="button"><span>${e}</span>${l}</button>`).join("")}</div>
  <h2>Apartment status</h2><div class="stg">${AP.map(([n,e],k)=>{const st=sm[n]||"active",c=ST3.find(x=>x[0]===st);return `<button type="button" class="t-${n.toLowerCase().replace(/\W/g,"")} s-${st} ${canS?"ed":""}" style="--i:${k};--c:${c[2]}" ${canS?`data-st="${n}" data-s="${st}" title="Tap to change"`:"disabled"}><span class="ic">${e}</span>${n}<i style="background:${c[2]}">${c[1]}</i></button>`}).join("")}</div>
@@ -667,52 +674,7 @@ async function homeHtml(F,staff,who){
  ${nts.length?`<h2>Latest notices</h2>${nts.slice(0,2).map(n=>`<div class="card nt">${esc(n.title)}<small>${esc(n.created_on)}</small></div>`).join("")}`:""}
  ${act.length?`<h2>Recent activity</h2><div class="card"><div class="tl">${act.map(a=>`<div>${a.i} ${esc(a.t)}<small>${dm(a.d)}</small></div>`).join("")}</div></div>`:""}`}
 
-async function complaints(m){
- const S=STAFF4.includes(me.role),{data}=await db.from("complaints").select("*").order("id",{ascending:false});
- m.innerHTML=`<div class="card"><b>Raise a complaint</b><div style="height:8px"></div><input id="ct" placeholder="What is the problem? e.g. Lift not working"><div style="height:8px"></div><input id="cd" placeholder="More details (optional)"><div style="height:8px"></div>${pickHtml("cph")}<div style="height:8px"></div>${voiceHtml("cvn")}<div style="height:8px"></div><button id="cs">Submit complaint</button></div>
- <h2>${S?"All complaints":"Your complaints"}</h2>${(data||[]).map(c=>{const k=CS.findIndex(x=>x[0]===c.status);return `<div class="card"><b>${esc(c.title)}</b>${c.details?`<div>${esc(c.details)}</div>`:""}${c.photos?`<div class="phs">${String(c.photos).split("|").filter(Boolean).map(phTag).join("")}</div>`:""}${c.voice?vnTag(c.voice):""}<small style="color:var(--grey)">Flat ${esc(c.flat_no)} · ${esc(String(c.created_at).slice(0,10))}</small>
- <div class="stp">${CS.map((x,i)=>`<span class="${i<=k?"on":""}"></span>`).join("")}</div>
- ${S?`<select data-cs="${c.id}">${CS.map(x=>`<option value="${x[0]}"${x[0]===c.status?" selected":""}>${x[1]}</option>`).join("")}</select>`:`<small><b>${CS[k]?CS[k][1]:c.status}</b></small>`}${S?`<button class="ghost" style="margin-top:8px" data-cx="${c.id}">Delete</button>`:""}</div>`}).join("")||`<div class="card">No complaints. 🎉</div>`}`;
- loadPh(m);vnBind(m);pickInit("cph",3);voiceInit("cvn");
- $("#cs").onclick=async()=>{const t=$("#ct").value.trim();if(!t)return toast("Please describe the problem.");const dt=$("#cd").value.trim(),v=VN.cvn;VN.cvn=null;
- const loc=(PK.cph||[]).splice(0).map(d=>{const lid=LID();PH[lid]=Promise.resolve(d);const pre=UP.get(d);UP.delete(d);return{lid,d,pre}});
- if(!SNAP){const b=$("#cs");b.disabled=true;b.textContent="Uploading…"}
- bgRun(T=>applyLocal(T,"complaints","insert",{title:t,details:dt,photos:loc.map(x=>x.lid).join("|"),voice:""},[]),async()=>{const ids=[];for(const x of loc)ids.push(await upOne(x.d,"complaint",x.pre));
-  const voice=v?await upOne(v.d,"complaint",v.p):"";const w=await wrIns("complaints",{title:t,details:dt,photos:ids.join("|"),voice});bgDrive();return w}).catch(()=>{});
- toast("Complaint sent");render()};
- document.querySelectorAll("[data-cs]").forEach(e=>e.onchange=async()=>{const{error}=await db.from("complaints").update({status:e.value}).eq("id",e.dataset.cs);error?toast(error.message):render()});
- document.querySelectorAll("[data-cx]").forEach(b=>b.onclick=async()=>{await db.from("complaints").delete().eq("id",b.dataset.cx);render()})}
-
-/* ===== Visitors: just a number per day; totals per day / week / month / year ===== */
-let vp="d";
-async function visitors(m,canW){
- const{data}=await db.from("visitors").select("*"),rows=(data||[]).map(r=>({id:r.id,d:String(r.visit_on).slice(0,10),n:+r.count||0})).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id),T=ld();
- const mon=d=>{const x=U(d);x.setUTCDate(x.getUTCDate()-(x.getUTCDay()+6)%7);return iso(x)},sun=d=>{const x=U(d);x.setUTCDate(x.getUTCDate()+6);return iso(x)};
- const grp=f=>{const o={};rows.forEach(r=>{const k=f(r.d);o[k]=(o[k]||0)+r.n});return o},sm=(f,k)=>rows.filter(r=>f(r.d)===k).reduce((a,r)=>a+r.n,0);
- const fD=d=>d,fW=mon,fM=d=>d.slice(0,7),fY=d=>d.slice(0,4);
- const cards=[["Today",sm(fD,T)],["This week",sm(fW,mon(T))],["This month",sm(fM,T.slice(0,7))],["This year",sm(fY,T.slice(0,4))]];
- let list;
- if(vp==="d")list=rows.slice(0,60).map(r=>`<tr><td>${dm(r.d)}</td><td class="r">${r.n}</td>${canW?`<td><button class="ghost" data-vx="${r.id}">Delete</button></td>`:""}</tr>`).join("");
- else{const f={w:fW,m:fM,y:fY}[vp],g=grp(f),keys=Object.keys(g).sort().reverse().slice(0,vp==="w"?20:vp==="m"?24:50);
-  list=keys.map(k=>`<tr><td>${vp==="w"?dm(k)+" – "+dm(sun(k)):vp==="m"?MN[+k.slice(5,7)-1]+" "+k.slice(0,4):k}</td><td class="r">${g[k]}</td></tr>`).join("")}
- const head={d:"Date",w:"Week (Mon – Sun)",m:"Month",y:"Year"}[vp];
- m.innerHTML=`<div class="card" style="padding:12px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${cards.map(([l,v])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy)">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div></div>
- ${canW?`<h2>Add visitors</h2><div class="card"><div class="f">${dateField("vd","Date")}<div class="w"><label class="fl" for="vn">Number of visitors</label><input id="vn" type="number" inputmode="numeric" min="1" step="1" placeholder="e.g. 25"></div><button class="w" id="vs">Save</button></div></div>`:""}
- <h2>Visitors count</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">${[["d","Daily"],["w","Weekly"],["m","Monthly"],["y","Yearly"]].map(([k,l])=>`<button class="${vp===k?"":"ghost"}" data-vp="${k}">${l}</button>`).join("")}</div>
- <div class="card tw"><table class="tbl"><thead><tr><th>${head}</th><th class="r">Visitors</th>${vp==="d"&&canW?"<th></th>":""}</tr></thead><tbody>${list||`<tr><td colspan="3">Nothing yet.</td></tr>`}</tbody></table></div>`;
- document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>{vp=b.dataset.vp;render()});
- if(canW){$("#vs").onclick=async()=>{const d=gd("vd"),n=Math.floor(+$("#vn").value);if(!d)return toast("Enter a valid date (dd/mm/yyyy)");if(!(n>=1))return toast("Enter the number of visitors");
-   const{error}=await db.from("visitors").insert({visit_on:d,count:n});error?toast(error.message):(toast("Saved: "+n+" visitors on "+dm(d)),render())};
-  document.querySelectorAll("[data-vx]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this entry?"))return;const{error}=await db.from("visitors").delete().eq("id",b.dataset.vx);error?toast(error.message):render()})}}
-
-async function meetings(m){
- const can=NOTICE.includes(me.role),{data}=await db.from("meetings").select("*"),today=ld(),L=(data||[]).sort((a,b)=>String(a.on_date).localeCompare(b.on_date)),up=L.filter(e=>String(e.on_date)>=today),pa=L.filter(e=>String(e.on_date)<today).reverse();
- const row=e=>{const t=mdy(e.on_date);return `<div class="card ev"><div class="d">${t.d}<small>${t.m}</small></div><div style="flex:1"><b>${esc(e.title)}</b><small style="display:block;color:var(--grey)">${esc([e.at_time,e.place].filter(Boolean).join(" · "))} · ${e.kind==="event"?"Event":"Meeting"}</small></div>${can?`<button class="ghost" style="width:auto" data-mx="${e.id}">Delete</button>`:""}</div>`};
- m.innerHTML=`${can?`<div class="card"><b>Add meeting or event</b><div class="f"><input id="mt" class="w" placeholder="Title, e.g. Monthly meeting"><input id="md" type="date" value="${today}"><div><label class="fl">Time</label><div class="tsel"><select id="mh1" aria-label="Hour">${Array.from({length:12},(_,i)=>`<option${i+1===6?" selected":""}>${i+1}</option>`).join("")}</select><select id="mh2" aria-label="Minutes">${["00","05","10","15","20","25","30","35","40","45","50","55"].map(x=>`<option>${x}</option>`).join("")}</select><select id="mh3" aria-label="AM or PM"><option>AM</option><option selected>PM</option></select></div></div><input id="mp" class="w" placeholder="Place"><select id="mk" class="w"><option value="meeting">Meeting</option><option value="event">Festival / event</option></select><button class="w" id="ms">Save</button></div></div>`:""}
- <h2>Upcoming</h2>${up.map(row).join("")||`<div class="card">Nothing scheduled yet.</div>`}${pa.length?`<h2>Earlier</h2>${pa.slice(0,5).map(row).join("")}`:""}`;
- if(can){$("#ms").onclick=async()=>{const{error}=await db.from("meetings").insert({title:$("#mt").value.trim(),on_date:$("#md").value,at_time:$("#mh1").value+":"+$("#mh2").value+" "+$("#mh3").value,place:$("#mp").value.trim(),kind:$("#mk").value});error?toast(error.message):render()};
-  document.querySelectorAll("[data-mx]").forEach(b=>b.onclick=async()=>{await db.from("meetings").delete().eq("id",b.dataset.mx);render()})}}
-
+/* Complaints, Visitors and Meeting management now live in features.js */
 async function polls(m){
  const can=NOTICE.includes(me.role),[p,v]=await Promise.all([db.from("polls").select("*").order("id",{ascending:false}),db.from("votes").select("*")]),V=v.data||[];
  m.innerHTML=`${can?`<div class="card"><b>New poll</b><div style="height:8px"></div><input id="pq" placeholder="Question"><div style="height:8px"></div><input id="po" placeholder="Options separated by commas, e.g. Yes, No"><div style="height:8px"></div><button id="pc">Start poll</button></div>`:""}
