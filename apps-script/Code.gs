@@ -119,6 +119,7 @@ function upgradeFeatures_() {
     [ROOT_FOLDER, PRIV_FOLDER].forEach(rn => { const it = DriveApp.getFoldersByName(rn); if (!it.hasNext()) return; const root = it.next();
       Object.keys(FOLDER_RENAMED).forEach(o => { const f = root.getFoldersByName(safeName_(o)); if (f.hasNext() && !root.getFoldersByName(safeName_(FOLDER_RENAMED[o])).hasNext()) f.next().setName(safeName_(FOLDER_RENAMED[o])); }); });
   } catch (e) { Logger.log('Drive rename skipped: ' + e); }
+  PROPS_().deleteProperty('FOLDER_URLS'); /* Documents page folder links are worked out again */
   const a = sh_('audit_log');
   if (a && !a.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) a.protect().setDescription('Audit log: written by the app only').setWarningOnly(true);
   cacheDrop_('snap');
@@ -178,6 +179,7 @@ function route_(b) {
   if (b.a === 'driveSync') return driveSync_();
   if (b.a === 'after') return after_();
   if (b.a === 'audit') return auditRead_(u, b);
+  if (b.a === 'folders') return folderLinks_(u);
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
@@ -862,6 +864,24 @@ function saveComplaintText_(rec) {
     'Problem: ' + (rec.title || ''), 'Details: ' + (rec.details || '-'), 'Related to: ' + (it || '-'), 'Status when raised: ' + (rec.status || 'open'),
     'Photos: ' + String(rec.photos || '').split('|').filter(Boolean).length + (rec.voice ? ', voice note: yes' : ''), '', 'The latest status is always in the app (Complaints).'].join('\n');
   dir.createFile(name, body, 'text/plain');
+}
+/* Documents page: a Google Drive link for EACH sub-folder, so a resident asks access only for the folder they need.
+   Links are worked out once and kept (script property FOLDER_URLS); setup() refreshes them. */
+function folderLinks_(u) {
+  const P = PROPS_(); let m = null;
+  try { m = JSON.parse(P.getProperty('FOLDER_URLS') || 'null'); } catch (e) {}
+  const full = x => x && FOLDERS.every(f => x.pub[f] && x.priv[f]);
+  if (!full(m)) {
+    const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try {
+      const get = n => { const it = DriveApp.getFoldersByName(n); return it.hasNext() ? it.next() : DriveApp.createFolder(n); };
+      const pr = get(ROOT_FOLDER), vr = get(PRIV_FOLDER); m = { pub: {}, priv: {}, root: pr.getUrl() };
+      FOLDERS.forEach(f => { m.pub[f] = driveFolder_(pr, safeName_(f)).getUrl(); m.priv[f] = driveFolder_(vr, safeName_(f)).getUrl(); });
+      P.setProperty('FOLDER_URLS', JSON.stringify(m));
+    } catch (e) { return { error: { message: 'Could not open Google Drive. (Admin: run authorizeDrive in Apps Script.)' } }; }
+    finally { lock.releaseLock(); }
+  }
+  return { ok: true, folders: m.pub, priv: u.role === 'resident' ? null : m.priv };
 }
 function driveSync_() {
   const lock = LockService.getScriptLock();

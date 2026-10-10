@@ -162,6 +162,9 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
   await check('resident sees only visitors to own flat, no phone', async () => { await has(r, /Courier Ravi/); await hasNot(r, /Suresh/); await hasNot(r, /99999/); });
   await go(r, 'assets');
   await check('resident sees assets and history but no costs', async () => { await has(r, /Lift/); await r.locator('#m > .card').filter({ has: r.locator('b', { hasText: /^Lift$/ }) }).locator('details.rec summary').click(); await has(r, /ropes oiled/); await hasNot(r, /₹2,500/); if (await r.locator('#asv').count()) throw new Error('add form visible'); });
+  await go(r, 'doc');
+  await check('resident picks one sub-folder and gets that folder\'s own link', async () => { await r.selectOption('#dfo', 'pub|Lift'); await r.waitForTimeout(500); const h = await r.locator('#dgo').getAttribute('href'); if (!/Lift/.test(h) || /Committee/.test(h)) throw new Error(h);
+    if (await r.locator('#dfo option[value^="priv|"]').count()) throw new Error('private folders offered to resident'); });
   await go(r, 'sos');
   await check('resident has one-tap call buttons', async () => { const n = await r.locator('a.call[href^="tel:"]').count(); if (n < 5) throw new Error('only ' + n); });
   await shot(r, 'contacts-resident');

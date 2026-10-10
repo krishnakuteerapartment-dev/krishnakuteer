@@ -176,6 +176,9 @@ t('every complaint is saved as a text file in the private Complaints folder', ()
 t('saving again does not make duplicates', () => { G.call({ token: tok.sec, a: 'driveSync' }); const cf = G.drive.top.folders.find(f => f.name === 'Krishna Kuteer Committee Documents (private)').folders.find(f => f.name === 'Complaints'), n = cf.files.map(f => f.name);
   assert.strictEqual(new Set(n).size, n.length); });
 
+t('each document folder has its own Drive link; residents get only the shared ones', () => {
+  const r = G.call({ token: tok.f101, a: 'folders' }); ok(r); assert.strictEqual(Object.keys(r.folders).length, 15); assert.strictEqual(r.priv, null); assert(/Dust Collector/.test(r.folders['Dust Collector']));
+  const c = G.call({ token: tok.sec, a: 'folders' }); ok(c); assert(c.priv && Object.keys(c.priv).length === 15); });
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
   const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });

@@ -306,7 +306,7 @@
     "Section": "విభాగం", "All sections": "అన్ని విభాగాలు", "Action": "చర్య", "All actions": "అన్ని చర్యలు", "Everybody": "అందరూ", "Added": "జోడించారు", "Changed": "మార్చారు", "Deleted": "తొలగించారు", "Loading…": "లోడ్ అవుతోంది…",
     "Every addition, change and deletion of money entries (payments, expenses, income, month locks) and other important records, with who did it and when. Entries cannot be changed or deleted from the app.": "డబ్బు నమోదులు (చెల్లింపులు, ఖర్చులు, ఆదాయం, నెల లాక్) మరియు ఇతర ముఖ్యమైన రికార్డులలో ప్రతి జోడింపు, మార్పు, తొలగింపు – ఎవరు, ఎప్పుడు చేశారో. వీటిని యాప్ నుండి మార్చలేరు, తొలగించలేరు.",
     "Nothing recorded for this choice.": "ఈ ఎంపికకు ఏమీ నమోదు కాలేదు.", "Committee only": "కమిటీకి మాత్రమే", "Everyone can see it": "అందరూ చూడవచ్చు", "Committee only (residents cannot see it)": "కమిటీకి మాత్రమే (నివాసులు చూడలేరు)",
-    "Add a PDF": "PDF జోడించండి", "Add pictures": "ఫోటోలు జోడించండి"
+    "Add a PDF": "PDF జోడించండి", "Apartment documents in Google Drive": "గూగుల్ డ్రైవ్‌లో అపార్ట్‌మెంట్ పత్రాలు", "Choose a folder…": "ఫోల్డర్ ఎంచుకోండి…", "Folder": "ఫోల్డర్", "Open folder in Google Drive": "గూగుల్ డ్రైవ్‌లో ఫోల్డర్ తెరవండి", "Could not load the folder links.": "ఫోల్డర్ లింకులు లోడ్ కాలేదు.", "Add pictures": "ఫోటోలు జోడించండి"
   };
   for (var k2 in TE2) if (Object.prototype.hasOwnProperty.call(TE2, k2)) TE[k2] = TE2[k2];
   PAT.push(
