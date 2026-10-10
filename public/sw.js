@@ -1,7 +1,7 @@
 /* Krishna Kuteer service worker: the app opens instantly from the copy saved on the phone, then refreshes quietly in the
    background. When a newer version arrives, the page shows "New version ready. Tap here to refresh."
    Google Sheets data requests are never touched here (they go straight to the network). */
-const V = "kk-v48", KEEP = ["kk-photos"], FILES = ["./", "index.html", "lang.js", "features.js", "firebase-config.js", "push.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
+const V = "kk-v49", KEEP = ["kk-photos"], FILES = ["./", "index.html", "lang.js", "features.js", "firebase-config.js", "push.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
 /* Browsers refuse to show a redirected response for a page load, so rebuild it as a plain response. */
 const clean = x => (x && x.redirected) ? new Response(x.body, { status: x.status, statusText: x.statusText, headers: x.headers }) : x;
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });

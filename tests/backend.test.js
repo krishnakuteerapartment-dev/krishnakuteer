@@ -103,7 +103,7 @@ t('exit time recorded', () => { const v = snap('exe').visitors.find(x => x.name 
 t('totals preserved (12 + 1 + 1)', () => assert.strictEqual(snap('f101').visitors.reduce((a, v) => a + +v.count, 0), 14));
 t('flat 101 sees own visitor details, not phone; other flat visitor hidden', () => { const V = snap('f101').visitors, mine = V.find(v => v.name === 'Courier Ravi'); assert(mine && mine.purpose === 'Delivery' && mine.phone === undefined); assert(!V.some(v => v.name === 'Plumber Suresh')); });
 t('committee sees phone', () => assert.strictEqual(snap('sec').visitors.find(v => v.name === 'Courier Ravi').phone, '99999 11111'));
-t('resident cannot add visitors', () => no(W('f101', 'visitors', 'insert', { visit_on: today, count: 1 }), /permission/));
+t('resident cannot add visitor counts', () => no(W('f101', 'visitors', 'insert', { visit_on: today, count: 1 }), /permission|name/));
 
 console.log('6. Complaint tracking');
 let c1;
@@ -231,6 +231,17 @@ t('gate phone: flat saves its own, not others; gate sees it, other flats do not'
   assert.strictEqual(snap('gate').flats.find(f => String(f.flat_no) === '101').phone, '98480 55555'); assert.strictEqual(snap('f102').flats.find(f => String(f.flat_no) === '101').phone, undefined);
   assert.strictEqual(snap('f101').flats.find(f => String(f.flat_no) === '101').phone, '98480 55555'); ok(G.call({ token: tok.sec, a: 'flatPhone', flat_no: '202', phone: '90000 00000' })); });
 t('approvals are in the audit log without names', () => { const a = G.call({ token: tok.admin, a: 'audit', tbl: 'visitors' }).rows; assert(a.some(r => /Flat 101 approved/.test(r.summary))); assert(!JSON.stringify(a).includes('Ramu')); });
+
+console.log('11. Flat records its own visitor when the watchman missed it');
+let rv;
+t('flat records its own visitor: saved for its own flat, marked "by flat"', () => { rv = ok(W('f101', 'visitors', 'insert', { visit_on: today, name: 'Uncle', purpose: 'Guest / relative', in_time: '15:00', count: 1, flat_no: '502' })).id;
+  const v = snap('sec').visitors.find(x => x.id === rv); assert.strictEqual(v.flat_no, '101'); assert.strictEqual(v.status, 'by_flat'); assert.strictEqual(v.added_by, '101'); });
+t('flat marks its visitor\'s exit', () => { ok(W('f101', 'visitors', 'update', { out_time: '16:10' }, [['id', rv]])); assert.strictEqual(snap('f101').visitors.find(x => x.id === rv).out_time, '16:10'); });
+t('flat cannot close another flat\'s visitor or change other fields', () => { no(W('f102', 'visitors', 'update', { out_time: '16:20' }, [['id', rv]]), /permission/); no(W('f101', 'visitors', 'update', { name: 'X' }, [['id', rv]]), /only record the exit/); });
+t('flat cannot delete, add counts, ask, or use another flat\'s pass', () => { no(W('f101', 'visitors', 'delete', null, [['id', rv]]), /permission/); no(W('f101', 'visitors', 'insert', { visit_on: today, count: 5 }), /name/);
+  no(W('f101', 'visitors', 'insert', { visit_on: today, name: 'Y', in_time: '10:00', count: 1, ask: true }), /permission/);
+  const other = ok(W('f102', 'guest_passes', 'insert', { name: 'Cook', kind: 'always' })).id; no(W('f101', 'visitors', 'insert', { visit_on: today, in_time: '10:00', count: 1, always_pass_id: other }), /permission/);
+  ok(W('f102', 'visitors', 'insert', { visit_on: today, in_time: '10:00', count: 1, always_pass_id: other })); assert(snap('gate').visitors.some(v => v.name === 'Cook' && v.status === 'always' && v.flat_no === '102')); });
 
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));

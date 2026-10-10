@@ -36,7 +36,7 @@ const TABLES = {
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
-const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by'];
+const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by', 'added_by', 'created_by', 'uploaded_by', 'updated_by'];
 TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
   'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
   'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by');
@@ -54,7 +54,7 @@ const RULES = {
   maintenance_rates: { upsert: W }, closed_months: { insert: W, delete: ['admin'] },
   notices: { insert: N, delete: N }, settings: { update: A },
   maintenance_log: { insert: W, update: W, delete: W }, celebrations: { insert: W, delete: A },
-  visitors: { insert: VIS, update: VIS, delete: VIS },
+  visitors: { insert: VIS.concat(['resident']), update: VIS.concat(['resident']), delete: VIS }, /* residents: only their own flat's visitors (see below) */
   assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S },
   reminders: { insert: COM, update: COM, delete: S }, contacts: { insert: S, update: S, delete: S },
   action_items: { insert: N, update: S, delete: N },
@@ -504,7 +504,7 @@ function snapshot_(u) {
     T.income = pick(T.income, ['id', 'received_on', 'category', 'amount', 'mode', 'created_at']);
     T.gallery = T.gallery.filter(g => g.visibility !== 'committee');
     /* visitors: totals stay; names, purpose and times only for visitors to your own flat; phone numbers never */
-    T.visitors = T.visitors.map(v => String(v.flat_no || '').toLowerCase() === mine ? pick([v], ['id', 'visit_on', 'count', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'status', 'decided_by', 'decided_at', 'created_at'])[0] : pick([v], ['id', 'visit_on', 'count'])[0]);
+    T.visitors = T.visitors.map(v => String(v.flat_no || '').toLowerCase() === mine ? pick([v], ['id', 'visit_on', 'count', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'status', 'decided_by', 'decided_at', 'created_at', 'added_by'])[0] : pick([v], ['id', 'visit_on', 'count'])[0]);
     /* meetings: minutes, resolutions, attendance and action items only after the committee publishes them */
     const pub = {};
     T.meetings = T.meetings.map(m => { if (m.status === 'published') { pub[m.id] = 1; return m; } return pick([m], ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'status'])[0]; });
@@ -701,6 +701,20 @@ function write_(u, b) {
   }
   if (t === 'visitors') {
     if (op === 'insert') delete p.status;
+    /* a resident records their own visitor when the watchman missed it: only for their own flat, and only entry / exit */
+    if (u.role === 'resident') {
+      const me = String(u.username).toLowerCase();
+      if (op === 'insert') {
+        if (raw.pass_code || raw.ask) return err('You do not have permission to do this.');
+        if (raw.always_pass_id) { const g = read_('guest_passes').filter(x => String(x.id) === String(raw.always_pass_id))[0]; if (!g || String(g.flat_no).toLowerCase() !== me) return err('You do not have permission to do this.'); }
+        else { if (!String(p.name || '').trim()) return err('Enter the visitor\'s name.'); p.status = 'by_flat'; p.decided_by = u.username; p.decided_at = now_(); }
+        p.flat_no = u.username; delete p.phone;
+      }
+      if (op === 'update') {
+        if (Object.keys(p).some(k => k !== 'out_time')) return err('You can only record the exit time.');
+        if (before.some(r => String(r.flat_no).toLowerCase() !== me)) return err('You do not have permission to do this.');
+      }
+    }
     /* entry with a guest pass: a 6-digit code (one visit) or a flat's 'always allowed' person */
     if (op === 'insert' && (raw.pass_code || raw.always_pass_id)) {
       const g = raw.pass_code ? findPass_(raw.pass_code) : read_('guest_passes').filter(x => String(x.id) === String(raw.always_pass_id) && x.kind === 'always' && x.status === 'active')[0];
