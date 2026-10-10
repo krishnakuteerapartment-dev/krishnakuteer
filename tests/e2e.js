@@ -142,6 +142,7 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
   await check('filter by flat', async () => { await e.selectOption('#vffl', '102'); await e.click('#vfgo'); await e.waitForTimeout(300); const t = await e.locator('.tbl').first().innerText(); if (!/Suresh/.test(t) || /Ravi/.test(t)) throw new Error(t); });
   await check('visitor page fits the phone screen', () => noHScroll(e));
   await shot(e, 'visitors-executive');
+  await check('executive sees the document upload boxes but no Delete', async () => { await go(e, 'doc'); if (!(await e.locator('#ps').count()) || !(await e.locator('#gs').count())) throw new Error('no upload'); if (await e.locator('[data-gx]').count()) throw new Error('delete visible'); });
   await check('executive cannot edit contacts', async () => { await go(e, 'sos'); if (await e.locator('#csv').count()) throw new Error('form visible'); });
   await check('no script errors (executive)', async () => { if (e.errors.length) throw new Error(e.errors.join(' || ')); });
 
