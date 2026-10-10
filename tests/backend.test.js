@@ -199,7 +199,7 @@ t('wrong code from an alert is refused', () => no(G.call({ a: 'visitorDecide', i
 t('Approve from the alert works without signing in; the gate is told', () => { G.pushes.length = 0; const code = G.ctx.CacheService.getScriptCache().get('vc_' + va);
   ok(G.call({ a: 'visitorDecide', id: va, code, decision: 'approve' })); const v = snap('gate').visitors.find(x => x.id === va);
   assert.strictEqual(v.status, 'approved'); assert.strictEqual(v.decided_by, '101 (alert)'); assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(v.decided_at));
-  const p = lastPush(/Flat 101 approved/); assert(p && p.to.roles.includes('watchman') && !p.to.roles.includes('resident')); });
+  const p = lastPush(/Flat 101 approved/); assert(p && p.to.roles.includes('watchman') && p.to.roles.includes('president') && !p.to.roles.includes('resident')); });
 t('a second answer does not change the first', () => { const r = G.call({ token: tok.f101, a: 'visitorDecide', id: va, decision: 'deny' }); ok(r); assert(r.already); assert.strictEqual(snap('gate').visitors.find(x => x.id === va).status, 'approved'); });
 t('gate screen check returns statuses', () => { const r = G.call({ token: tok.gate, a: 'visitorStatus', ids: [va] }); ok(r); assert.strictEqual(r.status[va], 'approved'); });
 t('only the visited flat can answer in the app', () => { const id = ok(W('gate', 'visitors', 'insert', { visit_on: today, name: 'Guest X', flat_no: '101', in_time: '11:10', count: 1, ask: true })).id;

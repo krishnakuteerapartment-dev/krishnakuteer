@@ -820,7 +820,7 @@ function write_(u, b) {
 /* ---------- VISITOR APPROVAL ----------
    The gate asks a flat; that flat's phones get an alert with Approve / Deny (and Leave at gate). A one-time code in the alert lets the
    phone answer straight from the alert; it is kept only in the script cache for 30 minutes, never in the Sheet. */
-const GATE_ALERT = ['watchman', 'executive', 'secretary', 'treasurer', 'admin']; /* who hears the answer */
+const GATE_ALERT = ['watchman', 'executive', 'president', 'secretary', 'treasurer', 'admin']; /* who hears the answer */
 const VS_LABEL = { approved: 'approved', denied: 'denied', leave_at_gate: 'said: leave it at the gate' };
 function askFlat_(rec) {
   const code = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
