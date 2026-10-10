@@ -11,7 +11,7 @@ const srv = http.createServer((q, s) => { let p = q.url.split('?')[0]; if (p ===
 let ok = 0, bad = 0; const check = async (n, fn) => { try { await fn(); ok++; console.log('  ok   ' + n); } catch (e) { bad++; console.log('  FAIL ' + n + '\n       ' + String(e.message).split('\n')[0]); } };
 async function session(b, who) { const ctx = await b.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' }), p = await ctx.newPage(); p.errors = [];
   p.on('pageerror', e => p.errors.push(String(e))); p.on('dialog', d => d.accept());
-  await p.route('https://script.google.com/**', async r => r.fulfill({ contentType: 'application/json', body: G.ctx.doPost({ postData: { contents: r.request().postData() } }).s }));
+  p.delay = 0; await p.route('https://script.google.com/**', async r => { if (p.delay) await new Promise(z => setTimeout(z, p.delay)); await r.fulfill({ contentType: 'application/json', body: G.ctx.doPost({ postData: { contents: r.request().postData() } }).s }); });
   await p.route('https://www.gstatic.com/**', r => r.abort());
   await p.goto('http://localhost:8767/'); await p.selectOption('#em', who); await p.fill('#pw', PASS[who]); await p.click('#in'); await p.waitForSelector('nav button[data-t]'); return p; }
 const go = async (p, t) => { await p.click('#hb'); await p.waitForTimeout(350); await p.click(`nav button[data-t="${t}"]`); await p.waitForSelector('#m:not([aria-busy])'); await p.waitForTimeout(300); };
@@ -39,7 +39,20 @@ const txt = p => p.locator('#m').innerText();
     const d = new Date(Date.now() - 4 * 60000), hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); row[H.indexOf('created_at')] = "'" + v.visit_on + ' ' + hm; row[H.indexOf('created_at')] = v.visit_on + ' ' + hm; G.x.clearCache();
     await fresh(w); await go(w, 'vis'); const href = await w.locator('a.call', { hasText: 'Call Flat 101' }).getAttribute('href'); if (href !== 'tel:9848055555') throw new Error(href);
     if (!(await w.locator('[data-vagain]').count())) throw new Error('no ask again'); });
-  await check('resident makes a guest pass and gets a 6-digit code', async () => { await go(r, 'vis'); await r.fill('#pnm', 'Mother'); await r.click('#psv'); await r.waitForTimeout(800); const t = await txt(r); const m = /Mother[\s\S]{0,200}?\b(\d{6})\b/.exec(t); if (!m) throw new Error(t.slice(0, 400)); r.code = m[1]; });
+  await check('SPEED: with Google taking 2.5 s, every gate save shows on screen in under 0.5 s', async () => {
+    await fresh(w); await go(w, 'vis'); w.delay = 2500; const t0 = Date.now();
+    await w.fill('#vnm', 'Speed Test'); await w.selectOption('#vfl', '101'); await w.click('#vask');
+    await w.waitForFunction(() => /Speed Test → Flat 101/.test(document.querySelector('#m').innerText), null, { timeout: 2000 }); const t1 = Date.now() - t0;
+    const t2s = Date.now(); await w.fill('#vnm', 'Speed Two'); await w.selectOption('#vfl', '102'); await w.click('#vsv');
+    await w.waitForFunction(() => /Speed Two/.test(document.querySelector('#m').innerText), null, { timeout: 2000 }); const t2 = Date.now() - t2s;
+    w.delay = 0; await w.waitForTimeout(6000);
+    if (!G.x.read_('visitors').some(x => x.name === 'Speed Test' && x.status === 'waiting')) throw new Error('not saved in background');
+    console.log('       ask flat: ' + t1 + ' ms, save without asking: ' + t2 + ' ms (Google itself: 2500 ms)'); if (t1 > 600 || t2 > 600) throw new Error('too slow: ' + t1 + ' / ' + t2); });
+  await check('resident answer is instant too', async () => { await fresh(r); await go(r, 'dash'); r.delay = 2500; const t0 = Date.now(); await r.locator('.card', { hasText: 'Speed Test' }).locator('[data-vdec$=":deny"]').click();
+    await r.waitForFunction(() => !/Speed Test/.test(document.querySelector('#m').innerText), null, { timeout: 2000 }); const t = Date.now() - t0; r.delay = 0; await r.waitForTimeout(3500);
+    console.log('       resident Deny: ' + t + ' ms'); if (!G.x.read_('visitors').some(x => x.name === 'Speed Test' && x.status === 'denied')) throw new Error('not saved'); });
+  await check('gate sees the Deny without reloading', async () => { await w.waitForFunction(() => /Do not let in: Speed Test/.test(document.querySelector('#m').innerText), null, { timeout: 9000 }); });
+  await check('resident makes a guest pass and gets a 6-digit code', async () => { await go(r, 'vis'); await r.fill('#pnm', 'Mother'); await r.click('#psv'); await r.waitForTimeout(1500); await go(r, 'vis'); const t = await txt(r); const m = /Mother[\s\S]{0,200}?\b(\d{6})\b/.exec(t); if (!m) throw new Error(t.slice(0, 400)); r.code = m[1]; });
   await r.screenshot({ path: OUT + '/resident-pass.png', fullPage: false });
   await check('watchman enters the code and lets Mother in; pass is used', async () => { await fresh(w); await go(w, 'vis'); await w.fill('#gpc', r.code); await w.click('#gpck'); await w.waitForSelector('#gplet'); await w.click('#gplet'); await w.waitForTimeout(800);
     const v = G.x.read_('visitors').find(x => x.name === 'Mother'); if (!v || v.status !== 'pre_approved') throw new Error(JSON.stringify(v)); await w.fill('#gpc', r.code); await w.click('#gpck'); await w.waitForTimeout(500); if (!/not valid/.test(await w.locator('#gpres').innerText())) throw new Error('code reusable'); });

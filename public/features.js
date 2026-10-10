@@ -318,14 +318,20 @@ const VST = { waiting: ["Waiting for flat", "amb"], no_answer: ["No answer", "re
 const vTag = r => r.status && VST[r.status] ? `<span class="tag ${VST[r.status][1]}">${VST[r.status][0]}</span>` : "";
 const askedAt = r => { const m = /\d{2}:\d{2}$/.exec(String(r.created_at || "")); return m ? m[0] : r.in_time; };
 const minsSince = hm => { if (!/^\d{2}:\d{2}$/.test(String(hm || ""))) return 0; const [h, mi] = hm.split(":").map(Number), d = new Date(); return (d.getHours() * 60 + d.getMinutes()) - (h * 60 + mi); };
-async function directWrite(t, op, payload, filters) {
-  try { const w = await api({ a: "write", t, op, payload, filters: filters || [] }); if (w.error) return { error: w.error.message }; GEN++; if (w.snapshot) adopt(w.snapshot); return w; }
-  catch (e) { return { error: e.message }; }
+/* INSTANT: show the change at once, send it to Google in the background (a refusal is explained and the screen reloads) */
+function instant(apply, body) {
+  if (!SNAP) return api(body).then(w => { if (w.error) throw new Error(w.error.message); GEN++; if (w.snapshot) adopt(w.snapshot); return w; });
+  bgRun(apply, () => api(body, 1)).catch(() => {});
+  return Promise.resolve({ ok: true });
 }
+const wbody = (t, op, payload, filters) => ({ a: "write", t, op, payload, filters: filters || [] });
+const setRow = (t, id, ch) => c => (c[t] || []).filter(r => String(r.id) === String(id)).forEach(r => Object.assign(r, ch));
 /* resident answers from inside the app (the alert's own buttons do the same thing without opening the app) */
 async function decideVisit(id, decision) {
-  try { const r = await api({ a: "visitorDecide", id, decision }); if (r.error) throw new Error(r.error.message); GEN++; if (r.snapshot) adopt(r.snapshot);
-    toast(r.already ? "Already answered" : decision === "approve" ? "Approved. The gate has been told." : decision === "deny" ? "Denied. The gate has been told." : "The gate will keep it for you."); render(); }
+  if (+id >= TMPID) return toast("Still saving. Please try again in a moment.");
+  const st = { approve: "approved", deny: "denied", gate: "leave_at_gate" }[decision];
+  try { await instant(setRow("visitors", id, { status: st, decided_by: me.id, decided_at: nowS() }), { a: "visitorDecide", id, decision });
+    toast(decision === "approve" ? "Approved. The gate has been told." : decision === "deny" ? "Denied. The gate has been told." : "The gate will keep it for you."); render(); }
   catch (e) { toast(e.message); }
 }
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-vdec]"); if (!b) return; const [id, d] = b.dataset.vdec.split(":"); b.disabled = true; decideVisit(id, d); });
@@ -389,7 +395,7 @@ async function visitors(m, canW0) {
   const activeP = passes.filter(p => p.status === "active" && (p.kind === "always" || String(p.valid_to || "") >= T)), oldP = passes.filter(p => !activeP.includes(p));
   const pRow = p => `<div class="it"><div><b>${esc(p.name)}</b> <span class="tag ${p.kind === "always" ? "grn" : ""}">${p.kind === "always" ? "Always allowed" : "One visit"}</span>${!res ? ` <span class="tag gry">Flat ${esc(p.flat_no)}</span>` : ""}
     <small>${esc(p.purpose || "")}${p.kind === "once" ? (p.purpose ? " · " : "") + dmx(p.valid_from) + (p.valid_to && p.valid_to !== p.valid_from ? " – " + dmx(p.valid_to) : "") : ""}${p.status === "used" ? " · used " + t12(String(p.used_at || "").slice(11, 16)) + " " + dmx(p.used_at) : p.status === "cancelled" ? " · cancelled" : ""}</small>
-    ${p.code ? `<div style="font-size:1.5rem;font-weight:800;letter-spacing:.18em;color:var(--navy);margin-top:2px">${esc(p.code)}</div>` : ""}</div>
+    ${p.code ? `<div style="font-size:1.5rem;font-weight:800;letter-spacing:.18em;color:var(--navy);margin-top:2px">${esc(p.code)}</div>` : res && p.kind === "once" && p.status === "active" ? `<div class="note" style="margin:4px 0 0">Code coming…</div>` : ""}</div>
     ${p.status === "active" ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${p.code && p.kind === "once" ? `<button class="ghost" data-pshare="${p.id}">Share code</button>` : ""}${res || S4 ? `<button class="ghost" data-pcan="${p.id}">Cancel</button>` : ""}</div>` : ""}</div>`;
   const resHtml = res ? `${myWait.length ? `<h2>At the gate now</h2>${myWait.map(r => waitCard(r, true)).join("")}` : ""}
    <h2>Guest passes</h2><div class="card"><p class="note">Expecting someone? Make a pass. A <b>one-visit</b> pass gives a 6-digit code to send your guest; they show it at the gate and walk in without a call. <b>Always allowed</b> is for daily help, milk or newspaper.</p>
@@ -420,50 +426,60 @@ async function visitors(m, canW0) {
   if (res) {
     $("#psv").onclick = async () => { const v = { name: val("pnm"), purpose: val("ppu"), kind: val("pkd"), valid_from: val("pfr"), valid_to: val("pto") };
       if (!v.name) return toast("Enter the guest's name"); if (v.kind === "once" && v.valid_to && v.valid_to < v.valid_from) return toast("The last day must be on or after the first day.");
-      const w = await directWrite("guest_passes", "insert", v); if (w.error) return toast(w.error);
-      PASSHOW = w.id; toast(v.kind === "always" ? "Added to the always-allowed list" : "Guest pass made: code " + w.code); await render(); const pc = document.querySelector("[data-pshare],[data-pcan]"); if (pc) pc.scrollIntoView({ block: "center" }); };
-    $("#fphs").onclick = async () => { try { const r = await api({ a: "flatPhone", flat_no: me.id, phone: val("fph") }); if (r.error) throw new Error(r.error.message); GEN++; if (r.snapshot) adopt(r.snapshot); toast("Phone number saved"); render(); } catch (e) { toast(e.message); } };
+      try { await instant(c => applyLocal(c, "guest_passes", "insert", Object.assign({}, v, { flat_no: me.id, status: "active", valid_to: v.kind === "always" ? "" : v.valid_to || v.valid_from }), []), wbody("guest_passes", "insert", v)); } catch (e) { return toast(e.message); }
+      toast(v.kind === "always" ? "Added to the always-allowed list" : "Guest pass made. The code appears in a moment."); await render(); const pc = document.querySelector("[data-pshare],[data-pcan]"); if (pc) pc.scrollIntoView({ block: "center" }); };
+    $("#fphs").onclick = async () => { const ph = val("fph"); if (ph && !/^[0-9+\-\s()]{6,20}$/.test(ph)) return toast("Enter a valid phone number.");
+      try { await instant(c => (c.flats || []).filter(f => String(f.flat_no) === String(me.id)).forEach(f => f.phone = ph), { a: "flatPhone", flat_no: me.id, phone: ph }); toast("Phone number saved"); render(); } catch (e) { toast(e.message); } };
   }
   m.querySelectorAll("[data-pshare]").forEach(b => b.onclick = async () => { const p = passes.find(x => String(x.id) === b.dataset.pshare);
     const txt = `Krishna Kuteer Apartment gate pass for ${p.name}: show code ${p.code} at the gate (valid ${dmx(p.valid_from)}${p.valid_to && p.valid_to !== p.valid_from ? " to " + dmx(p.valid_to) : ""}).`;
     try { if (navigator.share) await navigator.share({ text: txt }); else { await navigator.clipboard.writeText(txt); toast("Copied. Paste it in WhatsApp."); } } catch (e) { try { await navigator.clipboard.writeText(txt); toast("Copied. Paste it in WhatsApp."); } catch (x) { toast("Code: " + p.code); } } });
-  m.querySelectorAll("[data-pcan]").forEach(b => b.onclick = async () => { if (!confirm("Cancel this guest pass? The code will stop working.")) return; const w = await directWrite("guest_passes", "update", { status: "cancelled" }, [["id", b.dataset.pcan]]); w.error ? toast(w.error) : (toast("Pass cancelled"), render()); });
+  m.querySelectorAll("[data-pcan]").forEach(b => b.onclick = async () => { if (!confirm("Cancel this guest pass? The code will stop working.")) return; const e = await saveBg("guest_passes", "update", { status: "cancelled" }, [["id", b.dataset.pcan]]); e ? toast(e) : (toast("Pass cancelled"), render()); });
   m.querySelectorAll("[data-fphs]").forEach(b => b.onclick = async () => { const fn = b.dataset.fphs, v = m.querySelector(`[data-fphv="${fn}"]`).value.trim();
-    try { const r = await api({ a: "flatPhone", flat_no: fn, phone: v }); if (r.error) throw new Error(r.error.message); GEN++; if (r.snapshot) adopt(r.snapshot); toast("Saved for Flat " + fn); render(); } catch (e) { toast(e.message); } });
+    if (v && !/^[0-9+\-\s()]{6,20}$/.test(v)) return toast("Enter a valid phone number.");
+    try { await instant(c => (c.flats || []).filter(f => String(f.flat_no) === String(fn)).forEach(f => f.phone = v), { a: "flatPhone", flat_no: fn, phone: v }); toast("Saved for Flat " + fn); render(); } catch (e) { toast(e.message); } });
   if (!canW) return;
   /* ---- gate actions ---- */
   const form = () => ({ name: val("vnm"), flat_no: val("vfl"), purpose: val("vpu"), phone: val("vph"), visit_on: val("vdt"), in_time: val("vin"), out_time: val("vout"), count: 1 });
   const okForm = v => { if (!v.name) return "Enter the visitor's name"; if (!v.visit_on || !/^\d{2}:\d{2}$/.test(v.in_time)) return "Enter the date and entry time"; if (v.out_time && v.out_time < v.in_time) return "Exit time must be after the entry time"; return ""; };
   $("#vsv").onclick = async () => { const v = form(), bad = okForm(v); if (bad) return toast(bad); const e = await saveBg("visitors", "insert", v); e ? toast(e) : (toast("Visitor saved"), render()); };
   $("#vask").onclick = async () => { const v = form(), bad = okForm(v); if (bad) return toast(bad); if (!flats.some(f => String(f.flat_no) === v.flat_no)) return toast("Approval can only be asked from a flat.");
-    delete v.out_time; const w = await directWrite("visitors", "insert", Object.assign(v, { ask: true })); w.error ? toast(w.error) : (toast("Asked Flat " + v.flat_no + ". Waiting for an answer…"), await render(), window.scrollTo(0, 0)); };
+    delete v.out_time;
+    try { await instant(c => applyLocal(c, "visitors", "insert", Object.assign({}, v, { status: "waiting", added_by: me.id }), []), wbody("visitors", "insert", Object.assign({}, v, { ask: true }))); } catch (e) { return toast(e.message); }
+    toast("Asked Flat " + v.flat_no + ". Waiting for an answer…"); await render(); window.scrollTo(0, 0); };
   $("#gpck").onclick = async () => { const c = val("gpc"), box = $("#gpres"); if (!/^\d{6}$/.test(c)) return toast("Enter the 6-digit code");
     try { const r = await api({ a: "passCheck", code: c }); if (r.error) throw new Error(r.error.message); const p = r.pass;
       box.innerHTML = `<div class="card" style="margin:10px 0 0;background:#e4f6ea;border-color:transparent"><b>✅ ${esc(p.name)}</b> · Flat ${esc(p.flat_no)}${p.purpose ? " · " + esc(p.purpose) : ""}<div class="btnrow"><button id="gplet">Let in</button></div></div>`;
-      $("#gplet").onclick = async () => { const w = await directWrite("visitors", "insert", { visit_on: ld(), in_time: hmNow(), name: p.name, purpose: p.purpose || "", count: 1, pass_code: c }); w.error ? toast(w.error) : (toast(p.name + " let in. Flat " + p.flat_no + " has been told."), render()); }; }
+      $("#gplet").onclick = async () => { const rec = { visit_on: ld(), in_time: hmNow(), name: p.name, purpose: p.purpose || "", count: 1 };
+        try { await instant(c => applyLocal(c, "visitors", "insert", Object.assign({}, rec, { flat_no: p.flat_no, status: "pre_approved", decided_by: p.flat_no, decided_at: nowS() }), []), wbody("visitors", "insert", Object.assign({}, rec, { pass_code: c }))); } catch (e) { return toast(e.message); }
+        toast(p.name + " let in. Flat " + p.flat_no + " has been told."); render(); }; }
     catch (e) { box.innerHTML = `<p class="err">⛔ ${esc(e.message)}</p>`; } };
   if ($("#vs")) $("#vs").onclick = async () => { const d = gd("vd"), n = Math.floor(+$("#vn").value); if (!d) return toast("Enter a valid date (dd/mm/yyyy)"); if (!(n >= 1)) return toast("Enter the number of visitors");
     const { error } = await db.from("visitors").insert({ visit_on: d, count: n }); error ? toast(error.message) : (toast("Saved: " + n + " visitors on " + dm(d)), render()); };
   m.querySelectorAll("[data-vall]").forEach(b => b.onclick = async () => { const p = always.find(x => String(x.id) === b.dataset.vall);
-    const w = await directWrite("visitors", "insert", { visit_on: ld(), in_time: hmNow(), name: p.name, purpose: p.purpose || "", count: 1, always_pass_id: p.id }); w.error ? toast(w.error) : (toast(p.name + " let in"), render()); });
-  m.querySelectorAll("[data-vagain]").forEach(b => b.onclick = async () => { const w = await directWrite("visitors", "update", { status: "waiting" }, [["id", b.dataset.vagain]]); w.error ? toast(w.error) : (toast("Asked again"), render()); });
+    const rec = { visit_on: ld(), in_time: hmNow(), name: p.name, purpose: p.purpose || "", count: 1 };
+    try { await instant(c => applyLocal(c, "visitors", "insert", Object.assign({}, rec, { flat_no: p.flat_no, status: "always", decided_by: p.flat_no, decided_at: nowS() }), []), wbody("visitors", "insert", Object.assign({}, rec, { always_pass_id: p.id }))); } catch (e) { return toast(e.message); }
+    toast(p.name + " let in"); render(); });
+  m.querySelectorAll("[data-vagain]").forEach(b => b.onclick = async () => { const e = await saveBg("visitors", "update", { status: "waiting", created_at: nowS() }, [["id", b.dataset.vagain]]); e ? toast(e) : (toast("Asked again"), render()); });
   m.querySelectorAll("[data-vnoans]").forEach(b => b.onclick = async () => { const e = await saveBg("visitors", "update", { status: "no_answer" }, [["id", b.dataset.vnoans]]); e ? toast(e) : render(); });
   m.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = async () => { if (!confirm("Cancel this request? The visitor is not let in.")) return; const e = await saveBg("visitors", "update", { status: "cancelled" }, [["id", b.dataset.vcancel]]); e ? toast(e) : render(); });
   m.querySelectorAll("[data-vout]").forEach(b => b.onclick = async () => { const e = await saveBg("visitors", "update", { out_time: hmNow() }, [["id", b.dataset.vout]]); e ? toast(e) : (toast("Exit time saved"), render()); });
   m.querySelectorAll("[data-vx]").forEach(b => b.onclick = async () => { if (!confirm("Delete this entry?")) return; const e = await saveBg("visitors", "delete", null, [["id", b.dataset.vx]]); e ? toast(e) : render(); });
   /* while someone is waiting: tick the clock and ask the server every 4 seconds */
-  const ids = waiting.map(r => r.id).filter(i => +i < TMPID);
   const tick = () => m.querySelectorAll("[data-tick]").forEach(el => { const n = Math.max(0, minsSince(el.dataset.tick)); el.textContent = n < 1 ? "just now" : n + " min waiting"; });
   tick();
-  if (ids.length) GATE_T = setInterval(async () => {
+  if (waiting.length) GATE_T = setInterval(async () => {
     if (tab !== "vis" || !document.body.contains(m)) { clearInterval(GATE_T); GATE_T = null; return; }
-    tick(); if (document.hidden) return;
-    try { const r = await api({ a: "visitorStatus", ids }, 1); if (!r.ok) return; const ch = waiting.filter(w => r.status[w.id] && r.status[w.id] !== w.status);
+    tick(); if (document.hidden || !SNAP) return;
+    const W = ((await SNAP).visitors || []).filter(r => ["waiting", "no_answer"].includes(r.status) && +r.id < TMPID);
+    if (!W.length) return;
+    try { const r = await api({ a: "visitorStatus", ids: W.map(x => x.id) }, 1); if (!r.ok) return;
+      const ch = W.filter(w => r.status[w.id] && r.status[w.id] !== w.status && r.status[w.id] !== "entered");
       if (!ch.length) return;
-      clearInterval(GATE_T); GATE_T = null;
+      SNAP = SNAP.then(T => { const c = clone(T); ch.forEach(w => setRow("visitors", w.id, { status: r.status[w.id], decided_by: w.flat_no, decided_at: nowS() })(c)); return c; }); GEN++;
       const done = ch.find(w => ["approved", "denied", "leave_at_gate"].includes(r.status[w.id]));
       if (done) { const st = r.status[done.id]; toast("Flat " + done.flat_no + ": " + (st === "approved" ? "APPROVED, let " + done.name + " in" : st === "denied" ? "DENIED, do not let " + done.name + " in" : "keep the delivery at the gate")); try { navigator.vibrate && navigator.vibrate(st === "approved" ? [200, 100, 200] : [600]); } catch (e) {} }
-      SNAP = null; DIRTY = true; dropCache(); await snap(); render();
+      calm(); refresh();
     } catch (e) {}
   }, 4000);
 }

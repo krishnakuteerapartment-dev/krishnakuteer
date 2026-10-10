@@ -164,9 +164,12 @@ function addCommittee() {
 
 /* ---------- web endpoint ---------- */
 function doGet() { return ContentService.createTextOutput('Krishna Kuteer API is running'); }
+/* jobs that must not hold up other people's saves (visitor alerts): run after the save is finished and the lock is released */
+let LATER_ = [];
 function doPost(e) {
-  let out;
+  let out; LATER_ = [];
   try { out = route_(JSON.parse(e.postData.contents)); } catch (err) { out = { error: { message: 'Server error: ' + err.message } }; }
+  LATER_.splice(0).forEach(f => { try { f(); } catch (x) { Logger.log('Later job failed: ' + x); } });
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 function route_(b) {
@@ -274,7 +277,9 @@ function read_(t) {
   }).filter(o => TABLES[t].some(k => o[k] !== null));
 }
 const clean_ = rows => rows.map(r => { const o = Object.assign({}, r); delete o.__r; return o; });
-const nextId_ = (t, c) => read_(t).reduce((m, r) => Math.max(m, +r[c] || 0), 0) + 1;
+/* SPEED: the next number reads only that one column, not the whole tab */
+const nextId_ = (t, c) => { const sh = sh_(t), last = sh ? sh.getLastRow() : 0, i = TABLES[t].indexOf(c) + 1; if (last < 2 || !i) return 1;
+  return sh.getRange(2, i, last - 1, 1).getValues().reduce((m, r) => Math.max(m, +r[0] || 0), 0) + 1; };
 const now_ = () => Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm');
 
 /* ---------- login / sessions ---------- */
@@ -721,6 +726,7 @@ function write_(u, b) {
     if (op === 'update') {
       if (p.status != null && ['no_answer', 'cancelled', 'waiting'].indexOf(p.status) < 0) return err('Invalid status.');
       if (p.status === 'waiting') ASK_ = 'again';
+      if (p.status != null) { const st = p.status; after = () => before.forEach(r => CacheService.getScriptCache().put('vs_' + r.id, st, 21600)); }
     }
     if (p.in_time != null && p.in_time !== '' && !isTime_(p.in_time)) return err('Enter a valid time.');
     if (p.out_time != null && p.out_time !== '' && !isTime_(p.out_time)) return err('Enter a valid time.');
@@ -792,7 +798,7 @@ function write_(u, b) {
   }
   if (op === 'update') {
     if (!before.length) return err('Record not found.');
-    if (t === 'visitors' && ASK_ === 'again') before.forEach(r => { if (r.status !== 'no_answer') return; askFlat_(Object.assign({}, r, { status: 'waiting' })); });
+    if (t === 'visitors' && ASK_ === 'again') before.forEach(r => { if (['no_answer', 'waiting'].indexOf(r.status) < 0) return; askFlat_(Object.assign({}, r, { status: 'waiting' })); });
     if (Object.keys(p).length) {
       before.forEach(r => cols.forEach((c, i) => { if (p[c] != null && c !== 'id') sh.getRange(r.__r, i + 1).setValue(cell_(p[c])); }));
       before.forEach(r => audit_(u, 'update', t, r.id, summary_(t, Object.assign({}, r, p)), r, Object.assign({}, r, p), p));
@@ -820,10 +826,10 @@ function askFlat_(rec) {
   const code = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
   const c = CacheService.getScriptCache(); c.put('vc_' + rec.id, code, 1800); c.put('vs_' + rec.id, 'waiting', 21600);
   let api = ''; try { api = ScriptApp.getService().getUrl(); } catch (e) {}
-  try {
+  LATER_.push(() => {
     pushAll_('Visitor at the gate for Flat ' + rec.flat_no, rec.name + (rec.purpose ? ' (' + rec.purpose + ')' : '') + ' is waiting. Tap Approve or Deny.', '/#vis', { user: rec.flat_no },
       { type: 'visit', vid: String(rec.id), code: code, api: api, purpose: String(rec.purpose || '') });
-  } catch (e) { Logger.log('Visitor alert failed: ' + e); }
+  });
 }
 function decide_(row, decision, by, u) {
   const st = { approve: 'approved', deny: 'denied', gate: 'leave_at_gate' }[decision];
@@ -832,7 +838,7 @@ function decide_(row, decision, by, u) {
   setCells_('visitors', row.__r, { status: st, decided_by: by, decided_at: now_() });
   CacheService.getScriptCache().put('vs_' + row.id, st, 21600); CacheService.getScriptCache().remove('vc_' + row.id);
   audit_(u, 'update', 'visitors', row.id, 'Flat ' + row.flat_no + ' ' + VS_LABEL[st], { status: row.status }, { status: st });
-  try { pushAll_('Flat ' + row.flat_no + ' ' + VS_LABEL[st], String(row.name || 'Visitor') + (st === 'approved' ? ' can come in.' : st === 'denied' ? ' must not come in.' : ''), '/#vis', { roles: GATE_ALERT }); } catch (e) {}
+  LATER_.push(() => { pushAll_('Flat ' + row.flat_no + ' ' + VS_LABEL[st], String(row.name || 'Visitor') + (st === 'approved' ? ' can come in.' : st === 'denied' ? ' must not come in.' : ''), '/#vis', { roles: GATE_ALERT }); });
   return { ok: true, status: st };
 }
 function decideByCode_(b) {
