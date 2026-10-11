@@ -256,6 +256,17 @@ t('changing to thumbs down alerts President, Secretary, Treasurer', () => { G.pu
 t('reopening the complaint clears the old feedback', () => { ok(W('sec', 'complaints', 'update', { status: 'in_progress' }, [['id', fc]])); const c = snap('f102').complaints.find(x => x.id === fc); assert(!c.feedback && !c.feedback_note); });
 t('feedback is in the audit log', () => assert(G.call({ token: tok.admin, a: 'audit', tbl: 'complaints' }).rows.some(r => /feedback: not satisfied/.test(r.summary))));
 
+t('without running setup(), new columns are added by themselves and feedback is seen by the Association', () => { const G2 = require('./gas').create({ file: process.argv[2] }); G2.x.setup();
+  G2.sheets.users.rows.forEach((r, i) => { if (i && String(r[0]) === '1234') r[3] = 'adm1'; });
+  const Hh = G2.sheets.complaints.rows[0]; ['feedback', 'feedback_note', 'feedback_at'].forEach(c => { Hh[Hh.indexOf(c)] = ''; }); G2.ctx.CacheService.getScriptCache().remove('hdr_complaints_' + G2.x.TABLES.complaints.length);
+  const f = G2.call({ a: 'login', u: '101', p: '123456' }).token, a = G2.call({ a: 'login', u: '1234', p: 'adm1' }).token;
+  G2.call({ token: f, a: 'write', t: 'complaints', op: 'insert', payload: { title: 'T' }, filters: [] }); const id = G2.x.read_('complaints')[0].id;
+  G2.call({ token: a, a: 'write', t: 'complaints', op: 'update', payload: { status: 'resolved' }, filters: [['id', id]] });
+  assert(G2.call({ token: f, a: 'complaintFeedback', id, feedback: 'up' }).ok); assert.strictEqual(G2.call({ token: a, a: 'snapshot' }).data.complaints[0].feedback, 'up'); });
+t('a brand-new tab is created by itself when first used', () => { const G3 = require('./gas').create({ file: process.argv[2] }); G3.x.setup(); delete G3.sheets.guest_passes; G3.ss.getSheets = () => [];
+  G3.ctx.SpreadsheetApp.getActiveSpreadsheet = () => G3.ss; const f = G3.call({ a: 'login', u: '101', p: '123456' }).token;
+  const r = G3.call({ token: f, a: 'write', t: 'guest_passes', op: 'insert', payload: { name: 'Mother', kind: 'once' }, filters: [] }); assert(r.ok && /^\d{6}$/.test(r.code), JSON.stringify(r)); });
+
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
   const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });

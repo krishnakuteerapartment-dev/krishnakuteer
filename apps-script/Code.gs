@@ -180,7 +180,7 @@ function route_(b) {
   }
   if (b.a === 'deployPing') return deployPing_(b);
   /* Approve / Deny tapped on the alert itself: the phone sends the visitor id and the one-time code that came in that flat's alert */
-  if (b.a === 'visitorDecide' && b.code && !b.token) { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return decideByCode_(b); } finally { lock.releaseLock(); } }
+  if (b.a === 'visitorDecide' && b.code && !b.token) { ensureHeader_('visitors'); } if (b.a === 'visitorDecide' && b.code && !b.token) { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return decideByCode_(b); } finally { lock.releaseLock(); } }
   const u = session_(b.token);
   if (!u) return { auth: true, error: { message: 'Session expired. Please sign in again.' } };
   if (b.a === 'me') return { user: pub_(u) };
@@ -195,8 +195,10 @@ function route_(b) {
   if (b.a === 'audit') return auditRead_(u, b);
   if (b.a === 'folders') return folderLinks_(u);
   if (b.a === 'visitorStatus') return visitorStatus_(u, b);
-  if (b.a === 'passCheck') return passCheck_(u, b);
-  if (b.a === 'complaintFeedback') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { const r = feedback_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); } }
+  if (b.a === 'passCheck') { ensureHeader_('guest_passes'); return passCheck_(u, b); }
+  if (b.a === 'write' && b.t) ensureHeader_(b.t);
+  if (b.a === 'complaintFeedback') { ensureHeader_('complaints'); const lock = LockService.getScriptLock(); lock.waitLock(20000); try { const r = feedback_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); } }
+  if (b.a === 'visitorDecide' || b.a === 'flatPhone') { ensureHeader_('visitors'); ensureHeader_('flats'); }
   if (b.a === 'visitorDecide' || b.a === 'flatPhone') {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try { const r = b.a === 'flatPhone' ? flatPhone_(u, b) : decideByUser_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); }
@@ -215,6 +217,25 @@ function route_(b) {
     } finally { lock.releaseLock(); }
   }
   return { error: { message: 'Unknown request' } };
+}
+
+/* ---------- missing tabs / columns are added by themselves (no need to run setup() after an update) ----------
+   Checked once per tab every 6 hours; a column is written at its place in TABLES, exactly where the app saves it. */
+function ensureHeader_(t) {
+  if (!TABLES[t]) return;
+  const c = CacheService.getScriptCache(), key = 'hdr_' + t + '_' + TABLES[t].length;
+  if (c.get(key)) return;
+  const ss = ss_(); let sh = ss.getSheetByName(t), changed = false;
+  if (!sh) { sh = ss.insertSheet(t); changed = true; }
+  const cols = TABLES[t], have = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), cols.length)).getValues()[0].map(String);
+  cols.forEach((col, i) => {
+    if (have[i] === col) return;
+    if (have.indexOf(col) >= 0 && have[i]) return; /* already there in another place: leave the sheet as it is */
+    sh.getRange(1, i + 1).setValue(col).setFontWeight('bold'); changed = true;
+    if (TEXT_COLS.indexOf(col) >= 0) sh.getRange(1, i + 1, sh.getMaxRows(), 1).setNumberFormat('@');
+  });
+  if (changed) cacheDrop_('snap');
+  c.put(key, '1', 21600);
 }
 
 /* ---------- sheet helpers ---------- */
@@ -988,7 +1009,7 @@ function auditRead_(u, b) {
 /* ---------- SPEED: keep the backend warm (run installKeepWarm ONCE) ----------
    Google puts idle scripts to sleep, which makes the first tap slow. This trigger wakes it every 5 minutes
    and refreshes the cached data, so residents always get a fast answer. Sheet edits by hand show within 5 minutes. */
-function keepWarm() { try { after_(); } catch (e) {} try { translateMissing_(40); } catch (e) {} try { dailyReminders_(); } catch (e) { Logger.log('Reminders failed: ' + e); } cacheDrop_('snap'); tables_(); }
+function keepWarm() { try { Object.keys(TABLES).forEach(ensureHeader_); } catch (e) {} try { after_(); } catch (e) {} try { translateMissing_(40); } catch (e) {} try { dailyReminders_(); } catch (e) { Logger.log('Reminders failed: ' + e); } cacheDrop_('snap'); tables_(); }
 
 /* ---------- SERVICE REMINDERS: one alert a day to the committee's phones (runs from keepWarm, after 8 AM) ----------
    An item is mentioned N days before it is due (N = its 'alert days', default 7), 1 day before, on the day,
