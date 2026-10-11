@@ -183,6 +183,15 @@ const hasNot = async (page, re) => { const t = await txt(page); if (re.test(t)) 
   await check('resident now sees minutes and action items', async () => { await go(r, 'dash'); await r.evaluate(() => { SNAP = null; DIRTY = true; dropCache(); }); await go(r, 'meet'); await r.locator('details.rec summary', { hasText: 'Meeting record' }).first().click(); await has(r, /Accounts were read/); await has(r, /Collect 3 AMC quotes/); });
   await check('resident sees complaint history after update', async () => { await go(r, 'comp'); await r.locator('details.rec summary').first().click(); await has(r, /Technician visiting tomorrow/); await has(r, /Assigned to\s*Ramesh/); });
   await shot(r, 'complaints-resident');
+  await check('feedback box appears only after Resolved; resident taps 👍 with a note', async () => {
+    if (await r.locator('[data-fb]').count()) throw new Error('feedback shown before resolved');
+    const id = G.x.read_('complaints')[0].id; G.call({ token: G.call({ a: 'login', u: 'secretary', p: 'pw-secretaryx' }).token, a: 'write', t: 'complaints', op: 'update', payload: { status: 'resolved' }, filters: [['id', id]] });
+    await r.evaluate(() => { SNAP = null; DIRTY = true; dropCache(); }); await go(r, 'comp'); await has(r, /Are you happy with how this was fixed/);
+    await r.fill(`[data-fbn="${id}"]`, 'Thank you, works now'); await r.click(`[data-fb="${id}:up"]`); await r.waitForTimeout(300); await has(r, /👍 Satisfied[\s\S]*Thank you, works now/);
+    await settle(r); const c = G.x.read_('complaints')[0]; if (c.feedback !== 'up' || c.feedback_note !== 'Thank you, works now') throw new Error(JSON.stringify(c)); });
+  await check('resident can change it to 👎', async () => { await r.click('[data-fbch]'); await r.locator('[data-fb$=":down"]').click(); await settle(r); if (G.x.read_('complaints')[0].feedback !== 'down') throw new Error('not changed'); await has(r, /👎 Not satisfied/); });
+  await shot(r, 'complaint-feedback');
+  await check('Association sees the flat\'s feedback and the summary', async () => { await p.evaluate(() => { SNAP = null; DIRTY = true; dropCache(); }); await go(p, 'comp'); await has(p, /Feedback on resolved complaints:[\s\S]*👎 1/); await has(p, /👎 Not satisfied · Flat 101/); if (await p.locator('[data-fb]').count()) throw new Error('Association can give feedback'); });
   await check('no script errors (resident)', async () => { if (r.errors.length) throw new Error(r.errors.join(' || ')); });
 
   /* ---------- treasurer: money entries, then admin reads the audit log ---------- */

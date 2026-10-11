@@ -516,19 +516,29 @@ async function complaints(m) {
   const n = s => all.filter(c => c.status === s).length;
   const L = all.filter(c => (CF === "all" || c.status === CF) && (!q || [c.ticket_no, c.title, c.details, c.flat_no, c.assigned_to].some(x => String(x || "").toLowerCase().includes(q))));
   const LBL = Object.fromEntries(CS);
-  const hist = c => { let h = []; try { h = JSON.parse(c.history || "[]"); } catch (e) {} if (!h.length) h = [{ at: c.created_at, by: c.flat_no, status: "open", note: "Complaint raised" }];
+  const hist = c => { let h = []; try { h = JSON.parse(c.history || "[]"); } catch (e) {} h = h.map(e => e.feedback ? Object.assign({}, e, { note: (e.feedback === "up" ? "👍 Feedback: satisfied" : "👎 Feedback: not satisfied") + (e.note ? " – " + e.note : "") }) : e); if (!h.length) h = [{ at: c.created_at, by: c.flat_no, status: "open", note: "Complaint raised" }];
     return `<div class="hist">${h.slice().reverse().map(e => `<div>${e.status ? `<b>${esc(LBL[e.status] || e.status)}</b>` : ""}${e.assigned_to ? `${e.status ? " · " : ""}Assigned to <b>${esc(e.assigned_to)}</b>` : ""}${e.expected_on ? ` · expected by ${dmx(e.expected_on)}` : ""}${e.note ? `<br>${esc(e.note)}` : ""}<small>${esc(String(e.at || "").replace(/^(\d{4})-(\d{2})-(\d{2})/, (x, y, mo, d) => +d + "/" + +mo + "/" + y))} · ${esc(/^\d/.test(String(e.by)) ? "Flat " + e.by : cap(String(e.by || "")))}</small></div>`).join("")}</div>`; };
+  /* feedback after Resolved: the flat that raised it may tap 👍 / 👎 (optional); the Association sees the answer */
+  const mineC = c => me.role === "resident" && String(c.flat_no) === String(me.id);
+  const fbBox = c => { if (c.status !== "resolved") return "";
+    if (c.feedback) return `<div class="note" style="margin:10px 0 0;padding:10px 12px;border-radius:10px;background:${c.feedback === "up" ? "#e4f6ea" : "#fde8e6"};color:var(--ink)"><b>${c.feedback === "up" ? "👍 Satisfied" : "👎 Not satisfied"}</b>${mineC(c) ? " (your feedback)" : ` · Flat ${esc(c.flat_no)}`}${c.feedback_note ? `<br>“${esc(c.feedback_note)}”` : ""}${c.feedback_at ? `<small style="display:block;color:var(--grey)">${dmx(c.feedback_at)}</small>` : ""}${mineC(c) ? `<div style="margin-top:6px"><button class="ghost" style="width:auto" data-fbch="${c.id}">Change</button></div>` : ""}</div>`;
+    if (!mineC(c)) return `<p class="note" style="margin:10px 0 0">No feedback from the flat yet.</p>`;
+    return fbForm(c); };
+  const fbForm = c => `<div class="card" id="fb${c.id}" style="margin:10px 0 0;background:var(--sky);border-color:transparent"><b>Are you happy with how this was fixed?</b> <small style="color:var(--grey)">(optional)</small>
+     <div class="btnrow"><button data-fb="${c.id}:up" style="background:linear-gradient(135deg,#15803d,#22a35a)">👍 Yes</button><button class="ghost" data-fb="${c.id}:down">👎 No</button></div>
+     <input data-fbn="${c.id}" placeholder="Add a note (optional)" style="margin-top:8px"></div>`;
   const card = c => { const k = CS.findIndex(x => x[0] === c.status), late = c.expected_on && c.status !== "resolved" && dLeft(c.expected_on) < 0, it = c.asset_id ? nameOfAsset(A, c.asset_id) : "";
     return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span class="tag">🎫 ${esc(tkt(c))}</span><span class="tag ${c.status === "resolved" ? "grn" : c.status === "in_progress" ? "amb" : "red"}">${esc(LBL[c.status] || c.status)}</span></div>
      <b style="display:block;margin-top:6px">${esc(c.title)}</b>${c.details ? `<div>${esc(c.details)}</div>` : ""}${c.photos ? `<div class="phs">${String(c.photos).split("|").filter(Boolean).map(phTag).join("")}</div>` : ""}${c.voice ? vnTag(c.voice) : ""}
      <dl class="kv"><dt>Raised</dt><dd>Flat ${esc(c.flat_no)} · ${dmx(c.created_at)}</dd>${it ? `<dt>Related to</dt><dd>${esc(it)}</dd>` : ""}<dt>Assigned to</dt><dd>${c.assigned_to ? esc(c.assigned_to) : '<span style="color:var(--grey)">Not assigned yet</span>'}</dd>${c.expected_on ? `<dt>Expected by</dt><dd${late ? ' class="late"' : ""}>${dmx(c.expected_on)}${late ? " (overdue)" : ""}</dd>` : ""}${c.updated_at && c.updated_at !== c.created_at ? `<dt>Last update</dt><dd>${dmx(c.updated_at)}</dd>` : ""}</dl>
      <div class="stp">${CS.map((x, i) => `<span class="${i <= k ? "on" : ""}"></span>`).join("")}</div>
+     ${fbBox(c)}
      <details class="rec"><summary>Status history</summary>${hist(c)}</details>
      ${S ? `<div class="btnrow"><button data-cu="${c.id}">Update status</button><button class="ghost" data-cx="${c.id}">Delete</button></div>` : ""}</div>`; };
   m.innerHTML = `<div class="card"><b>Raise a complaint</b><div style="height:8px"></div><input id="ct" placeholder="What is the problem? e.g. Lift not working"><div style="height:8px"></div><input id="cd" placeholder="More details (optional)"><div style="height:8px"></div>
    ${A.length ? `${sel("cas", [["", "Related to (optional): choose an item"]].concat(A.map(a => [a.id, (AK[a.kind] || AK.other)[0] + " " + a.name])), "", 'aria-label="Related item"')}<div style="height:8px"></div>` : ""}${pickHtml("cph")}<div style="height:8px"></div>${voiceHtml("cvn")}<div style="height:8px"></div><button id="cs">Submit complaint</button>
    <p class="note" style="margin:8px 0 0">You get a ticket number, and an alert on your phone whenever the status changes.</p></div>
-  <h2>${S ? "All complaints" : "Your complaints"}</h2>
+  <h2>${S ? "All complaints" : "Your complaints"}</h2>${S && all.some(c => c.feedback) ? `<p class="note">Feedback on resolved complaints: <b>👍 ${all.filter(c => c.feedback === "up").length}</b> · <b>👎 ${all.filter(c => c.feedback === "down").length}</b> · waiting ${all.filter(c => c.status === "resolved" && !c.feedback).length}</p>` : ""}
   ${all.length ? `<div class="chips">${[["all", "All", all.length], ["open", "Open", n("open")], ["in_progress", "In progress", n("in_progress")], ["resolved", "Resolved", n("resolved")]].map(([k, l, c]) => `<button class="${CF === k ? "" : "ghost"}" data-cf="${k}">${l} · ${c}</button>`).join("")}</div>
    ${all.length > 3 ? `<div style="display:flex;gap:8px;margin-bottom:12px"><input id="cq" type="search" value="${esc(CQ)}" placeholder="Search ticket, flat or words" style="flex:1;min-width:0"><button class="ghost" id="cqg" style="width:auto">Search</button></div>` : ""}` : ""}
   ${L.map(card).join("") || `<div class="card">${all.length ? "No complaints match." : "No complaints. 🎉"}</div>`}
@@ -536,8 +546,16 @@ async function complaints(m) {
   loadPh(m); vnBind(m); pickInit("cph", 3); voiceInit("cvn");
   m.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { CF = b.dataset.cf; render(); });
   if ($("#cqg")) { const go = () => { CQ = $("#cq").value.trim(); render(); }; $("#cqg").onclick = go; $("#cq").onkeydown = e => { if (e.key === "Enter") go(); }; }
-  if ($("#pcp")) $("#pcp").onclick = () => printHTML("Complaint register", sheetHead("Complaint register", CF === "all" ? "" : LBL[CF]) + ptable(["Ticket", "Raised", "Flat", "Problem", "Related to", "Assigned to", "Expected", "Status"],
-    L.map(c => [esc(tkt(c)), dmx(c.created_at), esc(c.flat_no), esc(c.title) + (c.details ? "<br><small>" + esc(c.details) + "</small>" : ""), esc(c.asset_id ? nameOfAsset(A, c.asset_id) : ""), esc(c.assigned_to || ""), dmx(c.expected_on), esc(LBL[c.status] || c.status)])) + SIG, true);
+  if ($("#pcp")) $("#pcp").onclick = () => printHTML("Complaint register", sheetHead("Complaint register", CF === "all" ? "" : LBL[CF]) + ptable(["Ticket", "Raised", "Flat", "Problem", "Related to", "Assigned to", "Expected", "Status", "Feedback"],
+    L.map(c => [esc(tkt(c)), dmx(c.created_at), esc(c.flat_no), esc(c.title) + (c.details ? "<br><small>" + esc(c.details) + "</small>" : ""), esc(c.asset_id ? nameOfAsset(A, c.asset_id) : ""), esc(c.assigned_to || ""), dmx(c.expected_on), esc(LBL[c.status] || c.status), c.feedback === "up" ? "👍" : c.feedback === "down" ? "👎" + (c.feedback_note ? " " + esc(c.feedback_note) : "") : ""])) + SIG, true);
+  const sendFb = async (id, f) => { const nEl = m.querySelector(`[data-fbn="${id}"]`), note = nEl ? nEl.value.trim() : "", had = (all.find(x => String(x.id) === String(id)) || {}).feedback;
+    if (+id >= TMPID) return toast("Still saving. Please try again in a moment.");
+    try { await instant(setRow("complaints", id, { feedback: f, feedback_note: note, feedback_at: nowS() }), { a: "complaintFeedback", id, feedback: f, note }); } catch (e) { return toast(e.message); }
+    toast(had ? "Feedback updated" : f === "up" ? "Thank you for your feedback 👍" : "Thank you. The Association has been told."); render(); };
+  const bindFb = root => root.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => { const [id, f] = b.dataset.fb.split(":"); sendFb(id, f); });
+  bindFb(m);
+  m.querySelectorAll("[data-fbch]").forEach(b => b.onclick = () => { const c = all.find(x => String(x.id) === b.dataset.fbch), box = b.closest(".note"), w = document.createElement("div");
+    w.innerHTML = fbForm(c); box.replaceWith(w); bindFb(w); const n = w.querySelector("[data-fbn]"); if (n) n.value = c.feedback_note || ""; });
   $("#cs").onclick = async () => { const t = $("#ct").value.trim(); if (!t) return toast("Please describe the problem."); const dt = $("#cd").value.trim(), aid = $("#cas") ? $("#cas").value : "", v = VN.cvn; VN.cvn = null;
     const loc = (PK.cph || []).splice(0).map(d => { const lid = LID(); PH[lid] = Promise.resolve(d); const pre = UP.get(d); UP.delete(d); return { lid, d, pre }; });
     if (!SNAP) { const b = $("#cs"); b.disabled = true; b.textContent = "Uploading…"; }

@@ -243,6 +243,19 @@ t('flat cannot delete, add counts, ask, or use another flat\'s pass', () => { no
   const other = ok(W('f102', 'guest_passes', 'insert', { name: 'Cook', kind: 'always' })).id; no(W('f101', 'visitors', 'insert', { visit_on: today, in_time: '10:00', count: 1, always_pass_id: other }), /permission/);
   ok(W('f102', 'visitors', 'insert', { visit_on: today, in_time: '10:00', count: 1, always_pass_id: other })); assert(snap('gate').visitors.some(v => v.name === 'Cook' && v.status === 'always' && v.flat_no === '102')); });
 
+console.log('12. Feedback on resolved complaints');
+let fc;
+t('no feedback before the complaint is resolved', () => { fc = ok(W('f102', 'complaints', 'insert', { title: 'Corridor light' })) && snap('f102').complaints.find(c => c.title === 'Corridor light').id;
+  no(G.call({ token: tok.f102, a: 'complaintFeedback', id: fc, feedback: 'up' }), /once the complaint is resolved/); });
+t('after Resolved, the flat gives thumbs up with a note', () => { ok(W('sec', 'complaints', 'update', { status: 'resolved' }, [['id', fc]])); ok(G.call({ token: tok.f102, a: 'complaintFeedback', id: fc, feedback: 'up', note: 'Quick work' }));
+  const c = snap('sec').complaints.find(x => x.id === fc); assert.strictEqual(c.feedback, 'up'); assert.strictEqual(c.feedback_note, 'Quick work'); assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(c.feedback_at)); assert(/satisfied/.test(JSON.stringify(JSON.parse(c.history).pop())) || JSON.parse(c.history).pop().feedback === 'up'); });
+t('only that flat can give feedback (not other flats, not the Association)', () => { no(G.call({ token: tok.f101, a: 'complaintFeedback', id: fc, feedback: 'down' }), /Only the flat/); no(G.call({ token: tok.sec, a: 'complaintFeedback', id: fc, feedback: 'down' }), /Only the flat/); });
+t('feedback cannot be set through an ordinary save', () => { ok(W('sec', 'complaints', 'update', { assigned_to: 'X', feedback: 'down' }, [['id', fc]])); assert.strictEqual(snap('sec').complaints.find(x => x.id === fc).feedback, 'up'); });
+t('changing to thumbs down alerts President, Secretary, Treasurer', () => { G.pushes.length = 0; ok(G.call({ token: tok.f102, a: 'complaintFeedback', id: fc, feedback: 'down', note: 'Still flickers' }));
+  const p = G.pushes.find(x => /Not satisfied/.test(x.t)); assert(p && /Still flickers/.test(p.b) && JSON.stringify(p.to.roles) === '["president","secretary","treasurer"]', JSON.stringify(G.pushes)); });
+t('reopening the complaint clears the old feedback', () => { ok(W('sec', 'complaints', 'update', { status: 'in_progress' }, [['id', fc]])); const c = snap('f102').complaints.find(x => x.id === fc); assert(!c.feedback && !c.feedback_note); });
+t('feedback is in the audit log', () => assert(G.call({ token: tok.admin, a: 'audit', tbl: 'complaints' }).rows.some(r => /feedback: not satisfied/.test(r.summary))));
+
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
   const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });

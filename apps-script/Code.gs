@@ -14,7 +14,7 @@ const TABLES = {
   maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at', 'te'],
   celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at', 'te'],
   /* NEW COLUMNS ARE ALWAYS ADDED AT THE END of a list (the Sheet's column order must match this order). */
-  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te', 'ticket_no', 'assigned_to', 'expected_on', 'asset_id', 'history'],
+  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te', 'ticket_no', 'assigned_to', 'expected_on', 'asset_id', 'history', 'feedback', 'feedback_note', 'feedback_at'],
   gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder', 'te', 'visibility'],
   file_data: ['file_id', 'part', 'mime', 'data'],
   login_log: ['username', 'role', 'login_at', 'logout_at', 'last_seen', 'minutes', 'device'],
@@ -39,7 +39,7 @@ const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 
 const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by', 'added_by', 'created_by', 'uploaded_by', 'updated_by'];
 TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
   'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
-  'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by');
+  'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by', 'feedback_at');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
 const VIS = ['admin', 'treasurer', 'secretary', 'executive', 'watchman'];    /* who may add / delete visitors (the gate) */
@@ -74,7 +74,7 @@ const ENUM = {
   meetings: { status: ['draft', 'published'] }
 };
 /* columns the app may never set directly (the server fills them) */
-const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by', 'decided_by', 'decided_at', 'pass_id', 'code', 'used_at', 'created_by'];
+const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by', 'decided_by', 'decided_at', 'pass_id', 'code', 'used_at', 'created_by', 'feedback', 'feedback_note', 'feedback_at'];
 const DATE_OF = { payments: ['paid_on', 'month'], expenses: ['spent_on'], income: ['received_on'], maintenance_rates: ['month'] };
 
 /* ---------- one-time setup: creates the tabs and starter data ---------- */
@@ -196,6 +196,7 @@ function route_(b) {
   if (b.a === 'folders') return folderLinks_(u);
   if (b.a === 'visitorStatus') return visitorStatus_(u, b);
   if (b.a === 'passCheck') return passCheck_(u, b);
+  if (b.a === 'complaintFeedback') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { const r = feedback_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); } }
   if (b.a === 'visitorDecide' || b.a === 'flatPhone') {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try { const r = b.a === 'flatPhone' ? flatPhone_(u, b) : decideByUser_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); }
@@ -249,7 +250,7 @@ function clearCache() { cacheDrop_('snap'); Logger.log('Cache cleared.'); }
 /* Google Sheets turns typed text such as "10:15" or "2026-10-10 08:18" into its own date/time values.
    Dates are read back as yyyy-MM-dd (with the time for the columns below); a cell holding only a time (Sheets
    stores it on 30/12/1899) is read from what the Sheet SHOWS, so it is never shifted by old time-zone rules. */
-const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen', 'decided_at', 'used_at'];
+const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen', 'decided_at', 'used_at', 'feedback_at'];
 function timeText_(disp, k) {
   const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?/.exec(String(disp || ''));
   if (!m) return String(disp || '');
@@ -606,6 +607,7 @@ function write_(u, b) {
     }
     if (op === 'update') {
       if (p.status != null && ['open', 'in_progress', 'resolved'].indexOf(p.status) < 0) return err('Invalid status.');
+      if (p.status != null && p.status !== 'resolved') { p.feedback = ''; p.feedback_note = ''; p.feedback_at = ''; } /* reopened: the old feedback no longer applies */
       if (p.asset_id && !byId_('assets', p.asset_id)) return err('Choose an item from the list.');
       p.updated_at = now_();
       const note = String(raw.note || '').trim().slice(0, 500);
@@ -904,6 +906,26 @@ function flatPhone_(u, b) {
   setCells_('flats', f.__r, { phone: ph });
   audit_(u, 'update', 'flats', f.id, 'Gate phone number ' + (ph ? 'saved' : 'removed') + ' for Flat ' + fno, null, null);
   patchSnap_('flats');
+  return { ok: true };
+}
+
+/* ---------- COMPLAINT FEEDBACK: after a complaint is Resolved, the flat that raised it may give 👍 or 👎 (optional note) ----------
+   The flat can change it later. A 👎 alerts the President, Secretary and Treasurer. */
+function feedback_(u, b) {
+  const c = read_('complaints').filter(x => String(x.id) === String(b.id))[0];
+  if (!c) return { error: { message: 'Complaint not found.' } };
+  if (u.role !== 'resident' || String(c.flat_no).toLowerCase() !== String(u.username).toLowerCase()) return { error: { message: 'Only the flat that raised this complaint can give feedback.' } };
+  if (c.status !== 'resolved') return { error: { message: 'Feedback can be given once the complaint is resolved.' } };
+  const f = b.feedback === 'up' ? 'up' : b.feedback === 'down' ? 'down' : '';
+  if (!f) return { error: { message: 'Choose thumbs up or thumbs down.' } };
+  const note = String(b.note || '').trim().slice(0, 300);
+  setCells_('complaints', c.__r, { feedback: f, feedback_note: note, feedback_at: now_() });
+  let h = []; try { h = JSON.parse(c.history || '[]'); } catch (e) {}
+  h.push({ at: now_(), by: u.username, feedback: f, note: note || undefined });
+  setCells_('complaints', c.__r, { history: JSON.stringify(h.slice(-60)) });
+  audit_(u, 'update', 'complaints', c.id, (c.ticket_no || '#' + c.id) + ' feedback: ' + (f === 'up' ? 'satisfied' : 'not satisfied'), { feedback: c.feedback || '' }, { feedback: f });
+  if (f === 'down' && c.feedback !== 'down') LATER_.push(() => pushAll_('👎 Not satisfied: ' + (c.ticket_no || 'complaint'), 'Flat ' + c.flat_no + ': ' + String(c.title || '') + (note ? ' - ' + note : ''), '/', { roles: COMPLAINT_ALERT }));
+  patchSnap_('complaints');
   return { ok: true };
 }
 
