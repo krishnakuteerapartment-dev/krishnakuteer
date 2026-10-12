@@ -1,7 +1,7 @@
 /* Sign in, forgot password, e-mail check, change password, and starting the app (boot). */
 const WRITE=["admin","treasurer","secretary"],NOTICE=["admin","president","secretary"];
 const LG=()=>window.KK_LGSW?window.KK_LGSW():"";
-let me=null,tab=location.hash==="#vis"?"vis":"dash",month="2026-10";
+let me=null,tab=location.hash==="#vis"?"vis":"dash",month=ld().slice(0,7);
 const toEmail=u=>{u=u.trim().toLowerCase();return u.includes("@")?u:u+"@krishnakuteer.app"};
 /* Sign-in dropdown: fixed list, shown instantly (no network needed). */
 const IDS=[..."101 102 201 202 301 302 401 402 501 502".split(" ").map(u=>({u,l:"Flat "+u})),{u:"executive",l:"Executive"},{u:"president",l:"President"},{u:"secretary",l:"Secretary"},{u:"treasurer",l:"Treasurer"},{u:"watchman",l:"Watchman (gate)"}];
