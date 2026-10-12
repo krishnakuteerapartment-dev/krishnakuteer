@@ -6,7 +6,7 @@ G.sheets.users.rows.forEach((r, i) => { if (i && ['secretary', 'watchman'].inclu
 const PASS = { '101': '123456x', '102': '123456x', watchman: 'pw-watchman1x', secretary: 'pw-secretary1x' };
 [['101', '123456'], ['102', '123456'], ['watchman', 'pw-watchman1'], ['secretary', 'pw-secretary1']].forEach(([u, p]) => { const t = G.call({ a: 'login', u, p }).token; G.call({ token: t, a: 'pw', password: p + 'x' }); });
 G.sheets.users.rows.forEach((r, i) => { if (i) { r[6] = r[0] + '@example.com'; r[7] = 'yes'; } });
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json' };
 const srv = http.createServer((q, s) => { let p = q.url.split('?')[0]; if (p === '/') p = '/index.html'; const f = path.join(REPO, 'public', p); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { s.writeHead(404); return s.end(); } s.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(s); }).listen(8767);
 let ok = 0, bad = 0; const check = async (n, fn) => { try { await fn(); ok++; console.log('  ok   ' + n); } catch (e) { bad++; console.log('  FAIL ' + n + '\n       ' + String(e.message).split('\n')[0]); } };
 async function session(b, who) { const ctx = await b.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' }), p = await ctx.newPage(); p.errors = [];

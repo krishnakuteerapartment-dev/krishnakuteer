@@ -1,0 +1,38 @@
+/* Sign in, forgot password, e-mail check, change password, and starting the app (boot). */
+const WRITE=["admin","treasurer","secretary"],NOTICE=["admin","president","secretary"];
+const LG=()=>window.KK_LGSW?window.KK_LGSW():"";
+let me=null,tab=location.hash==="#vis"?"vis":"dash",month="2026-10";
+const toEmail=u=>{u=u.trim().toLowerCase();return u.includes("@")?u:u+"@krishnakuteer.app"};
+/* Sign-in dropdown: fixed list, shown instantly (no network needed). */
+const IDS=[..."101 102 201 202 301 302 401 402 501 502".split(" ").map(u=>({u,l:"Flat "+u})),{u:"executive",l:"Executive"},{u:"president",l:"President"},{u:"secretary",l:"Secretary"},{u:"treasurer",l:"Treasurer"},{u:"watchman",l:"Watchman (gate)"}];
+function fillIds(){const el=document.getElementById("em");if(!el||el.tagName!=="SELECT")return;
+ el.innerHTML='<option value="">Select your ID</option>'+IDS.map(x=>`<option value="${esc(x.u)}">${esc(x.l)}</option>`).join("")}
+function loginView(msg=""){document.body.classList.remove("menu-open");app.innerHTML=`<div class="login card${msg?" shake":""}">${LG()}<img class="hero-img" src="${HERO}" width="640" height="344" fetchpriority="high" decoding="async" alt="Krishna Kuteer Apartment building" onload="this.classList.add('ld')"><div class="logo"><img src="${LOGO}" alt=""></div><h2>Krishna Kuteer Apartment</h2><p class="sub">Sign in to your account</p>
+<select id="em" aria-label="Select your ID" autocomplete="username"><option value="">Select your ID</option></select><div style="height:8px"></div>
+<input id="pw" type="password" placeholder="Password" autocomplete="current-password"><div style="height:10px"></div>
+<button id="in">Sign in</button><div style="height:8px"></div><button class="ghost" id="fg">Forgot password?</button>
+<p class="err">${esc(msg)}</p></div>`;
+ fillIds();$("#fg").onclick=()=>forgotView($("#em").value);
+ $("#in").onclick=async()=>{if(!$("#em").value.trim())return loginView("Please select your ID.");const{error}=await db.auth.signInWithPassword({email:toEmail($("#em").value),password:$("#pw").value});error?loginView(error.message):(showSplash(),boot().catch(e=>loginView(e.message||"Something went wrong. Please try again.")))}}
+/* ---- Forgot password (code is e-mailed to the verified address) ---- */
+const sp=()=>`<div style="height:8px"></div>`;
+function forgotView(id="",step=1,masked=""){const sel=step===1;
+ app.innerHTML=`<div class="login card"><h2>Reset password</h2>${sel?`<p class="sub">We will e-mail a 6-digit code to the e-mail saved for your ID.</p><select id="fi" aria-label="Select your ID"></select>${sp()}<button id="fs">Send code</button>`:`<p class="sub">Code sent to <b>${esc(masked)}</b>. It works for 10 minutes.</p><input id="fc" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">${sp()}<input id="n1" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password">${sp()}<input id="n2" type="password" placeholder="Repeat new password" autocomplete="new-password">${sp()}<button id="fr">Reset password</button>${sp()}<button class="ghost" id="fx">Send a new code</button>`}${sp()}<button class="ghost" id="fb">Back to sign in</button><p class="err" id="fe"></p></div>`;
+ $("#fb").onclick=()=>loginView();const e=$("#fe");
+ if(sel){const el=$("#fi");el.innerHTML='<option value="">Select your ID</option>'+IDS.map(x=>`<option value="${esc(x.u)}"${x.u===id?" selected":""}>${esc(x.l)}</option>`).join("");
+  $("#fs").onclick=async()=>{const u=el.value;if(!u)return e.textContent="Please select your ID.";const r=await db.auth.fpSend(u);r.error?e.textContent=r.error.message:forgotView(u,2,r.masked)}}
+ else{$("#fx").onclick=async()=>{const r=await db.auth.fpSend(id);r.error?e.textContent=r.error.message:(toast("New code sent"),e.textContent="")};
+  $("#fr").onclick=async()=>{const c=$("#fc").value.trim(),a=$("#n1").value;if(!/^\d{6}$/.test(c))return e.textContent="Enter the 6-digit code from your e-mail.";if(a.length<6||a==="123456"||a==="987654")return e.textContent="Choose a new password of at least 6 characters, different from the starting one.";if(a!==$("#n2").value)return e.textContent="The two passwords do not match.";
+   const r=await db.auth.fpReset(id,c,a);r.error?e.textContent=r.error.message:(toast("Password changed. Please sign in."),loginView())}}}
+/* ---- Add + verify e-mail (needed for password reset) ---- */
+function emailView(forced,step=1,mail=""){
+ app.innerHTML=`<div class="login card"><h2>${step===1?"Verify your e-mail":"Enter the code"}</h2>${step===1?`<p class="sub">${forced?"Please verify it now \u2013 we will ask every time you open the app until it is verified. ":""}We use it to reset your password if you forget it.</p><input id="ea" type="email" placeholder="you@gmail.com" autocomplete="email" value="${esc(mail||(cur&&cur.real_email)||"")}">${sp()}<button id="es">Send code</button>`:`<p class="sub">We sent a 6-digit code to <b>${esc(mail)}</b>.</p><input id="ec" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">${sp()}<button id="ev">Verify</button>${sp()}<button class="ghost" id="eb">Change e-mail</button>`}${sp()}${forced?`<button class="ghost" id="ek">Skip for now</button>`:`<button class="ghost" id="ek">Cancel</button>`}<p class="err" id="ee"></p></div>`;
+ const e=$("#ee");$("#ek").onclick=forced?()=>{resumeRelock();render()}:render;
+ if(step===1)$("#es").onclick=async()=>{const m=$("#ea").value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m))return e.textContent="Please enter a valid e-mail address.";const r=await db.auth.emailSend(m);r.error?e.textContent=r.error.message:emailView(forced,2,m)};
+ else{$("#eb").onclick=()=>emailView(forced,1,mail);$("#ev").onclick=async()=>{const c=$("#ec").value.trim();if(!/^\d{6}$/.test(c))return e.textContent="Enter the 6-digit code from your e-mail.";const r=await db.auth.emailVerify(c);r.error?e.textContent=r.error.message:(toast("E-mail verified"),resumeRelock(),render())}}}
+async function boot(){
+ const{data:{user}}=await db.auth.getUser();if(!user)return loginView();
+ const{data}=await db.from("profiles").select("*").eq("id",user.id).single();me=data||{role:"resident"};if(!user.user_metadata?.pw_changed)return pwView(true);if(cur&&!cur.email_ok)return emailView(true);resumeRelock();render();window.KKPush&&KKPush.sync()}
+function pwView(forced){app.innerHTML=`<div class="login card"><h2>${forced?"Set your own password":"Change password"}</h2>${forced?"<p>For safety, please replace the starting password.</p>":""}<input id="p1" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password"><div style="height:8px"></div><input id="p2" type="password" placeholder="Repeat new password" autocomplete="new-password"><div style="height:10px"></div><button id="pw2">Save password</button>${forced?"":`<div style="height:8px"></div><button class="ghost" id="pe2">${cur&&cur.email_ok?"Change recovery e-mail":"Add recovery e-mail"}</button><div style="height:8px"></div><button class="ghost" id="pc">Cancel</button>`}<p class="err" id="pe"></p></div>`;
+ if($("#pc"))$("#pc").onclick=render;if($("#pe2"))$("#pe2").onclick=()=>emailView(false);
+ $("#pw2").onclick=async()=>{const a=$("#p1").value,e=$("#pe");if(a.length<6||a==="123456"||a==="987654")return e.textContent="Choose a new password of at least 6 characters, different from the starting one.";if(a!==$("#p2").value)return e.textContent="The two passwords do not match.";const{error}=await db.auth.updateUser({password:a,data:{pw_changed:true}});error?e.textContent=error.message:(toast("Password changed"),cur&&!cur.email_ok?emailView(true):render())}}

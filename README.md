@@ -1,9 +1,39 @@
 # Krishna Kuteer Apartment – App
 
 ```
-public/        <- the website (this is the ONLY folder Cloudflare publishes)
+src/           <- the app's source code, one file per page (edit here)
+build/         <- the build: turns src/ into the fast, minified files in public/
+public/        <- the website (this is the ONLY folder Cloudflare publishes; made by the build, plus icons, fonts, hero)
 apps-script/   <- Code.gs for Google Apps Script (kept private, never published)
+tests/         <- automatic tests (backend, phone and desktop browser, gate, service worker)
 ```
+
+### How the app is organised (src/)
+```
+src/index.html                 page frame (the build fills in file names)
+src/css/app.css                all styles, in the order they apply
+src/services/  config.js       Apps Script address, logo
+               api.js          talking to Google Sheets, saved copy of the data, instant background saves, db.from(...)
+               auth.js         sign in, forgot password, e-mail check, change password, start-up
+               loader.js       loads a page's file the first time that page is opened
+               finance.js      monthly statement figures (Home, Statement)
+               lang.js         English | తెలుగు switch (small, always loaded)
+               lang-te.js      Telugu wording + translator (downloaded only when Telugu is chosen)
+               push.js         phone alerts
+src/components/ shell.js       header, menu, page switcher
+               ui.js           shared helpers (dates, money, toast, splash, motion)
+               icons.js        menu icons
+               forms.js        roles, form fields, pop-up sheet, background saving
+               print.js        printing
+               visit-approval.js  Approve / Deny cards (Home and Visitors)
+               media.js        photos (Documents, Complaints)
+               service-form.js service records (Assets, Reminders)
+src/pages/     home, payments, expenses, statement, maintenance, celebrations, visitors, documents, notices,
+               complaints, meeting, voting, assets, reminders, contacts, audit, watchman  (one file each)
+src/sw.js                      service worker (keeps the app on the phone, alerts, Approve/Deny on the alert)
+```
+On opening, a phone downloads and runs only the shared core and the Home page. Every other page's file is fetched the first
+time it is opened (and kept on the phone by the service worker, so it also opens offline).
 
 ## 1. Deploy from GitHub to Cloudflare Pages
 1. Cloudflare dashboard > Workers & Pages > Create > Pages > Connect to Git > pick this repo.
@@ -42,10 +72,15 @@ Every future `git push` redeploys automatically.
 - Make this GitHub repo **Private**.
 
 ## Updating the site
-Edit files in `public/`, push to GitHub. If `index.html` or `features.js` changes, bump `V = "kk-v52"` in `public/sw.js`.
+1. Edit files in `src/` (a page is in `src/pages/<name>.js`, styles in `src/css/app.css`).
+2. Build: `cd build`, then `npm install` (first time only), then `npm run build`. It minifies everything, writes `public/`,
+   and sets the new version in `public/sw.js` by itself (no version number to bump any more).
+   It also stops with a clear message if a page uses something that lives only in another page's file.
+3. Commit `src/` and `public/` together and push. GitHub checks that `public/` matches `src/` (Actions > "Check public/ matches src/").
+Files in `public/` that are not built (icons, fonts, `hero.webp`, `firebase-config.js`, `manifest.webmanifest`, `_headers`) are edited directly.
 
 ## Committee features (Assets, Reminders, Meeting, Contacts, Visitor register, Complaint tracking, Audit log)
-The screens are in `public/features.js`; the rules and checks are in `apps-script/Code.gs`.
+The screens are in `src/pages/` (assets.js, reminders.js, meeting.js, contacts.js, visitors.js, complaints.js, audit.js, watchman.js); the rules and checks are in `apps-script/Code.gs`.
 
 **Update the backend FIRST** (the new Code.gs also works with the old app, so phones keep working while you do this):
 1. Apps Script > replace all of `Code.gs` with the new file > Save.
@@ -74,7 +109,7 @@ Association-only documents and all complaint photos/voice notes are saved to the
 in "Krishna Kuteer Apartment Documents/Other"; move them by hand if that folder is shared with residents.
 
 **Tests:** `tests/` runs Code.gs on an in-memory Sheet (`node tests/backend.test.js apps-script/Code.gs`) and the real
-website in a phone-sized and a desktop browser (`node tests/e2e.js . out`, needs Playwright).
+website in a phone-sized and a desktop browser (`node tests/e2e.js . out`, needs Playwright; build first).
 The APK itself loads your live site, so website updates reach the app without a new APK.
 
 ## 4. Push notifications (alerts on every installed phone)
