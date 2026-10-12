@@ -517,7 +517,10 @@ async function complaints(m) {
   const L = all.filter(c => (CF === "all" || c.status === CF) && (!q || [c.ticket_no, c.title, c.details, c.flat_no, c.assigned_to].some(x => String(x || "").toLowerCase().includes(q))));
   const LBL = Object.fromEntries(CS);
   const hist = c => { let h = []; try { h = JSON.parse(c.history || "[]"); } catch (e) {} h = h.map(e => e.feedback ? Object.assign({}, e, { note: (e.feedback === "up" ? "👍 Feedback: satisfied" : "👎 Feedback: not satisfied") + (e.note ? " – " + e.note : "") }) : e); if (!h.length) h = [{ at: c.created_at, by: c.flat_no, status: "open", note: "Complaint raised" }];
-    return `<div class="hist">${h.slice().reverse().map(e => `<div>${e.status ? `<b>${esc(LBL[e.status] || e.status)}</b>` : ""}${e.assigned_to ? `${e.status ? " · " : ""}Assigned to <b>${esc(e.assigned_to)}</b>` : ""}${e.expected_on ? ` · expected by ${dmx(e.expected_on)}` : ""}${e.note ? `<br>${esc(e.note)}` : ""}<small>${esc(String(e.at || "").replace(/^(\d{4})-(\d{2})-(\d{2})/, (x, y, mo, d) => +d + "/" + +mo + "/" + y))} · ${esc(/^\d/.test(String(e.by)) ? "Flat " + e.by : cap(String(e.by || "")))}</small></div>`).join("")}</div>`; };
+    return `<div class="hist">${h.slice().reverse().map(e => `<div>${e.status ? `<b>${esc(LBL[e.status] || e.status)}</b>` : ""}${e.assigned_to ? `${e.status ? " · " : ""}Assigned to <b>${esc(e.assigned_to)}</b>` : ""}${e.expected_on ? ` · expected by ${dmx(e.expected_on)}` : ""}${e.note ? `<br>${esc(e.note)}` : ""}${e.photos ? `<div class="phs" style="margin-top:6px">${String(e.photos).split("|").filter(Boolean).map(phTag).join("")}</div>` : ""}<small>${esc(String(e.at || "").replace(/^(\d{4})-(\d{2})-(\d{2})/, (x, y, mo, d) => +d + "/" + +mo + "/" + y))} · ${esc(/^\d/.test(String(e.by)) ? "Flat " + e.by : cap(String(e.by || "")))}</small></div>`).join("")}</div>`; };
+  /* status history as plain lines, for the printed register */
+  const histTxt = c => { let h = []; try { h = JSON.parse(c.history || "[]"); } catch (e) {} if (!h.length) h = [{ at: c.created_at, by: c.flat_no, status: "open", note: "Complaint raised" }];
+    return h.map(e => `<div style="margin-bottom:3px"><b>${esc(String(e.at || "").replace(/^(\d{4})-(\d{2})-(\d{2})/, (x, y, mo, d) => +d + "/" + +mo + "/" + y))}</b> · ${esc(/^\d/.test(String(e.by)) ? "Flat " + String(e.by).replace(" (alert)", "") : cap(String(e.by || "")))}: ${esc([e.status && (LBL[e.status] || e.status), e.assigned_to && "assigned to " + e.assigned_to, e.expected_on && "expected by " + dmx(e.expected_on), e.feedback && (e.feedback === "up" ? "feedback 👍" : "feedback 👎"), e.note, e.photos && String(e.photos).split("|").length + " photo(s)"].filter(Boolean).join(" · "))}</div>`).join(""); };
   /* feedback after Resolved: the flat that raised it may tap 👍 / 👎 (optional); the Association sees the answer */
   const mineC = c => me.role === "resident" && String(c.flat_no) === String(me.id);
   const fbBox = c => { if (c.status !== "resolved") return "";
@@ -532,6 +535,7 @@ async function complaints(m) {
      <b style="display:block;margin-top:6px">${esc(c.title)}</b>${c.details ? `<div>${esc(c.details)}</div>` : ""}${c.photos ? `<div class="phs">${String(c.photos).split("|").filter(Boolean).map(phTag).join("")}</div>` : ""}${c.voice ? vnTag(c.voice) : ""}
      <dl class="kv"><dt>Raised</dt><dd>Flat ${esc(c.flat_no)} · ${dmx(c.created_at)}</dd>${it ? `<dt>Related to</dt><dd>${esc(it)}</dd>` : ""}<dt>Assigned to</dt><dd>${c.assigned_to ? esc(c.assigned_to) : '<span style="color:var(--grey)">Not assigned yet</span>'}</dd>${c.expected_on ? `<dt>Expected by</dt><dd${late ? ' class="late"' : ""}>${dmx(c.expected_on)}${late ? " (overdue)" : ""}</dd>` : ""}${c.updated_at && c.updated_at !== c.created_at ? `<dt>Last update</dt><dd>${dmx(c.updated_at)}</dd>` : ""}</dl>
      <div class="stp">${CS.map((x, i) => `<span class="${i <= k ? "on" : ""}"></span>`).join("")}</div>
+     ${c.reply_photos ? `<div style="margin-top:8px"><b style="font-size:.9rem">📷 Photos from the Association</b><div class="phs">${String(c.reply_photos).split("|").filter(Boolean).map(phTag).join("")}</div></div>` : ""}
      ${fbBox(c)}
      <details class="rec"><summary>Status history</summary>${hist(c)}</details>
      ${S ? `<div class="btnrow"><button data-cu="${c.id}">Update status</button><button class="ghost" data-cx="${c.id}">Delete</button></div>` : ""}</div>`; };
@@ -546,8 +550,8 @@ async function complaints(m) {
   loadPh(m); vnBind(m); pickInit("cph", 3); voiceInit("cvn");
   m.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { CF = b.dataset.cf; render(); });
   if ($("#cqg")) { const go = () => { CQ = $("#cq").value.trim(); render(); }; $("#cqg").onclick = go; $("#cq").onkeydown = e => { if (e.key === "Enter") go(); }; }
-  if ($("#pcp")) $("#pcp").onclick = () => printHTML("Complaint register", sheetHead("Complaint register", CF === "all" ? "" : LBL[CF]) + ptable(["Ticket", "Raised", "Flat", "Problem", "Related to", "Assigned to", "Expected", "Status", "Feedback"],
-    L.map(c => [esc(tkt(c)), dmx(c.created_at), esc(c.flat_no), esc(c.title) + (c.details ? "<br><small>" + esc(c.details) + "</small>" : ""), esc(c.asset_id ? nameOfAsset(A, c.asset_id) : ""), esc(c.assigned_to || ""), dmx(c.expected_on), esc(LBL[c.status] || c.status), c.feedback === "up" ? "👍" : c.feedback === "down" ? "👎" + (c.feedback_note ? " " + esc(c.feedback_note) : "") : ""])) + SIG, true);
+  if ($("#pcp")) $("#pcp").onclick = () => printHTML("Complaint register", sheetHead("Complaint register", CF === "all" ? "" : LBL[CF]) + ptable(["Ticket", "Raised", "Flat", "Problem", "Related to", "Assigned to", "Expected", "Status", "Feedback", "Status history"],
+    L.map(c => [esc(tkt(c)), dmx(c.created_at), esc(c.flat_no), esc(c.title) + (c.details ? "<br><small>" + esc(c.details) + "</small>" : ""), esc(c.asset_id ? nameOfAsset(A, c.asset_id) : ""), esc(c.assigned_to || ""), dmx(c.expected_on), esc(LBL[c.status] || c.status), c.feedback === "up" ? "👍" : c.feedback === "down" ? "👎" + (c.feedback_note ? " " + esc(c.feedback_note) : "") : "", histTxt(c)])) + SIG, true);
   const sendFb = async (id, f) => { const nEl = m.querySelector(`[data-fbn="${id}"]`), note = nEl ? nEl.value.trim() : "", had = (all.find(x => String(x.id) === String(id)) || {}).feedback;
     if (+id >= TMPID) return toast("Still saving. Please try again in a moment.");
     try { await instant(setRow("complaints", id, { feedback: f, feedback_note: note, feedback_at: nowS() }), { a: "complaintFeedback", id, feedback: f, note }); } catch (e) { return toast(e.message); }
@@ -565,9 +569,20 @@ async function complaints(m) {
   m.querySelectorAll("[data-cu]").forEach(b => b.onclick = () => { const c = all.find(x => String(x.id) === b.dataset.cu), ppl = (ct.data || []).map(x => x.name).filter(Boolean);
     sheet("Update " + esc(tkt(c)), `<p class="note" style="margin:6px 0 0">${esc(c.title)} · Flat ${esc(c.flat_no)}</p><div class="f">${fld("Status", sel("cus", CS, c.status))}${fld("Expected completion", dinp("cue", c.expected_on))}
      ${fld("Assigned to", `<input id="cua" list="cual" value="${esc(c.assigned_to || "")}" placeholder="Person or company"><datalist id="cual">${ppl.map(p => `<option value="${esc(p)}">`).join("")}</datalist>`, 1)}
-     ${A.length ? fld("Related to", sel("cuit", [["", "Nothing selected"]].concat(A.map(a => [a.id, a.name])), c.asset_id), 1) : ""}${fld("Note for the resident (optional)", inp("cun", "", 'placeholder="e.g. Technician will come tomorrow"'), 1)}</div>`,
+     ${A.length ? fld("Related to", sel("cuit", [["", "Nothing selected"]].concat(A.map(a => [a.id, a.name])), c.asset_id), 1) : ""}${fld("Note for the resident (optional)", inp("cun", "", 'placeholder="e.g. Technician will come tomorrow"'), 1)}
+     <div class="w"><label class="fl">Photos for the resident (optional, up to 3)</label>${pickHtml("cuph")}</div></div>`,
       async () => { const p = { status: val("cus"), expected_on: val("cue"), assigned_to: val("cua"), note: val("cun") }; if ($("#cuit")) p.asset_id = val("cuit");
-        const e = await saveBg("complaints", "update", p, [["id", c.id]]); if (!e) { toast("Updated. The resident gets an alert."); render(); } return e; }, "Save update"); });
+        if (+c.id >= TMPID) return "Still saving. Please try again in a moment.";
+        const loc = (PK.cuph || []).splice(0).map(d => { const lid = LID(); PH[lid] = Promise.resolve(d); const pre = UP.get(d); UP.delete(d); return { lid, d, pre }; });
+        if (!loc.length) { const e = await saveBg("complaints", "update", p, [["id", c.id]]); if (!e) { toast("Updated. The resident gets an alert."); render(); } return e; }
+        /* with photos: the update shows at once; the photos upload and the save finishes in the background */
+        const local = T => { applyLocal(T, "complaints", "update", p, [["id", c.id]]); (T.complaints || []).filter(r => String(r.id) === String(c.id)).forEach(r => {
+          let h = []; try { h = JSON.parse(r.history || "[]"); } catch (x) {} const e = { at: nowS(), by: me.id, photos: loc.map(x => x.lid).join("|") }; if (p.status !== c.status) e.status = p.status; if (p.note) e.note = p.note;
+          h.push(e); r.history = JSON.stringify(h); r.reply_photos = String(r.reply_photos || "").split("|").filter(Boolean).concat(loc.map(x => x.lid)).join("|"); }); };
+        bgRun(local, async () => { const ids = []; for (const x of loc) ids.push(await upOne(x.d, "complaint", x.pre));
+          const w = await api({ a: "write", t: "complaints", op: "update", payload: Object.assign({}, p, { reply_photos: ids.join("|") }), filters: [["id", c.id]] }, 1); bgDrive(); return w; }).catch(() => {});
+        toast("Updated with " + loc.length + " photo" + (loc.length > 1 ? "s" : "") + ". The resident gets an alert."); render(); return ""; }, "Save update");
+    pickInit("cuph", 3); });
   m.querySelectorAll("[data-cx]").forEach(b => b.onclick = async () => { if (!confirm("Delete this complaint? This is recorded in the audit log.")) return; const e = await saveBg("complaints", "delete", null, [["id", b.dataset.cx]]); e ? toast(e) : render(); });
 }
 
@@ -600,4 +615,102 @@ async function auditLog(m) {
   $("#ago").onclick = () => { AF = { tbl: val("af1"), act: val("af2"), who: val("af3"), from: val("af4"), to: val("af5") }; load(); };
   $("#aclr").onclick = () => { AF = { tbl: "", act: "", who: "", from: "", to: "" }; auditLog(m); };
   load();
+}
+
+/* =====================================================================================
+   8. WATCHMAN: attendance, paid leave balance, leave requests (gate login) and leave recorded by the Association.
+      An approved leave is posted as a notice automatically (Notices, Recent activity, alert to everyone).
+   ===================================================================================== */
+FIC.staff = (d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`)('<circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/><path d="M9 3.5 12 2l3 1.5"/>');
+const LVS = { requested: ["Waiting for approval", "amb"], approved: ["Approved", "grn"], rejected: ["Not approved", "red"], cancelled: ["Cancelled", "gry"] };
+const ATS = { present: ["P", "Present", "grn"], half: ["½", "Half day", "amb"], absent: ["A", "Absent", "red"] };
+let STF = null, ATM = null;
+try { STF = localStorage.getItem("kk_staff") || null; } catch (e) {}
+const ymd = d => d.toISOString().slice(0, 10);
+const daysIn = (from, to) => { const out = []; const a = U(String(from).slice(0, 10)), b = U(String(to || from).slice(0, 10)); for (let d = new Date(a); d <= b && out.length < 400; d.setUTCDate(d.getUTCDate() + 1)) out.push(ymd(d)); return out; };
+/* Home page card: leave requests waiting for the Association */
+async function staffHome() {
+  if (!isIn(R_S)) return "";
+  try { const [l, s] = await Promise.all([db.from("leaves").select("*"), db.from("staff").select("*")]), W = (l.data || []).filter(x => x.status === "requested");
+    if (!W.length) return ""; const nm = id => ((s.data || []).find(x => String(x.id) === String(id)) || {}).name || "Watchman";
+    return `<div class="card" data-go="staff" role="button" tabindex="0" style="cursor:pointer;border-left:4px solid #b45309"><b>🛡 Leave request${W.length > 1 ? "s" : ""}</b> <span class="tag amb">${W.length} waiting</span><small style="display:block;color:var(--grey)">${W.slice(0, 3).map(x => esc(nm(x.staff_id)) + ": " + dmx(x.from_date) + (+x.days > 1 ? " – " + dmx(x.to_date) : "")).join(" · ")}</small></div>`;
+  } catch (e) { return ""; }
+}
+async function staffPage(m) {
+  const [sd, ld0, ad] = await Promise.all([db.from("staff").select("*"), db.from("leaves").select("*"), db.from("attendance").select("*")]);
+  const assoc = isIn(R_S), gate = me.role === "watchman", T = ld(), Y = T.slice(0, 4);
+  const staff = (sd.data || []).filter(x => x.active !== "no" || assoc).sort((a, b) => (a.active === "no") - (b.active === "no") || String(a.name).localeCompare(b.name));
+  const active = staff.filter(x => x.active !== "no"), LV = (ld0.data || []).sort((a, b) => String(b.from_date).localeCompare(a.from_date)), AT = ad.data || [];
+  if (!staff.some(x => String(x.id) === String(STF))) STF = active[0] ? String(active[0].id) : staff[0] ? String(staff[0].id) : null;
+  const cur = staff.find(x => String(x.id) === String(STF));
+  ATM = ATM || T.slice(0, 7);
+  const leaveOn = (sid, day) => LV.find(l => String(l.staff_id) === String(sid) && l.status === "approved" && String(l.from_date).slice(0, 10) <= day && String(l.to_date || l.from_date).slice(0, 10) >= day);
+  const markOn = (sid, day) => AT.find(a => String(a.staff_id) === String(sid) && String(a.on_date).slice(0, 10) === day);
+  const paidUsed = sid => LV.filter(l => String(l.staff_id) === String(sid) && l.status === "approved" && l.kind !== "unpaid").reduce((n, l) => n + daysIn(l.from_date, l.to_date).filter(d => d.slice(0, 4) === Y).length, 0);
+  const unpaidUsed = sid => LV.filter(l => String(l.staff_id) === String(sid) && l.status === "approved" && l.kind === "unpaid").reduce((n, l) => n + daysIn(l.from_date, l.to_date).filter(d => d.slice(0, 4) === Y).length, 0);
+  const monthDays = ym => { const [y, mo] = ym.split("-").map(Number), n = new Date(Date.UTC(y, mo, 0)).getUTCDate(); return Array.from({ length: n }, (_, i) => ym + "-" + String(i + 1).padStart(2, "0")); };
+  const dayState = (sid, day) => { const l = leaveOn(sid, day); if (l) return l.kind === "unpaid" ? ["U", "Unpaid leave", "gry"] : ["L", "Paid leave", "blu"]; const a = markOn(sid, day); if (a && ATS[a.status]) return ATS[a.status]; return day <= T ? ["–", "Not marked", ""] : ["", "", ""]; };
+  const tally = (sid, ym) => { const t = { P: 0, "½": 0, A: 0, L: 0, U: 0, "–": 0 }; monthDays(ym).forEach(d => { const k = dayState(sid, d)[0]; if (k in t) t[k]++; }); return t; };
+  const lvRow = l => { const s = staff.find(x => String(x.id) === String(l.staff_id)) || { name: "Watchman" }, st = LVS[l.status] || [l.status, "gry"];
+    return `<div class="it"><div><b>${esc(s.name)}</b> <span class="tag ${st[1]}">${st[0]}</span> <span class="tag ${l.kind === "unpaid" ? "gry" : ""}">${l.kind === "unpaid" ? "Unpaid" : "Paid"}</span>
+      <small>${dmx(l.from_date)}${+l.days > 1 ? " – " + dmx(l.to_date) : ""} · ${+l.days || 1} day${+l.days > 1 ? "s" : ""}${l.reason ? " · " + esc(l.reason) : ""}${l.requested_by === "watchman" ? " · applied by watchman" : l.requested_by ? " · recorded by " + esc(cap(String(l.requested_by))) : ""}</small></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${assoc && l.status === "requested" ? `<button data-lap="${l.id}:paid">Approve (paid)</button><button class="ghost" data-lap="${l.id}:unpaid">Approve (unpaid)</button><button class="ghost" data-lrj="${l.id}">Reject</button>` : ""}
+      ${(assoc && l.status === "approved" && String(l.to_date || l.from_date).slice(0, 10) >= T) || (gate && l.status === "requested") ? `<button class="ghost" data-lcan="${l.id}">Cancel</button>` : ""}</div></div>`; };
+  const cal = (sid, ym, edit) => { const ds = monthDays(ym), first = (U(ds[0]).getUTCDay() + 6) % 7;
+    return `<div class="tw"><div class="atcal">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => `<b>${d}</b>`).join("")}${"<span></span>".repeat(first)}${ds.map(d => { const st = dayState(sid, d);
+      return `<button type="button" class="atd ${st[2] ? "s-" + st[2] : ""}${d === T ? " today" : ""}" ${edit && d <= T && !leaveOn(sid, d) ? `data-atd="${d}"` : "disabled"} title="${esc(dmx(d) + (st[1] ? " · " + st[1] : ""))}"><span>${+d.slice(8)}</span><i>${st[0]}</i></button>`; }).join("")}</div></div>`; };
+  const css = `<style>.atcal{display:grid;grid-template-columns:repeat(7,minmax(38px,1fr));gap:4px;min-width:290px}.atcal>b{font-size:.7rem;text-align:center;color:var(--grey);font-weight:600}.atd{min-height:48px;padding:4px 0;border-radius:10px;background:#fff;border:1px solid var(--line);color:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;box-shadow:none;font-size:.8rem;line-height:1.1}.atd i{font-style:normal;font-weight:800;font-size:.95rem}.atd:disabled{opacity:1;cursor:default}.atd.today{outline:2px solid #2563eb}.atd.s-grn{background:#e4f6ea;color:#15803d}.atd.s-red{background:#fde8e6;color:#b42318}.atd.s-amb{background:#fdf0dc;color:#b45309}.atd.s-blu{background:#eaf2ff;color:#1d4ed8}.atd.s-gry{background:#eef1f5;color:#4a5568}.atd::after,.atd::before{display:none!important}</style>`;
+  const legend = `<p class="note" style="margin:8px 0 0">P Present · ½ Half day · A Absent · L Paid leave · U Unpaid leave · – Not marked</p>`;
+  const pend = LV.filter(l => l.status === "requested");
+  const pick = staff.length > 1 ? `<div class="chips">${staff.map(x => `<button class="${String(x.id) === String(STF) ? "" : "ghost"}" data-stf="${x.id}">${esc(x.name)}${x.active === "no" ? " (inactive)" : ""}</button>`).join("")}</div>` : "";
+  let html = css;
+  if (!staff.length) html += `<div class="card">No watchman added yet.${assoc ? " Add the watchman below: name, phone and paid leaves per year." : " Please ask the Association to add the watchman."}</div>`;
+  if (cur) {
+    const pu = paidUsed(cur.id), al = +cur.paid_leaves_year || 0, tm = tally(cur.id, T.slice(0, 7)), tdy = markOn(cur.id, T), onLeave = leaveOn(cur.id, T);
+    html += pick + `<div class="card"><div class="ahead"><div class="em" aria-hidden="true">🛡</div><div><b style="font-size:1.1rem">${esc(cur.name)}</b>${cur.active === "no" ? ' <span class="tag gry">Inactive</span>' : ""}${onLeave ? ' <span class="tag blu" style="background:#eaf2ff;color:#1d4ed8">On leave today</span>' : ""}
+       <small style="display:block;color:var(--grey)">${esc(cap(cur.role || "watchman"))}${cur.joined_on ? " · joined " + dmx(cur.joined_on) : ""}</small></div>${cur.phone && !gate ? callA(cur.phone, "alt", "Call") : ""}</div>
+      <div class="tiles" style="margin-top:12px"><div class="${al - pu < 0 ? "red" : al - pu <= 2 ? "amb" : "grn"}"><b>${Math.max(al - pu, 0)}</b><small>Paid leaves left in ${Y}</small></div><div><b>${pu} / ${al}</b><small>Paid leaves used</small></div><div><b>${unpaidUsed(cur.id)}</b><small>Unpaid leave days</small></div></div>
+      <div class="tiles" style="margin-top:10px"><div class="grn"><b>${tm.P}</b><small>Present this month</small></div><div class="amb"><b>${tm["½"]}</b><small>Half days</small></div><div class="red"><b>${tm.A}</b><small>Absent</small></div><div><b>${tm.L + tm.U}</b><small>Leave days</small></div></div>
+      ${gate && cur.active !== "no" ? `<div class="btnrow">${onLeave ? `<p class="note">On leave today.</p>` : tdy ? `<p class="note" style="margin:0">✓ Marked ${esc((ATS[tdy.status] || ["", tdy.status])[1].toLowerCase())} today${tdy.marked_at ? " at " + t12(String(tdy.marked_at).slice(11, 16)) : ""}</p>` : `<button id="atme" style="background:linear-gradient(135deg,#15803d,#22a35a)">✓ Mark present today</button>`}</div>` : ""}</div>`;
+    if (pend.length && (assoc || gate)) html += `<h2>Waiting for approval · ${pend.length}</h2><div class="card">${pend.map(lvRow).join("")}</div>`;
+    if ((assoc || gate) && cur.active !== "no") html += `<h2>${gate ? "Apply for leave" : "Record leave for " + esc(cur.name)}</h2><div class="card">${assoc ? `<p class="note">Use this when the watchman tells you about leave, or could not apply. It is approved at once and posted as a notice for all flats.</p>` : `<p class="note">The Association approves it. Once approved, all flats see a notice.</p>`}
+      <div class="f">${fld("From", dinp("lvf", T))}${fld("To (same day if one day)", dinp("lvt", T))}${fld("Type", sel("lvk", [["paid", "Paid leave"], ["unpaid", "Unpaid leave"]], "paid"))}${fld("Reason (optional)", inp("lvr", "", 'placeholder="e.g. Family function"'))}<button class="w" id="lvs">${gate ? "Apply for leave" : "Save leave and post notice"}</button></div></div>`;
+    const mine = LV.filter(l => String(l.staff_id) === String(cur.id) && l.status !== "requested");
+    html += `<h2>Leave history</h2><div class="card">${mine.slice(0, 30).map(lvRow).join("") || "No leave yet."}</div>`;
+    html += `<h2>Attendance</h2><div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><input type="month" id="atm" value="${ATM}" style="max-width:200px">${prBtn("atp", "Print attendance")}</div>${cal(cur.id, ATM, assoc)}${legend}${assoc ? `<p class="note" style="margin:4px 0 0">Tap a day to mark Present, Half day or Absent.</p>` : ""}</div>`;
+  }
+  if (assoc) html += `<h2>Watchmen</h2><div class="card">${staff.map(x => `<div class="it"><div><b>${esc(x.name)}</b>${x.active === "no" ? ' <span class="tag gry">Inactive</span>' : ""}<small>${esc(x.phone || "")}${x.phone ? " · " : ""}${+x.paid_leaves_year || 0} paid leaves a year${x.joined_on ? " · joined " + dmx(x.joined_on) : ""}</small></div><button class="ghost" data-sted="${x.id}">Edit</button></div>`).join("")}
+    <details class="rec"${staff.length ? "" : " open"}><summary>Add a watchman</summary><div class="f">${fld("Name", inp("sn", "", 'placeholder="e.g. Lakshmi"'))}${fld("Phone", inp("sp", "", 'type="tel" inputmode="tel"'))}${fld("Joined on", dinp("sj"))}${fld("Paid leaves per year", inp("sl", "12", 'type="number" min="0" max="365" inputmode="numeric"'))}<button class="w" id="ssv">Add watchman</button></div></details></div>`;
+  m.innerHTML = html;
+  /* ---- actions ---- */
+  m.querySelectorAll("[data-stf]").forEach(b => b.onclick = () => { STF = b.dataset.stf; try { localStorage.setItem("kk_staff", STF); } catch (e) {} render(); });
+  if ($("#atm")) $("#atm").onchange = e => { ATM = e.target.value || T.slice(0, 7); render(); };
+  if ($("#atp")) $("#atp").onclick = () => { const ds = monthDays(ATM), t = tally(cur.id, ATM), [y, mo] = ATM.split("-");
+    printHTML("Attendance " + cur.name + " " + ATM, sheetHead("Watchman attendance: " + cur.name, MN[+mo - 1] + " " + y) + `<div class="box">Present ${t.P} · Half days ${t["½"]} · Absent ${t.A} · Paid leave ${t.L} · Unpaid leave ${t.U} · Not marked ${t["–"]}<br>Paid leaves in ${y}: ${paidUsed(cur.id)} used of ${+cur.paid_leaves_year || 0}</div>` +
+      ptable(["Date", "Day", "Status"], ds.map(d => { const st = dayState(cur.id, d); return [dm(d), ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][U(d).getUTCDay()], esc(st[1] || "")]; }), null, ["", "", ""]) + SIG); };
+  if ($("#atme")) $("#atme").onclick = async () => { const now = nowS();
+    try { await instant(c => { (c.attendance || (c.attendance = [])).push({ id: TMPID + (++TMP), staff_id: cur.id, on_date: T, status: "present", marked_by: me.id, marked_at: now }); }, wbody("attendance", "insert", { staff_id: cur.id })); } catch (e) { return toast(e.message); }
+    toast("Marked present"); render(); };
+  m.querySelectorAll("[data-atd]").forEach(b => b.onclick = () => { const d = b.dataset.atd, old = markOn(cur.id, d);
+    const s0 = sheet("Attendance · " + esc(cur.name) + " · " + dmx(d), `<div class="btnrow">${Object.entries(ATS).map(([k, v]) => `<button type="button" class="${old && old.status === k ? "" : "ghost"}" data-atk="${k}">${v[1]}</button>`).join("")}${old ? `<button type="button" class="ghost" data-atk="">Clear</button>` : ""}</div>`, async () => "", "Close");
+    s0.el.querySelector("#sho").style.display = "none";
+    s0.el.querySelectorAll("[data-atk]").forEach(x => x.onclick = async () => { const k = x.dataset.atk; s0.close();
+      if (!k) { const e = await saveBg("attendance", "delete", null, [["id", old.id]]); e ? toast(e) : render(); return; }
+      try { await instant(c => { c.attendance = (c.attendance || []).filter(a => !(String(a.staff_id) === String(cur.id) && String(a.on_date).slice(0, 10) === d)); c.attendance.push({ id: TMPID + (++TMP), staff_id: cur.id, on_date: d, status: k, marked_by: me.id, marked_at: nowS() }); }, wbody("attendance", "insert", { staff_id: cur.id, on_date: d, status: k })); } catch (e) { return toast(e.message); }
+      toast(ATS[k][1] + " · " + dmx(d)); render(); }); });
+  if ($("#lvs")) $("#lvs").onclick = async () => { const v = { staff_id: cur.id, from_date: val("lvf"), to_date: val("lvt") || val("lvf"), kind: val("lvk"), reason: val("lvr") };
+    if (!v.from_date) return toast("Choose the first day of leave."); if (v.to_date < v.from_date) return toast("The last day must be on or after the first day.");
+    if (LV.some(l => String(l.staff_id) === String(cur.id) && ["requested", "approved"].includes(l.status) && String(l.from_date).slice(0, 10) <= v.to_date && String(l.to_date || l.from_date).slice(0, 10) >= v.from_date)) return toast("There is already a leave on these days.");
+    const days = daysIn(v.from_date, v.to_date).length;
+    try { await instant(c => applyLocal(c, "leaves", "insert", Object.assign({}, v, { days, status: assoc ? "approved" : "requested", requested_by: me.id }), []), wbody("leaves", "insert", v)); } catch (e) { return toast(e.message); }
+    toast(assoc ? "Leave saved. A notice is posted for all flats." : "Leave applied. The Association has been told."); render(); };
+  m.querySelectorAll("[data-lap]").forEach(b => b.onclick = async () => { const [id, k] = b.dataset.lap.split(":"); const e = await saveBg("leaves", "update", { status: "approved", kind: k }, [["id", id]]); e ? toast(e) : (toast("Approved. A notice is posted for all flats."), render()); });
+  m.querySelectorAll("[data-lrj]").forEach(b => b.onclick = async () => { if (!confirm("Do not approve this leave?")) return; const e = await saveBg("leaves", "update", { status: "rejected" }, [["id", b.dataset.lrj]]); e ? toast(e) : (toast("Not approved. The watchman has been told."), render()); });
+  m.querySelectorAll("[data-lcan]").forEach(b => b.onclick = async () => { if (!confirm("Cancel this leave?" + (assoc ? " Its notice is removed." : ""))) return; const e = await saveBg("leaves", "update", { status: "cancelled" }, [["id", b.dataset.lcan]]); e ? toast(e) : (toast("Leave cancelled"), render()); });
+  if ($("#ssv")) $("#ssv").onclick = async () => { const v = { name: val("sn"), phone: val("sp"), joined_on: val("sj"), paid_leaves_year: val("sl") === "" ? 12 : +val("sl") };
+    if (!v.name) return toast("Enter the name."); const e = await saveBg("staff", "insert", Object.assign(v, { role: "watchman", active: "yes" })); e ? toast(e) : (toast("Watchman added"), render()); };
+  m.querySelectorAll("[data-sted]").forEach(b => b.onclick = () => { const x = staff.find(q => String(q.id) === b.dataset.sted);
+    sheet("Edit " + esc(x.name), `<div class="f">${fld("Name", inp("sen", x.name))}${fld("Phone", inp("sep", x.phone, 'type="tel" inputmode="tel"'))}${fld("Joined on", dinp("sej", x.joined_on))}${fld("Paid leaves per year", inp("sel", x.paid_leaves_year, 'type="number" min="0" max="365" inputmode="numeric"'))}${fld("Status", sel("sea", [["yes", "Working"], ["no", "Left / inactive"]], x.active === "no" ? "no" : "yes"))}</div>`,
+      async () => { const v = { name: val("sen"), phone: val("sep"), joined_on: val("sej"), paid_leaves_year: +val("sel") || 0, active: val("sea") }; if (!v.name) return "Enter the name.";
+        const e = await saveBg("staff", "update", v, [["id", x.id]]); if (!e) { toast("Saved"); render(); } return e; }); });
 }

@@ -82,7 +82,7 @@ function create(opts = {}) {
         getFoldersByName: n => { const l = f.folders.filter(x => x.name === n); return { hasNext: () => l.length > 0, next: () => l.shift() }; },
         createFolder: n => { const x = mk(n); f.folders.push(x); return x; },
         getFilesByName: n => { const l = f.files.filter(x => x.name === n); return { hasNext: () => l.length > 0, next: () => l.shift() }; },
-        createFile: (a, b, c) => { const x = typeof a === 'string' ? { name: a, body: b, mime: c } : { name: a.name || 'file', blob: a }; f.files.push(x); return x; } }; return f; };
+        createFile: (a, b, c) => { const x = typeof a === 'string' ? { name: a, body: b, mime: c } : { name: a.name || 'file', blob: a }; x.setTrashed = v => { if (v) f.files.splice(f.files.indexOf(x), 1); }; f.files.push(x); return x; } }; return f; };
       const top = mk('My Drive'); drive.top = top; return { getFoldersByName: top.getFoldersByName, createFolder: top.createFolder }; })(),
     UrlFetchApp: { fetch: () => ({ getContentText: () => '{}', getResponseCode: () => 200 }), fetchAll: () => [] },
     ScriptApp: { getProjectTriggers: () => [], newTrigger: () => ({ timeBased: () => ({ everyMinutes: () => ({ create: () => {} }) }) }) },

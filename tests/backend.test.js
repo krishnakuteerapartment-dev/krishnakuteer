@@ -267,6 +267,46 @@ t('a brand-new tab is created by itself when first used', () => { const G3 = req
   G3.ctx.SpreadsheetApp.getActiveSpreadsheet = () => G3.ss; const f = G3.call({ a: 'login', u: '101', p: '123456' }).token;
   const r = G3.call({ token: f, a: 'write', t: 'guest_passes', op: 'insert', payload: { name: 'Mother', kind: 'once' }, filters: [] }); assert(r.ok && /^\d{6}$/.test(r.code), JSON.stringify(r)); });
 
+console.log('13. Complaint reply photos and full record in Drive');
+let rc;
+t('Association replies with a photo; it is in the history and the flat can open it', () => { rc = ok(W('f101', 'complaints', 'insert', { title: 'Lobby bulb' })) && snap('f101').complaints.find(c => c.title === 'Lobby bulb').id;
+  const cache = G.ctx.CacheService.getScriptCache(), pid = 'f' + 'a'.repeat(32); cache.put('up_' + pid, 'secretary'); G.sheets.file_data.appendRow([pid, 1, 'image/png', 'iVBORw0KGgo=']);
+  ok(W('sec', 'complaints', 'update', { status: 'in_progress', note: 'New bulb fixed, see photo' }, [['id', rc]], { payload: { status: 'in_progress', note: 'New bulb fixed, see photo', reply_photos: pid } }));
+  const c = snap('f101').complaints.find(x => x.id === rc); assert.strictEqual(c.reply_photos, pid); assert.strictEqual(JSON.parse(c.history).pop().photos, pid);
+  assert(G.call({ token: tok.f101, a: 'photo', id: pid }).ok); no(G.call({ token: tok.f102, a: 'photo', id: pid })); });
+t('a photo uploaded by someone else cannot be attached', () => no(W('sec', 'complaints', 'update', { status: 'in_progress' }, [['id', rc]], { payload: { status: 'in_progress', reply_photos: 'f' + 'b'.repeat(32) } }), /Photo upload failed/));
+t('Resolved saves the full record (details + status history) as text in Drive > Complaints', () => { ok(W('pre', 'complaints', 'update', { status: 'resolved', note: 'Done' }, [['id', rc]]));
+  const cf = G.drive.top.folders.find(f => /Association Documents/.test(f.name)).folders.find(f => f.name === 'Complaints'), rec = cf.files.filter(f => /FULL RECORD\.txt$/.test(f.name) && /Lobby bulb/.test(f.name));
+  assert.strictEqual(rec.length, 1); assert(/STATUS HISTORY/.test(rec[0].body) && /Status: Resolved/.test(rec[0].body) && /New bulb fixed/.test(rec[0].body) && /Complaint raised/.test(rec[0].body), rec[0].body); });
+t('feedback updates the same record (no duplicate files)', () => { ok(G.call({ token: tok.f101, a: 'complaintFeedback', id: rc, feedback: 'up', note: 'Bright now' }));
+  const cf = G.drive.top.folders.find(f => /Association Documents/.test(f.name)).folders.find(f => f.name === 'Complaints'), rec = cf.files.filter(f => /FULL RECORD\.txt$/.test(f.name) && /Lobby bulb/.test(f.name));
+  assert.strictEqual(rec.length, 1); assert(/RESIDENT FEEDBACK: Satisfied - Bright now/.test(rec[0].body)); });
+
+console.log('14. Watchman attendance and leave');
+let stf;
+t('Association adds a watchman with 12 paid leaves a year', () => { stf = ok(W('sec', 'staff', 'insert', { name: 'Lakshmi', phone: '98480 77777' })).id; const x = snap('gate').staff.find(s => s.id === stf); assert.strictEqual(+x.paid_leaves_year, 12); });
+t('residents get no watchman records', () => { const r = snap('f101'); assert.strictEqual(r.staff.length + r.leaves.length + r.attendance.length, 0); });
+t('watchman/residents/executive cannot add staff', () => { no(W('gate', 'staff', 'insert', { name: 'X' }), /permission/); no(W('exe', 'staff', 'insert', { name: 'X' }), /permission/); });
+let lv;
+const fut = n => { const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+t('watchman applies for 2 days leave: requested, President/Secretary/Treasurer alerted, no notice yet', () => { G.pushes.length = 0; const n0 = snap('f101').notices.length;
+  lv = ok(W('gate', 'leaves', 'insert', { staff_id: stf, from_date: fut(3), to_date: fut(4), reason: 'Family function', status: 'approved' })).id; G.call({ token: tok.gate, a: 'after' });
+  const l = snap('sec').leaves.find(x => x.id === lv); assert.strictEqual(l.status, 'requested'); assert.strictEqual(+l.days, 2);
+  assert(G.pushes.some(p => /Leave request: Lakshmi/.test(p.t) && JSON.stringify(p.to.roles) === '["president","secretary","treasurer"]')); assert.strictEqual(snap('f101').notices.length, n0); });
+t('overlapping leave is refused', () => no(W('gate', 'leaves', 'insert', { staff_id: stf, from_date: fut(4), to_date: fut(6) }), /already a leave/));
+t('watchman cannot approve', () => no(W('gate', 'leaves', 'update', { status: 'approved' }, [['id', lv]]), /only cancel/));
+t('Secretary approves: notice posted for everyone, watchman told', () => { G.pushes.length = 0; ok(W('sec', 'leaves', 'update', { status: 'approved', kind: 'paid' }, [['id', lv]])); G.call({ token: tok.sec, a: 'after' });
+  const nt = snap('f101').notices.find(n => /Watchman Lakshmi will be on leave from/.test(n.title)); assert(nt, 'no notice'); assert(G.pushes.some(p => p.t === 'New notice' && !p.to)); assert(G.pushes.some(p => /Leave approved/.test(p.t) && p.to.roles[0] === 'watchman'));
+  assert.strictEqual(String(snap('sec').leaves.find(x => x.id === lv).notice_id), String(nt.id)); });
+t('cancelling the approved leave removes its notice', () => { ok(W('pre', 'leaves', 'update', { status: 'cancelled' }, [['id', lv]])); assert(!snap('f101').notices.some(n => /Watchman Lakshmi will be on leave/.test(n.title))); });
+t('Association records leave directly when the watchman could not apply: approved at once + notice', () => { const id = ok(W('tre', 'leaves', 'insert', { staff_id: stf, from_date: fut(10), kind: 'unpaid' })).id;
+  const l = snap('sec').leaves.find(x => x.id === id); assert.strictEqual(l.status, 'approved'); assert.strictEqual(l.kind, 'unpaid'); assert(snap('f101').notices.some(n => /will be on leave on /.test(n.title))); });
+t('watchman marks present today once; future days refused', () => { ok(W('gate', 'attendance', 'insert', { staff_id: stf, on_date: '2020-01-01', status: 'absent' })); const a = snap('sec').attendance.filter(x => String(x.staff_id) === String(stf));
+  assert.strictEqual(a.length, 1); assert.strictEqual(a[0].on_date, today); assert.strictEqual(a[0].status, 'present'); no(W('gate', 'attendance', 'insert', { staff_id: stf }), /Already marked/);
+  no(W('sec', 'attendance', 'insert', { staff_id: stf, on_date: fut(2), status: 'present' }), /future/); });
+t('Association corrects a day: the new mark replaces the old one', () => { ok(W('sec', 'attendance', 'insert', { staff_id: stf, on_date: today, status: 'absent' })); const a = snap('sec').attendance.filter(x => String(x.staff_id) === String(stf)); assert.strictEqual(a.length, 1); assert.strictEqual(a[0].status, 'absent'); });
+t('leave and attendance are in the audit log', () => { const a = G.call({ token: tok.admin, a: 'audit' }).rows; assert(a.some(r => r.tbl === 'leaves') && a.some(r => r.tbl === 'attendance')); });
+
 console.log('8. Times and dates are never shown wrong');
 t('visitor entry and exit times come back as typed', () => { ok(W('exe', 'visitors', 'insert', { visit_on: today, name: 'Time Test', flat_no: '201', in_time: '09:05', out_time: '18:40' }));
   const v = snap('sec').visitors.find(x => x.name === 'Time Test'); assert.strictEqual(v.in_time, '09:05'); assert.strictEqual(v.out_time, '18:40'); assert.strictEqual(v.visit_on, today); });

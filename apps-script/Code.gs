@@ -14,7 +14,7 @@ const TABLES = {
   maintenance_log: ['id', 'logged_on', 'details', 'status', 'created_at', 'te'],
   celebrations: ['id', 'kind', 'flat_id', 'entry_on', 'amount', 'details', 'created_at', 'te'],
   /* NEW COLUMNS ARE ALWAYS ADDED AT THE END of a list (the Sheet's column order must match this order). */
-  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te', 'ticket_no', 'assigned_to', 'expected_on', 'asset_id', 'history', 'feedback', 'feedback_note', 'feedback_at'],
+  complaints: ['id', 'flat_no', 'title', 'details', 'status', 'created_at', 'updated_at', 'photos', 'voice', 'te', 'ticket_no', 'assigned_to', 'expected_on', 'asset_id', 'history', 'feedback', 'feedback_note', 'feedback_at', 'reply_photos'],
   gallery: ['id', 'title', 'photo', 'uploaded_by', 'created_at', 'kind', 'name', 'folder', 'te', 'visibility'],
   file_data: ['file_id', 'part', 'mime', 'data'],
   login_log: ['username', 'role', 'login_at', 'logout_at', 'last_seen', 'minutes', 'device'],
@@ -32,14 +32,18 @@ const TABLES = {
   action_items: ['id', 'meeting_id', 'task', 'owner', 'due_on', 'status', 'done_on', 'created_at', 'te'],
   audit_log: ['id', 'at', 'username', 'role', 'action', 'tbl', 'record_id', 'summary', 'before', 'after'],
   /* guest passes made by a flat: 'once' (a 6-digit code for one visit) or 'always' (daily help, milk, newspaper) */
-  guest_passes: ['id', 'flat_no', 'name', 'purpose', 'kind', 'valid_from', 'valid_to', 'code', 'status', 'used_at', 'created_by', 'created_at']
+  guest_passes: ['id', 'flat_no', 'name', 'purpose', 'kind', 'valid_from', 'valid_to', 'code', 'status', 'used_at', 'created_by', 'created_at'],
+  /* watchman: staff list, leave (applied by the gate login or recorded by the Association) and daily attendance */
+  staff: ['id', 'name', 'role', 'phone', 'joined_on', 'paid_leaves_year', 'active', 'notes', 'created_at'],
+  leaves: ['id', 'staff_id', 'from_date', 'to_date', 'days', 'kind', 'reason', 'status', 'requested_by', 'decided_by', 'decided_at', 'notice_id', 'created_at'],
+  attendance: ['id', 'staff_id', 'on_date', 'status', 'marked_by', 'marked_at', 'created_at']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
 const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by', 'added_by', 'created_by', 'uploaded_by', 'updated_by'];
 TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
   'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
-  'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by', 'feedback_at');
+  'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by', 'feedback_at', 'reply_photos', 'joined_on', 'from_date', 'to_date', 'marked_at', 'requested_by', 'marked_by');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
 const VIS = ['admin', 'treasurer', 'secretary', 'executive', 'watchman'];    /* who may add / delete visitors (the gate) */
@@ -58,12 +62,15 @@ const RULES = {
   assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S },
   reminders: { insert: COM, update: COM, delete: S }, contacts: { insert: S, update: S, delete: S },
   action_items: { insert: N, update: S, delete: N },
-  guest_passes: { insert: ALL, update: ALL }
+  guest_passes: { insert: ALL, update: ALL },
+  staff: { insert: S, update: S, delete: S },
+  leaves: { insert: S.concat(['watchman']), update: S.concat(['watchman']), delete: S },
+  attendance: { insert: S.concat(['watchman']), delete: S }
   /* audit_log has NO rule on purpose: nobody can add, change or delete it from the app */
 };
 /* tables whose changes are recorded in the audit log (votes never: ballots stay anonymous) */
 const AUDIT_T = ['payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
-  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats'];
+  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats', 'staff', 'leaves', 'attendance'];
 const AUDIT_BRIEF = ['visitors', 'complaints', 'guest_passes', 'flats']; /* private details are NOT copied into the log for these: only what changed */
 const ENUM = {
   assets: { kind: ['lift', 'generator', 'motor', 'water_pump', 'cctv', 'battery', 'other'], status: ['working', 'repair', 'out_of_service'] },
@@ -74,7 +81,7 @@ const ENUM = {
   meetings: { status: ['draft', 'published'] }
 };
 /* columns the app may never set directly (the server fills them) */
-const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by', 'decided_by', 'decided_at', 'pass_id', 'code', 'used_at', 'created_by', 'feedback', 'feedback_note', 'feedback_at'];
+const SYS_COLS = ['te', 'receipt_no', 'ticket_no', 'history', 'added_by', 'updated_by', 'published_on', 'done_on', 'uploaded_by', 'decided_by', 'decided_at', 'pass_id', 'code', 'used_at', 'created_by', 'feedback', 'feedback_note', 'feedback_at', 'reply_photos', 'requested_by', 'notice_id', 'marked_by', 'marked_at', 'days'];
 const DATE_OF = { payments: ['paid_on', 'month'], expenses: ['spent_on'], income: ['received_on'], maintenance_rates: ['month'] };
 
 /* ---------- one-time setup: creates the tabs and starter data ---------- */
@@ -271,7 +278,7 @@ function clearCache() { cacheDrop_('snap'); Logger.log('Cache cleared.'); }
 /* Google Sheets turns typed text such as "10:15" or "2026-10-10 08:18" into its own date/time values.
    Dates are read back as yyyy-MM-dd (with the time for the columns below); a cell holding only a time (Sheets
    stores it on 30/12/1899) is read from what the Sheet SHOWS, so it is never shifted by old time-zone rules. */
-const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen', 'decided_at', 'used_at', 'feedback_at'];
+const STAMP_COLS = ['created_at', 'closed_at', 'updated_at', 'published_on', 'at', 'login_at', 'logout_at', 'last_seen', 'decided_at', 'used_at', 'feedback_at', 'marked_at'];
 function timeText_(disp, k) {
   const m = /(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?/.exec(String(disp || ''));
   if (!m) return String(disp || '');
@@ -477,7 +484,7 @@ function photo_(u, b) {
   const id = String(b.id || ''), T = tables_(), S4 = ['admin', 'treasurer', 'secretary', 'president'];
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
   const ok = T.gallery.some(r => String(r.photo) === id && (r.visibility !== 'committee' || u.role !== 'resident')) ||
-    T.complaints.some(r => (String(r.photos || '').split('|').indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
+    T.complaints.some(r => (String(r.photos || '').split('|').concat(String(r.reply_photos || '').split('|')).indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
   const f = ok && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
   const v = f.sh.getRange(f.first, 3, f.n, 2).getValues();
@@ -494,7 +501,7 @@ function tables_() {
   return T;
 }
 const SNAP_T = ['flats', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'notices', 'settings', 'maintenance_log', 'celebrations', 'visitors', 'complaints', 'gallery', 'meetings', 'polls', 'votes', 'status',
-  'assets', 'asset_service', 'reminders', 'contacts', 'action_items', 'guest_passes'];
+  'assets', 'asset_service', 'reminders', 'contacts', 'action_items', 'guest_passes', 'staff', 'leaves', 'attendance'];
 /* E-mail verification is OPTIONAL: everybody may use the site without it (it is only needed for 'Forgot password'). */
 const verified_ = u => true;
 /* What each person receives. The FULL data never leaves the server for a resident: other flats' private details are removed here,
@@ -512,11 +519,13 @@ function snapshot_(u) {
     const W = {}; SNAP_T.forEach(t => W[t] = []);
     W.flats = pick(T0.flats, ['id', 'flat_no', 'phone']); W.visitors = T0.visitors; W.contacts = T0.contacts;
     W.guest_passes = noCode(T0.guest_passes.filter(g => g.status === 'active'));
+    W.staff = (T0.staff || []).filter(x => x.active !== 'no'); W.leaves = T0.leaves || []; W.attendance = T0.attendance || []; W.notices = T0.notices;
     W.me = T.me; W.profiles = [{ id: u.username, role: u.role, flat_id: u.flat_id }]; W.balance = []; W.votes = [];
     return W;
   }
   if (res) {
     T.guest_passes = T.guest_passes.filter(g => String(g.flat_no).toLowerCase() === mine);
+    T.staff = []; T.leaves = []; T.attendance = []; /* watchman records stay with the Association (residents see leave through the notice) */
     T.flats = T.flats.map(f => String(f.flat_no).toLowerCase() === mine ? f : pick([f], ['id', 'flat_no', 'monthly_amount'])[0]);
   } else T.guest_passes = noCode(T.guest_passes);
   if (res) {
@@ -550,7 +559,7 @@ function balance_(T) {
 }
 
 /* ---------- writing (permissions + month locks enforced here) ---------- */
-let TOUCHED_ = {}, ASK_ = false; /* every tab changed by one save, so the cached copy of each is refreshed */
+let TOUCHED_ = {}, ASK_ = false, LAST_ID_ = null; /* every tab changed by one save, so the cached copy of each is refreshed */
 const DATE_COLS = ['installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'expected_on', 'on_date', 'visit_on'];
 const isDate_ = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const isTime_ = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || ''));
@@ -632,6 +641,9 @@ function write_(u, b) {
       if (p.asset_id && !byId_('assets', p.asset_id)) return err('Choose an item from the list.');
       p.updated_at = now_();
       const note = String(raw.note || '').trim().slice(0, 500);
+      const mineU = id => CacheService.getScriptCache().get('up_' + id) === String(u.username);
+      const rph = String(raw.reply_photos || '').split('|').filter(Boolean);
+      if (rph.length > 3 || !rph.every(mineU)) return err('Photo upload failed. Please try again.');
       after = () => before.forEach(c => {
         let h = []; try { h = JSON.parse(c.history || '[]'); } catch (e) {}
         if (!h.length) h.push({ at: c.created_at, by: c.flat_no, status: 'open', note: 'Complaint raised' });
@@ -640,9 +652,12 @@ function write_(u, b) {
         if (p.assigned_to != null && String(p.assigned_to) !== String(c.assigned_to || '')) e.assigned_to = p.assigned_to;
         if (p.expected_on != null && String(p.expected_on) !== String(c.expected_on || '')) e.expected_on = p.expected_on;
         if (note) e.note = note;
+        if (rph.length) { e.photos = rph.join('|'); sh.getRange(c.__r, cols.indexOf('reply_photos') + 1).setValue(String(c.reply_photos || '').split('|').filter(Boolean).concat(rph).slice(-30).join('|')); }
         if (Object.keys(e).length <= 2) return;
         h.push(e);
         sh.getRange(c.__r, cols.indexOf('history') + 1).setValue(JSON.stringify(h.slice(-60)));
+        /* resolved: the complete record (details + full status history) is saved as a text file in Drive > Complaints */
+        if (e.status === 'resolved' || (c.status === 'resolved' && rph.length)) { const rec = Object.assign({}, c, p, { history: JSON.stringify(h), status: e.status || c.status }); LATER_.push(() => { try { complaintRecord_(rec); } catch (x) { Logger.log('Drive record failed: ' + x); } }); }
         if (e.status) {
           const L = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
           queuePush_('Complaint ' + (c.ticket_no || '#' + c.id) + ': ' + L[e.status], String(c.title || '') + (note ? ' - ' + note : ''), { user: c.flat_no });
@@ -664,7 +679,7 @@ function write_(u, b) {
     p.title = String(p.title || '').slice(0, 120); p.uploaded_by = u.username; p.kind = p.kind === 'pdf' ? 'pdf' : 'photo'; p.name = String(p.name || '').slice(0, 120); p.folder = FOLDER_RENAMED[p.folder] || p.folder; p.folder = FOLDERS.indexOf(p.folder) >= 0 ? p.folder : 'Other';
     p.visibility = p.visibility === 'committee' ? 'committee' : 'all';
   }
-  if ((t === 'gallery' || t === 'complaints') && op === 'delete') before.forEach(r => [r.photo, r.photos, r.voice].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
+  if ((t === 'gallery' || t === 'complaints') && op === 'delete') before.forEach(r => [r.photo, r.photos, r.voice, r.reply_photos].filter(Boolean).join('|').split('|').filter(Boolean).forEach(delFile_));
 
   if (t === 'meetings') {
     if (op === 'insert') { if (!String(p.title || '').trim() || !p.on_date || ['meeting', 'event'].indexOf(p.kind) < 0) return err('Enter a title, date and type.'); p.status = 'draft'; }
@@ -789,6 +804,59 @@ function write_(u, b) {
       if (u.role === 'resident' && before.some(g => String(g.flat_no).toLowerCase() !== String(u.username).toLowerCase())) return err('You do not have permission to do this.');
     }
   }
+  /* ---------- watchman: staff, leave, attendance ---------- */
+  if (t === 'staff') {
+    if (op === 'insert' && !String(p.name || '').trim()) return err('Enter the name.');
+    if (op === 'insert') { p.role = p.role || 'watchman'; p.active = 'yes'; }
+    if (p.paid_leaves_year != null && p.paid_leaves_year !== '') { const n = +p.paid_leaves_year; if (!(n >= 0 && n <= 365)) return err('Paid leaves must be 0 to 365 days a year.'); p.paid_leaves_year = n; }
+    if (op === 'insert' && (p.paid_leaves_year == null || p.paid_leaves_year === '')) p.paid_leaves_year = 12;
+    if (p.phone && !/^[0-9+\-\s()]{6,20}$/.test(String(p.phone))) return err('Enter a valid phone number.');
+    if (p.active != null && ['yes', 'no'].indexOf(p.active) < 0) return err('Invalid value.');
+  }
+  if (t === 'leaves') {
+    const S0 = S.indexOf(u.role) >= 0;
+    if (op === 'insert') {
+      const st = byId_('staff', p.staff_id); if (!st || st.active === 'no') return err('Choose the watchman.');
+      if (!isDate_(p.from_date)) return err('Choose the first day of leave.');
+      p.to_date = isDate_(p.to_date) ? p.to_date : p.from_date;
+      if (p.to_date < p.from_date) return err('The last day must be on or after the first day.');
+      p.days = Math.round((new Date(p.to_date + 'T00:00:00Z') - new Date(p.from_date + 'T00:00:00Z')) / 864e5) + 1;
+      if (p.days > 120) return err('A leave can be at most 120 days.');
+      if (read_('leaves').some(l => String(l.staff_id) === String(p.staff_id) && ['requested', 'approved'].indexOf(l.status) >= 0 && String(l.from_date).slice(0, 10) <= p.to_date && String(l.to_date).slice(0, 10) >= p.from_date)) return err('There is already a leave on these days.');
+      p.kind = p.kind === 'unpaid' ? 'unpaid' : 'paid'; p.requested_by = u.username;
+      p.reason = String(p.reason || '').slice(0, 300);
+      if (S0) { p.status = 'approved'; p.decided_by = u.username; p.decided_at = now_(); after = () => leaveApproved_(Object.assign({ id: LAST_ID_ }, p), st); }
+      else { p.status = 'requested'; after = () => queuePush_('Leave request: ' + st.name, dmy_(p.from_date) + (p.days > 1 ? ' to ' + dmy_(p.to_date) : '') + ' (' + p.days + ' day' + (p.days > 1 ? 's' : '') + ')' + (p.reason ? ' - ' + p.reason : ''), { roles: COMPLAINT_ALERT }); }
+    }
+    if (op === 'update') {
+      const keys = Object.keys(p);
+      if (!S0) { if (keys.some(k => k !== 'status') || p.status !== 'cancelled' || before.some(l => l.status !== 'requested')) return err('You can only cancel a leave request that is not yet decided.'); }
+      if (p.status != null && ['approved', 'rejected', 'cancelled'].indexOf(p.status) < 0) return err('Invalid status.');
+      if (p.kind != null && ['paid', 'unpaid'].indexOf(p.kind) < 0) return err('Invalid leave type.');
+      if (keys.some(k => ['status', 'kind', 'reason'].indexOf(k) < 0)) return err('Only the status, type or reason can be changed.');
+      if (p.status === 'approved' || p.status === 'rejected') { p.decided_by = u.username; p.decided_at = now_(); }
+      const ns = p.status;
+      after = () => before.forEach(l => {
+        const st = byId_('staff', l.staff_id) || { name: 'Watchman' };
+        if (ns === 'approved' && l.status !== 'approved') leaveApproved_(Object.assign({}, l, p), st);
+        if (ns === 'rejected' && l.status !== 'rejected') queuePush_('Leave not approved', st.name + ': ' + dmy_(l.from_date) + (+l.days > 1 ? ' to ' + dmy_(l.to_date) : ''), { roles: ['watchman'] });
+        if ((ns === 'cancelled' || ns === 'rejected') && l.notice_id) removeNotice_(l.notice_id);
+      });
+    }
+    if (op === 'delete') after = () => before.forEach(l => { if (l.notice_id) removeNotice_(l.notice_id); });
+  }
+  if (t === 'attendance' && op === 'insert') {
+    const st = byId_('staff', p.staff_id); if (!st) return err('Choose the watchman.');
+    if (S.indexOf(u.role) < 0) { p.on_date = today_(); p.status = 'present'; }
+    if (!isDate_(p.on_date)) return err('Please enter a valid date.');
+    if (p.on_date > today_()) return err('Attendance cannot be marked for a future day.');
+    if (['present', 'absent', 'half'].indexOf(p.status) < 0) return err('Invalid value.');
+    p.marked_by = u.username; p.marked_at = now_();
+    /* one mark per person per day: the new mark replaces the old one */
+    const old = read_('attendance').filter(a => String(a.staff_id) === String(p.staff_id) && String(a.on_date).slice(0, 10) === p.on_date);
+    if (old.length && S.indexOf(u.role) < 0) return err('Already marked present today.');
+    old.sort((a, b) => b.__r - a.__r).forEach(a => sh.deleteRow(a.__r));
+  }
   if (t === 'polls' && op === 'insert') {
     const o = String(p.options || '').split('|').map(x => x.trim()).filter(Boolean);
     if (!String(p.question || '').trim() || o.length < 2) return err('Enter a question and at least two options.');
@@ -814,6 +882,7 @@ function write_(u, b) {
   if (op === 'insert') {
     const rec = Object.assign({}, p);
     if (cols.indexOf('id') >= 0) rec.id = nextId_(t, 'id');
+    LAST_ID_ = rec.id;
     if (t === 'payments') rec.receipt_no = nextId_(t, 'receipt_no');
     if (cols.indexOf('created_at') >= 0) rec.created_at = now_();
     if (t === 'notices') rec.created_on = now_().slice(0, 10);
@@ -930,6 +999,17 @@ function flatPhone_(u, b) {
   return { ok: true };
 }
 
+/* ---------- WATCHMAN LEAVE: an approved leave is posted as a notice (so it shows in Notices and Recent activity, and everyone gets the alert) ---------- */
+function leaveApproved_(l, st) {
+  const d = +l.days || 1, txt = '🛡 Watchman ' + (st.name || '') + ' will be on leave ' + (d > 1 ? 'from ' + dmy_(l.from_date) + ' to ' + dmy_(l.to_date) + ' (' + d + ' days)' : 'on ' + dmy_(l.from_date)) + '. Please plan your visitors and deliveries.';
+  const n = appendRec_('notices', { title: txt, created_on: today_() });
+  try { notifyNew_('notices', n); } catch (e) {}
+  const row = read_('leaves').filter(x => String(x.id) === String(l.id))[0];
+  if (row) setCells_('leaves', row.__r, { notice_id: n.id });
+  if (l.requested_by && l.requested_by !== l.decided_by) queuePush_('Leave approved', (st.name || '') + ': ' + dmy_(l.from_date) + (d > 1 ? ' to ' + dmy_(l.to_date) : '') + ' (' + (l.kind === 'unpaid' ? 'unpaid' : 'paid') + ')', { roles: ['watchman'] });
+}
+function removeNotice_(id) { const n = read_('notices').filter(x => String(x.id) === String(id))[0]; if (n) { sh_('notices').deleteRow(n.__r); TOUCHED_.notices = 1; } }
+
 /* ---------- COMPLAINT FEEDBACK: after a complaint is Resolved, the flat that raised it may give 👍 or 👎 (optional note) ----------
    The flat can change it later. A 👎 alerts the President, Secretary and Treasurer. */
 function feedback_(u, b) {
@@ -945,6 +1025,7 @@ function feedback_(u, b) {
   h.push({ at: now_(), by: u.username, feedback: f, note: note || undefined });
   setCells_('complaints', c.__r, { history: JSON.stringify(h.slice(-60)) });
   audit_(u, 'update', 'complaints', c.id, (c.ticket_no || '#' + c.id) + ' feedback: ' + (f === 'up' ? 'satisfied' : 'not satisfied'), { feedback: c.feedback || '' }, { feedback: f });
+  { const rec = Object.assign({}, c, { feedback: f, feedback_note: note, feedback_at: now_(), history: JSON.stringify(h) }); LATER_.push(() => { try { complaintRecord_(rec); } catch (x) {} }); }
   if (f === 'down' && c.feedback !== 'down') LATER_.push(() => pushAll_('👎 Not satisfied: ' + (c.ticket_no || 'complaint'), 'Flat ' + c.flat_no + ': ' + String(c.title || '') + (note ? ' - ' + note : ''), '/', { roles: COMPLAINT_ALERT }));
   patchSnap_('complaints');
   return { ok: true };
@@ -964,7 +1045,10 @@ function summary_(t, r) {
     celebrations: [r.kind, String(r.details || '').split('||')[0], amt, d(r.entry_on)],
     complaints: [r.ticket_no, r.status], visitors: [d(r.visit_on), (r.count || 1) + ' visitor(s)'],
     asset_service: ['Item #' + r.asset_id, r.kind, d(r.service_on), r.cost ? 'Rs ' + r.cost : ''],
-    contacts: [r.category, r.name], status: [r.item, r.state]
+    contacts: [r.category, r.name], status: [r.item, r.state],
+    staff: ['Watchman ' + (r.name || ''), r.active === 'no' ? 'inactive' : ''],
+    leaves: ['Leave #' + (r.staff_id || ''), d(r.from_date) + (r.to_date && r.to_date !== r.from_date ? ' to ' + d(r.to_date) : ''), r.days ? r.days + ' day(s)' : '', r.kind, r.status],
+    attendance: ['Attendance #' + (r.staff_id || ''), d(r.on_date), r.status]
   }[t];
   const parts = S1 || [r.title || r.name || r.task || r.question || r.details || r.item, r.status, amt, d(r.due_on || r.on_date)];
   return parts.filter(x => x != null && String(x).trim() !== '').join(' · ').slice(0, 300);
@@ -1117,7 +1201,28 @@ function autoDrive_(t, rec, dirs) {
       driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (' + (i + 1) + ')', id));
     saveComplaintText_(rec);
     if (rec.voice) driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (voice note)', String(rec.voice));
+    String(rec.reply_photos || '').split('|').filter(Boolean).forEach((id, i) =>
+      driveSave_(privDir_('Complaints'), 'Complaint ' + rec.id + ' - Flat ' + rec.flat_no + ' - ' + (rec.title || '') + ' (reply photo ' + (i + 1) + ')', id));
   }
+}
+/* complete complaint record as text: details, every status update with who/when/note, feedback. Replaced each time it changes. */
+const dmy_ = d => { const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}))?/.exec(String(d || '')); return m ? (+m[3]) + '/' + (+m[2]) + '/' + m[1] + (m[4] ? ' ' + m[4] : '') : String(d || ''); };
+function complaintRecord_(c) {
+  const dir = privDir_('Complaints'), name = safeName_((c.ticket_no || 'Complaint ' + c.id) + ' - Flat ' + c.flat_no + ' - ' + (c.title || '') + ' - FULL RECORD') + '.txt';
+  const old = dir.getFilesByName(name); while (old.hasNext()) old.next().setTrashed(true);
+  const L = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
+  let h = []; try { h = JSON.parse(c.history || '[]'); } catch (e) {}
+  const it = c.asset_id ? (read_('assets').filter(a => String(a.id) === String(c.asset_id))[0] || {}).name : '';
+  const who = b => /^\d/.test(String(b)) ? 'Flat ' + String(b).replace(' (alert)', '') : String(b || '');
+  const lines = ['KRISHNA KUTEER APARTMENT - COMPLAINT RECORD', '', 'Ticket: ' + (c.ticket_no || '#' + c.id), 'Flat: ' + c.flat_no, 'Raised on: ' + dmy_(c.created_at),
+    'Problem: ' + (c.title || ''), 'Details: ' + (c.details || '-'), 'Related to: ' + (it || '-'), 'Assigned to: ' + (c.assigned_to || '-'), 'Expected by: ' + (c.expected_on ? dmy_(c.expected_on) : '-'),
+    'Status: ' + (L[c.status] || c.status), 'Photos from the resident: ' + String(c.photos || '').split('|').filter(Boolean).length + (c.voice ? ', voice note: yes' : ''),
+    'Photos from the Association: ' + String(c.reply_photos || '').split('|').filter(Boolean).length, '', 'STATUS HISTORY'];
+  h.forEach((e, i) => lines.push((i + 1) + '. ' + dmy_(e.at) + ' - ' + who(e.by) + ': ' + [e.status && 'Status: ' + (L[e.status] || e.status), e.assigned_to && 'Assigned to: ' + e.assigned_to,
+    e.expected_on && 'Expected by: ' + dmy_(e.expected_on), e.feedback && 'Feedback: ' + (e.feedback === 'up' ? 'satisfied' : 'not satisfied'), e.note, e.photos && e.photos.split('|').length + ' photo(s)'].filter(Boolean).join(' | ')));
+  if (c.feedback) lines.push('', 'RESIDENT FEEDBACK: ' + (c.feedback === 'up' ? 'Satisfied' : 'Not satisfied') + (c.feedback_note ? ' - ' + c.feedback_note : '') + ' (' + dmy_(c.feedback_at) + ')');
+  lines.push('', 'Saved on ' + dmy_(now_()));
+  dir.createFile(name, lines.join('\n'), 'text/plain');
 }
 /* Run ONCE by hand and click Allow: gives the script permission to save files in your Google Drive. */
 function authorizeDrive() { Logger.log('Drive folder: ' + DriveApp.getFoldersByName(ROOT_FOLDER).hasNext()); driveDirs_(); Logger.log('Drive is ready.'); }
