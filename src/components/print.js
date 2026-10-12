@@ -16,8 +16,11 @@ function printHTML(title,html,land){
  document.head.appendChild(pg);document.body.appendChild(host);document.body.classList.add("printing");
  const old=document.title;document.title=title;let tm=null;
  const end=()=>{if(PRN_END!==end)return;PRN_END=null;clearTimeout(tm);window.removeEventListener("afterprint",end);host.remove();pg.remove();document.body.classList.remove("printing");document.title=old};
- PRN_END=end;window.addEventListener("afterprint",end);tm=setTimeout(end,180000);
- requestAnimationFrame(()=>setTimeout(()=>{try{window.print()}catch(e){toast("Could not open the print window");end()}},120))}
+ PRN_END=end;window.addEventListener("afterprint",end);tm=setTimeout(end,KKP()?600000:180000);
+ requestAnimationFrame(()=>setTimeout(()=>{try{const P=KKP();if(P)P.print({title,landscape:!!land}).catch(()=>{toast("Could not open the print window");end()});else window.print()}catch(e){toast("Could not open the print window");end()}},120))}
+/* Android app: its built-in browser ignores window.print(), so the app's own KKPrint plugin (MainActivity / KKPrintPlugin.java)
+   opens Android's print screen instead, and sends "afterprint" back when the print screen closes. Browsers use window.print(). */
+function KKP(){try{const c=window.Capacitor;return c&&c.isPluginAvailable&&c.isPluginAvailable("KKPrint")&&c.Plugins&&c.Plugins.KKPrint||null}catch(e){return null}}
 const prBtn=(id,label)=>`<button class="ghost" id="${id}">🖨 ${label}</button>`;
 const ptable=(heads,rows,foot,cls)=>`<table><thead><tr>${heads.map((h,i)=>`<th class="${(cls||[])[i]||""}">${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${(cls||[])[i]||""}">${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${heads.length}">Nothing recorded.</td></tr>`}</tbody>${foot?`<tfoot><tr>${foot.map((c,i)=>`<td class="${(cls||[])[i]||""}">${c}</td>`).join("")}</tr></tfoot>`:""}</table>`;
 const REGCSS=`.regwrap,.regwrap *{-webkit-print-color-adjust:exact;print-color-adjust:exact}.reg{width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:12px}.reg th,.reg td{border:1px solid #9aa5b4;padding:4px 6px;text-align:center}.reg .tt{font-weight:700;color:#fff;padding:5px}.reg .b{background:#4472c4}.reg .g{background:#6aa84f}.reg .o{background:#c55a11}.reg .hb{background:#d9e2f3}.reg .hg{background:#e2efd9}.reg .tot{font-weight:700;background:#e2efd9}.reg .y{background:#ff0;font-weight:700}.reg .cb{background:#fbd5b5;font-weight:700}.reg .l{text-align:left}.reg .bd{font-weight:700}.regwrap{overflow-x:auto;color:#1c2430;background:#fff}`;
