@@ -1,0 +1,14 @@
+{
+  "name": "krishnakuteer",
+  "private": true,
+  "description": "Build tools for the Krishna Kuteer app. From this folder: npm install (once), then npm run build. Writes ../public/.",
+  "scripts": {
+    "build": "node build.js",
+    "check": "node build.js --check"
+  },
+  "devDependencies": {
+    "acorn": "8.14.0",
+    "acorn-walk": "8.3.4",
+    "esbuild": "0.24.2"
+  }
+}

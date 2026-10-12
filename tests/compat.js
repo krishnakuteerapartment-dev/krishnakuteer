@@ -4,7 +4,7 @@ const REPO = process.argv[2], G = create({ file: path.join(REPO, 'apps-script/Co
 G.sheets.users.rows.forEach((r, i) => { if (i && r[0] === 'secretary') r[3] = 'pw-sec'; });
 ['101:123456', 'secretary:pw-sec'].forEach(x => { const [u, p] = x.split(':'); const t = G.call({ a: 'login', u, p }).token; G.call({ token: t, a: 'pw', password: p + 'x' }); });
 G.sheets.users.rows.forEach((r, i) => { if (i) { r[6] = 'a@b.co'; r[7] = 'yes'; } });
-const srv = http.createServer((q, s) => { let p = q.url.split('?')[0]; if (p === '/') p = '/index.html'; const f = path.join(REPO, 'public', p); if (!fs.existsSync(f)) { s.writeHead(404); return s.end(); } s.writeHead(200, { 'Content-Type': p.endsWith('.js') ? 'text/javascript' : p.endsWith('.html') ? 'text/html' : 'application/octet-stream' }); fs.createReadStream(f).pipe(s); }).listen(8766);
+const srv = http.createServer((q, s) => { let p = q.url.split('?')[0]; if (p === '/') p = '/index.html'; const f = path.join(REPO, 'public', p); if (!fs.existsSync(f)) { s.writeHead(404); return s.end(); } s.writeHead(200, { 'Content-Type': p.endsWith('.js') ? 'text/javascript' : p.endsWith('.css') ? 'text/css' : p.endsWith('.html') ? 'text/html' : 'application/octet-stream' }); fs.createReadStream(f).pipe(s); }).listen(8766);
 (async () => { const b = await chromium.launch(); let bad = 0;
   for (const [who, pw] of [['101', '123456x'], ['secretary', 'pw-secx']]) {
     const c = await b.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' }), p = await c.newPage(), errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('dialog', d => d.accept());

@@ -1,7 +1,10 @@
 /* Krishna Kuteer service worker: the app opens instantly from the copy saved on the phone, then refreshes quietly in the
    background. When a newer version arrives, the page shows "New version ready. Tap here to refresh."
-   Google Sheets data requests are never touched here (they go straight to the network). */
-const V = "kk-v52", KEEP = ["kk-photos"], FILES = ["./", "index.html", "lang.js", "features.js", "firebase-config.js", "push.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png"];
+   Google Sheets data requests are never touched here (they go straight to the network).
+   The build fills in V (changes with every new version) and FILES (the app's files, saved after the first visit so
+   every page also opens offline). Files in assets/ have their version in the name, so a saved copy never needs checking. */
+const V = "kk-65741681", KEEP = ["kk-photos"], FILES = ["./","index.html","firebase-config.js","hero.webp","fonts/poppins-Regular.woff2","fonts/poppins-Medium.woff2","fonts/poppins-Bold.woff2","fonts/NotoSansTelugu.woff2","manifest.webmanifest","icon-192.png","assets/app.f7d5b00f.js","assets/finance.c5fec43a.js","assets/media.cb3c7abf.js","assets/service.1c7671cc.js","assets/home.7a6bdf5a.js","assets/payments.51bfcf30.js","assets/expenses.2ea325c8.js","assets/statement.fa244786.js","assets/maintenance.ccb73f79.js","assets/celebrations.50b8372f.js","assets/visitors.8dc42765.js","assets/documents.771a3a79.js","assets/notices.12f2871f.js","assets/complaints.9dd93885.js","assets/meeting.9f95dbe6.js","assets/voting.32cfb943.js","assets/assets.365b0511.js","assets/reminders.54760ee7.js","assets/contacts.b40de80a.js","assets/audit.2facc66b.js","assets/watchman.324192fd.js","assets/push.b5e26d65.js","assets/lang-te.1f3753e4.js","assets/app.5db4f341.css"];
+const FIXED = /\/(assets|fonts)\/|\/hero\.webp$/;
 /* Browsers refuse to show a redirected response for a page load, so rebuild it as a plain response. */
 const clean = x => (x && x.redirected) ? new Response(x.body, { status: x.status, statusText: x.statusText, headers: x.headers }) : x;
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
@@ -12,6 +15,8 @@ self.addEventListener("fetch", e => {
   const key = r.mode === "navigate" ? "index.html" : r;
   e.respondWith(caches.open(V).then(async c => {
     const hit = await c.match(key, { ignoreSearch: true });
+    /* a versioned file (assets/, fonts) never changes: the saved copy is used and nothing is downloaded */
+    if (hit && FIXED.test(u.pathname)) return hit;
     const net = fetch(r.mode === "navigate" ? "index.html" : r, { cache: "no-cache" }).then(async res => {
       if (res && res.ok) {
         if (hit && r.mode === "navigate") { const [a, b] = await Promise.all([hit.clone().text(), res.clone().text()]); if (a !== b) self.clients.matchAll().then(cs => cs.forEach(x => x.postMessage("updated"))); }

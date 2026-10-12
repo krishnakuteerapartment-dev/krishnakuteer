@@ -1,4 +1,4 @@
-/* End-to-end: real index.html + features.js in Chromium, Code.gs running on the in-memory Sheet behind it.
+/* End-to-end: the built site (public/) in Chromium, Code.gs running on the in-memory Sheet behind it.
    Run: node e2e.js <repo> <outdir> */
 const { chromium, devices } = require('playwright');
 const { create } = require('./gas');
@@ -13,7 +13,7 @@ const setPw = (u, p) => { const t = G.call({ a: 'login', u, p }).token; G.call({
 G.sheets.users.rows.forEach((r, i) => { if (i) { r[6] = r[0] + '@example.com'; r[7] = 'yes'; } });
 G.ctx.CacheService.getScriptCache().remove && null;
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 const srv = http.createServer((q, s) => {
   let p = decodeURIComponent(q.url.split('?')[0]); if (p === '/') p = '/index.html';
   const f = path.join(REPO, 'public', p);
