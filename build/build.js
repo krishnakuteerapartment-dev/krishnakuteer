@@ -90,7 +90,11 @@ for (const [n, i] of Object.entries(info)) {
 async function min(code, loader) { return (await esbuild.transform(code, { loader, minify: true, target: loader === "css" ? "chrome80" : "es2020", charset: "utf8", legalComments: "none" })).code; }
 (async () => {
   /* files the version now on the server uses (kept one more round, see "tidy" below) */
-  const prev = (() => { try { return fs.readFileSync(path.join(PUB, "index.html"), "utf8").match(/assets\/[\w.-]+\.(js|css)/g) || []; } catch (e) { return []; } })();
+  const refs = h => (h || "").match(/assets\/[\w.-]+\.(js|css)/g) || [];
+  const prev = (() => { let out = []; try { out = refs(fs.readFileSync(path.join(PUB, "index.html"), "utf8")); } catch (e) {}
+    /* also the version last committed to git (= what the live site runs), even after several builds in a row */
+    try { out = out.concat(refs(require("child_process").execSync("git show HEAD:public/index.html", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString())); } catch (e) {}
+    return out; })();
   if (!CHECK) fs.mkdirSync(OUT, { recursive: true });
   const files = {}, sizes = [];
   const emit = async (name, code, ext, loader, key) => { const m = await min(code, loader), f = `assets/${name}.${hash(m)}.${ext}`; put(f, m); files[key || name] = f; sizes.push([f, m.length, require("zlib").gzipSync(m).length]); };

@@ -64,3 +64,10 @@ html{color-scheme:only light}@font-face{font-family:KKP;font-weight:400;font-sty
 .stg>button.zz,.stg>button.zz *,.stg>button.zz::before,.stg>button.zz::after,.stg>button.zz *::before,.stg>button.zz *::after{animation-play-state:paused!important}
 img.ph{content-visibility:auto}
 #nb.sync{opacity:1}#nb.sync i{animation:nbar 1s ease-in-out infinite}
+
+/* ===== Assets: Minor items list ===== */
+.mil{padding-top:6px;padding-bottom:6px}
+.mi{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}.mi:first-child{border-top:0}
+.mi-l{flex:1;min-width:0;overflow-wrap:anywhere}.mi-l small,.mi-r small{display:block;color:var(--grey);font-size:.8rem;margin-top:2px}
+.mi-r{text-align:right;white-space:nowrap;flex:none}.mi-r b{font-size:1.02rem}
+.mi-a{display:flex;gap:6px;margin-top:8px}.mi-a button{width:auto;min-height:34px;padding:5px 14px;font-size:.82rem}

@@ -28,6 +28,8 @@ const TABLES = {
   assets: ['id', 'name', 'kind', 'location', 'installed_on', 'vendor', 'vendor_phone', 'model', 'serial_no', 'warranty_until', 'status', 'notes', 'created_at', 'te'],
   asset_service: ['id', 'asset_id', 'service_on', 'kind', 'done_by', 'cost', 'details', 'next_due', 'reminder_id', 'created_at', 'te'],
   reminders: ['id', 'title', 'asset_id', 'kind', 'due_on', 'repeat_months', 'notify_days', 'status', 'done_on', 'notes', 'created_at', 'te'],
+  /* minor assets: small things bought for common use (chairs, bulbs, buckets, extension boards…) */
+  asset_items: ['id', 'name', 'category', 'qty', 'unit', 'bought_on', 'cost', 'bought_from', 'location', 'condition', 'notes', 'added_by', 'created_at'],
   contacts: ['id', 'category', 'name', 'phone', 'alt_phone', 'notes', 'verified_on', 'updated_by', 'created_at'],
   action_items: ['id', 'meeting_id', 'task', 'owner', 'due_on', 'status', 'done_on', 'created_at', 'te'],
   audit_log: ['id', 'at', 'username', 'role', 'action', 'tbl', 'record_id', 'summary', 'before', 'after'],
@@ -42,7 +44,7 @@ const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
 const STR_COLS = ['flat_no', 'username', 'temp_password', 'phone', 'alt_phone', 'vendor_phone', 'serial_no', 'model', 'ticket_no', 'in_time', 'out_time', 'code', 'decided_by', 'added_by', 'created_by', 'uploaded_by', 'updated_by'];
 TEXT_COLS.push('token', 'voice', 'te', 'ticket_no', 'expected_on', 'history', 'attendance', 'published_on', 'in_time', 'out_time', 'phone', 'alt_phone', 'vendor_phone',
-  'serial_no', 'model', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
+  'serial_no', 'model', 'installed_on', 'warranty_until', 'bought_on', 'unit', 'service_on', 'next_due', 'due_on', 'done_on', 'verified_on', 'at', 'before', 'after', 'summary',
   'code', 'valid_from', 'valid_to', 'used_at', 'decided_at', 'decided_by', 'feedback_at', 'reply_photos', 'joined_on', 'from_date', 'to_date', 'marked_at', 'requested_by', 'marked_by');
 const W = ['admin', 'treasurer', 'secretary'], N = ['admin', 'president', 'secretary'], A = ['admin', 'treasurer'];
 const DOCUP = ['admin', 'president', 'secretary', 'treasurer', 'executive']; /* who may upload documents (PDF / photos) */
@@ -59,7 +61,7 @@ const RULES = {
   notices: { insert: N, delete: N }, settings: { update: A },
   maintenance_log: { insert: W, update: W, delete: W }, celebrations: { insert: W, delete: A },
   visitors: { insert: VIS.concat(['resident']), update: VIS.concat(['resident']), delete: VIS }, /* residents: only their own flat's visitors (see below) */
-  assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S },
+  assets: { insert: S, update: S, delete: S }, asset_service: { insert: COM, delete: S }, asset_items: { insert: S, update: S, delete: S },
   reminders: { insert: COM, update: COM, delete: S }, contacts: { insert: S, update: S, delete: S },
   action_items: { insert: N, update: S, delete: N },
   guest_passes: { insert: ALL, update: ALL },
@@ -70,11 +72,12 @@ const RULES = {
 };
 /* tables whose changes are recorded in the audit log (votes never: ballots stay anonymous) */
 const AUDIT_T = ['payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
-  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats', 'staff', 'leaves', 'attendance'];
+  'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'asset_items', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats', 'staff', 'leaves', 'attendance'];
 const AUDIT_BRIEF = ['visitors', 'complaints', 'guest_passes', 'flats']; /* private details are NOT copied into the log for these: only what changed */
 const ENUM = {
   assets: { kind: ['lift', 'generator', 'motor', 'water_pump', 'cctv', 'battery', 'other'], status: ['working', 'repair', 'out_of_service'] },
   asset_service: { kind: ['service', 'repair', 'inspection', 'replacement'] },
+  asset_items: { category: ['furniture', 'electrical', 'cleaning', 'plumbing', 'garden', 'security', 'decoration', 'kitchen', 'tools', 'stationery', 'other'], condition: ['good', 'damaged', 'lost', 'used_up'] },
   reminders: { kind: ['service', 'warranty', 'amc', 'other'], status: ['pending', 'done'] },
   contacts: { category: ['lift', 'electrician', 'plumber', 'generator', 'security', 'fire', 'ambulance', 'police', 'other'] },
   action_items: { status: ['open', 'in_progress', 'done'] },
@@ -501,7 +504,7 @@ function tables_() {
   return T;
 }
 const SNAP_T = ['flats', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'notices', 'settings', 'maintenance_log', 'celebrations', 'visitors', 'complaints', 'gallery', 'meetings', 'polls', 'votes', 'status',
-  'assets', 'asset_service', 'reminders', 'contacts', 'action_items', 'guest_passes', 'staff', 'leaves', 'attendance'];
+  'assets', 'asset_service', 'reminders', 'contacts', 'action_items', 'guest_passes', 'staff', 'leaves', 'attendance', 'asset_items'];
 /* E-mail verification is OPTIONAL: everybody may use the site without it (it is only needed for 'Forgot password'). */
 const verified_ = u => true;
 /* What each person receives. The FULL data never leaves the server for a resident: other flats' private details are removed here,
@@ -541,6 +544,7 @@ function snapshot_(u) {
     T.meetings = T.meetings.map(m => { if (m.status === 'published') { pub[m.id] = 1; return m; } return pick([m], ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'status'])[0]; });
     T.action_items = T.action_items.filter(a => pub[a.meeting_id]);
     T.asset_service = T.asset_service.map(s => { const o = Object.assign({}, s); delete o.cost; return o; });
+    T.asset_items = (T.asset_items || []).map(s => { const o = Object.assign({}, s); delete o.cost; delete o.bought_from; delete o.added_by; return o; }); /* residents: no prices */
     T.reminders = [];
   } else if (SEEVIS.indexOf(u.role) < 0) T.visitors = T.visitors.map(v => { const o = Object.assign({}, v); delete o.phone; return o; });
   T.votes = T.votes.map(v => ({ poll_id: v.poll_id, choice: v.choice, mine: String(v.flat_no).toLowerCase() === mine })); /* ballots stay anonymous */
@@ -560,7 +564,7 @@ function balance_(T) {
 
 /* ---------- writing (permissions + month locks enforced here) ---------- */
 let TOUCHED_ = {}, ASK_ = false, LAST_ID_ = null; /* every tab changed by one save, so the cached copy of each is refreshed */
-const DATE_COLS = ['installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'expected_on', 'on_date', 'visit_on'];
+const DATE_COLS = ['bought_on', 'installed_on', 'warranty_until', 'service_on', 'next_due', 'due_on', 'expected_on', 'on_date', 'visit_on'];
 const isDate_ = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const isTime_ = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x || ''));
 const today_ = () => now_().slice(0, 10);
@@ -704,6 +708,12 @@ function write_(u, b) {
     if (op === 'delete' && before.some(a => read_('asset_service').some(s => String(s.asset_id) === String(a.id))))
       return err('This item has service records. Mark it "Out of service" instead, or delete its service records first.');
     if (op === 'delete') after = () => before.forEach(a => read_('reminders').filter(r => String(r.asset_id) === String(a.id) && r.status !== 'done').sort((x, y) => y.__r - x.__r).forEach(r => { sh_('reminders').deleteRow(r.__r); TOUCHED_.reminders = 1; }));
+  }
+  if (t === 'asset_items') {
+    if (op === 'insert' || p.name != null) { if (!String(p.name || '').trim()) return err('Enter the name of the item.'); }
+    if (op === 'insert' || p.qty != null) { const q = +p.qty; if (!(q >= 0 && q <= 100000) || Math.floor(q) !== q) return err('Enter the quantity (0 or more).'); p.qty = q; }
+    if (p.cost != null && p.cost !== '' && !(+p.cost >= 0)) return err('Enter a cost of 0 or more.');
+    if (op === 'insert') { p.category = p.category || 'other'; p.condition = p.condition || 'good'; p.unit = String(p.unit || '').trim() || 'pcs'; p.added_by = u.username; }
   }
   if (t === 'asset_service' && op === 'insert') {
     const as = byId_('assets', p.asset_id); if (!as) return err('Choose the item that was serviced.');
@@ -1045,6 +1055,7 @@ function summary_(t, r) {
     celebrations: [r.kind, String(r.details || '').split('||')[0], amt, d(r.entry_on)],
     complaints: [r.ticket_no, r.status], visitors: [d(r.visit_on), (r.count || 1) + ' visitor(s)'],
     asset_service: ['Item #' + r.asset_id, r.kind, d(r.service_on), r.cost ? 'Rs ' + r.cost : ''],
+    asset_items: ['Minor item: ' + (r.name || ''), r.qty != null && r.qty !== '' ? r.qty + ' ' + (r.unit || 'pcs') : '', r.condition, d(r.bought_on), r.cost ? 'Rs ' + r.cost : ''],
     contacts: [r.category, r.name], status: [r.item, r.state],
     staff: ['Watchman ' + (r.name || ''), r.active === 'no' ? 'inactive' : ''],
     leaves: ['Leave #' + (r.staff_id || ''), d(r.from_date) + (r.to_date && r.to_date !== r.from_date ? ' to ' + d(r.to_date) : ''), r.days ? r.days + ' day(s)' : '', r.kind, r.status],

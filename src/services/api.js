@@ -61,6 +61,7 @@ function preCheck(T,t,op,p){
   if(t==="visitors"&&(!p.visit_on||!(Math.floor(+p.count)>=1&&+p.count<=100000)))return "Enter a date and a visitor count of at least 1.";
   if(t==="visitors"&&p.name&&!String(p.flat_no||"").trim())return "Choose the flat visited.";
   if(t==="assets"&&!String(p.name||"").trim())return "Enter the name of the item.";
+  if(t==="asset_items"&&!String(p.name||"").trim())return "Enter the name of the item.";
   if(t==="reminders"&&(!String(p.title||"").trim()||!p.due_on))return "Enter what is due and the due date.";
   if(t==="contacts"&&(!String(p.name||"").trim()||!p.phone))return "Enter a name and a phone number.";
   if(t==="action_items"&&!String(p.task||"").trim())return "Enter the task.";

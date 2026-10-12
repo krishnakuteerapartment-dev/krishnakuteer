@@ -1,0 +1,60 @@
+/* Assets: Major assets / Minor items. Backend rules + the screens in a phone-size browser. Run: node tests/e2e-minor.js . outdir */
+const { chromium, devices } = require('playwright'); const { create } = require('./gas'); const http = require('http'), fs = require('fs'), path = require('path');
+const REPO = process.argv[2], OUT = process.argv[3]; fs.mkdirSync(OUT, { recursive: true });
+const G = create({ file: path.join(REPO, 'apps-script/Code.gs') }); G.x.setup(); G.x.addCommittee();
+const PASS = { '101': '123456x', secretary: 'pw-secretary1x', executive: 'pw-executive1x', watchman: 'pw-watchman1x' };
+G.sheets.users.rows.forEach((r, i) => { if (i && ['secretary', 'executive', 'watchman'].includes(r[0])) r[3] = 'pw-' + r[0] + '1'; });
+[['101', '123456'], ['secretary', 'pw-secretary1'], ['executive', 'pw-executive1'], ['watchman', 'pw-watchman1']].forEach(([u, p]) => { const t = G.call({ a: 'login', u, p }).token; G.call({ token: t, a: 'pw', password: p + 'x' }); });
+G.sheets.users.rows.forEach((r, i) => { if (i) { r[6] = r[0] + '@example.com'; r[7] = 'yes'; } });
+const tok = u => G.call({ a: 'login', u, p: PASS[u] }).token;
+let ok = 0, bad = 0; const check = async (n, fn) => { try { await fn(); ok++; console.log('  ok   ' + n); } catch (e) { bad++; console.log('  FAIL ' + n + '\n       ' + String(e.message).split('\n')[0]); } };
+const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((m || '') + ' got ' + JSON.stringify(a) + ' want ' + JSON.stringify(b)); };
+const w = (u, op, payload, filters = []) => G.call({ token: tok(u), a: 'write', t: 'asset_items', op, payload, filters });
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.webmanifest': 'application/manifest+json' };
+const srv = http.createServer((q, s) => { let p = q.url.split('?')[0]; if (p === '/') p = '/index.html'; const f = path.join(REPO, 'public', p); if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { s.writeHead(404); return s.end(); } s.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(s); }).listen(8891);
+async function session(b, who, lang) { const ctx = await b.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' }), p = await ctx.newPage(); p.errors = [];
+  p.on('pageerror', e => p.errors.push(String(e))); p.on('dialog', d => d.accept());
+  await p.route('https://script.google.com/**', async r => r.fulfill({ contentType: 'application/json', body: G.ctx.doPost({ postData: { contents: r.request().postData() } }).s }));
+  await p.route('https://www.gstatic.com/**', r => r.abort());
+  await p.goto('http://localhost:8891/'); if (lang) { await p.evaluate(l => localStorage.setItem('kk_lang', l), lang); await p.reload(); }
+  await p.selectOption('#em', who); await p.fill('#pw', PASS[who]); await p.click('#in'); await p.waitForSelector('nav button[data-t]');
+  p.go = async t => { await p.evaluate(t => { tab = t; render(); }, t); await p.waitForFunction(() => !document.querySelector('#m[aria-busy]')); await p.waitForTimeout(250); };
+  p.settle = async () => { for (let i = 0; i < 60; i++) { if (!(await p.evaluate(() => PEND.length))) break; await p.waitForTimeout(100); } await p.waitForTimeout(300); };
+  return p; }
+(async () => {
+  console.log('Backend');
+  await check('executive cannot add a minor item', async () => eq(!!w('executive', 'insert', { name: 'Chairs', qty: 2 }).error, true));
+  await check('resident cannot add a minor item', async () => eq(!!w('101', 'insert', { name: 'Chairs', qty: 2 }).error, true));
+  await check('name is needed', async () => eq(w('secretary', 'insert', { name: ' ', qty: 2 }).error.message, 'Enter the name of the item.'));
+  await check('quantity must be a whole number 0 or more', async () => { eq(w('secretary', 'insert', { name: 'Bulbs', qty: -1 }).error.message, 'Enter the quantity (0 or more).'); eq(!!w('secretary', 'insert', { name: 'Bulbs', qty: 1.5 }).error, true); });
+  await check('unknown category is refused', async () => eq(w('secretary', 'insert', { name: 'Bulbs', qty: 2, category: 'xyz' }).error.message, 'Invalid category.'));
+  await check('secretary adds an item; unit, condition and who added are filled in', async () => { const r = w('secretary', 'insert', { name: 'LED bulbs', qty: '6', category: 'electrical', bought_on: '2026-10-05', cost: '540', bought_from: 'Sri Ram Electricals', location: 'Store room' });
+    eq(!!r.ok, true); const row = G.call({ token: tok('secretary'), a: 'snapshot' }).data.asset_items.find(x => x.name === 'LED bulbs'); eq([row.qty, row.unit, row.condition, row.added_by], [6, 'pcs', 'good', 'secretary']); });
+  await check('resident sees the item but not the price, shop or who added it', async () => { const row = G.call({ token: tok('101'), a: 'snapshot' }).data.asset_items.find(x => x.name === 'LED bulbs'); eq([row.qty, row.cost, row.bought_from, row.added_by], [6, undefined, undefined, undefined]); });
+  await check('watchman gets no minor items', async () => eq(G.call({ token: tok('watchman'), a: 'snapshot' }).data.asset_items, []));
+  await check('change is written to the audit log', async () => { const a = G.call({ token: tok('secretary'), a: 'audit' }); const L = (a.rows || a.data || a.log || a || []); eq(JSON.stringify(L).includes('Minor item: LED bulbs'), true); });
+
+  console.log('Screens');
+  const b = await chromium.launch();
+  const s = await session(b, 'secretary');
+  await check('Assets opens on Major assets with the switch', async () => { await s.go('assets'); const t = await s.locator('[data-avw]').allInnerTexts(); eq(t.map(x => x.replace(/ · \d+/, '')), ['🏗 Major assets', '🪑 Minor items']); if (!(await s.isVisible('#an'))) throw new Error('major form missing'); });
+  await check('Minor items: list, quick pick and save', async () => { await s.click('[data-avw=minor]'); await s.waitForSelector('#min'); await s.click('[data-mpk="0"]'); eq([await s.inputValue('#min'), await s.inputValue('#mca')], ['Plastic chairs', 'furniture']);
+    await s.fill('#mqt', '20'); await s.fill('#mco', '6000'); await s.fill('#mlo', 'Terrace store room'); await s.click('#msv'); await s.settle(); await s.waitForSelector('text=Plastic chairs');
+    const row = (G.sheets.asset_items.rows.find(r => r[1] === 'Plastic chairs')); if (!row) throw new Error('not saved to the sheet'); });
+  await check('switch stays on Minor items after saving, tiles count', async () => { const t = await s.locator('.tiles').first().innerText(); if (!/2\s*Good/.test(t)) throw new Error(t); });
+  await check('category filter', async () => { await s.click('[data-mcat=furniture]'); await s.waitForTimeout(300); eq(await s.locator(".mil .mi").count(), 1); await s.click('[data-mcat=all]'); await s.waitForTimeout(300); eq(await s.locator(".mil .mi").count(), 2); });
+  await check('edit: mark 2 bulbs as damaged', async () => { const id = G.sheets.asset_items.rows.find(r => r[1] === 'LED bulbs')[0]; await s.click(`[data-med="${id}"]`); await s.waitForSelector('.modal #mcd'); await s.selectOption('.modal #mcd', 'damaged'); await s.click('.modal button:has-text("Save")'); await s.settle();
+    eq(G.sheets.asset_items.rows.find(r => r[1] === 'LED bulbs')[9], 'damaged'); });
+  await check('print minor items opens the print with totals', async () => { await s.evaluate(() => { window.print = () => { window.__pr = document.getElementById('prn').shadowRoot.innerHTML; }; }); await s.click('#pmi'); await s.waitForTimeout(500); const h = await s.evaluate(() => window.__pr || ''); if (!/Plastic chairs/.test(h) || !/6,540/.test(h)) throw new Error('print missing data'); await s.evaluate(() => dispatchEvent(new Event('afterprint'))); });
+  await s.screenshot({ path: OUT + '/minor-secretary.png', fullPage: true });
+  await check('delete', async () => { const id = G.sheets.asset_items.rows.find(r => r[1] === 'Plastic chairs')[0]; await s.click(`[data-mdel="${id}"]`); await s.settle(); eq(!!G.sheets.asset_items.rows.find(r => r[1] === 'Plastic chairs'), false); });
+  await check('back to Major assets', async () => { await s.click('[data-avw=major]'); await s.waitForSelector('#an'); });
+  const r = await session(b, '101');
+  await check('resident: sees minor items, no cost column, no add form', async () => { await r.go('assets'); await r.click('[data-avw=minor]'); await r.waitForSelector('text=LED bulbs'); eq(await r.isVisible('#min'), false); const tx = await r.locator(".mil").innerText(); if (/₹/.test(tx)) throw new Error("cost shown"); });
+  await r.screenshot({ path: OUT + '/minor-resident.png', fullPage: true });
+  const t = await session(b, '101', 'te');
+  await check('Telugu: switch and labels translated', async () => { await t.go('assets'); const x = await t.locator('[data-avw]').allInnerTexts(); if (!/పెద్ద ఆస్తులు/.test(x[0]) || !/చిన్న వస్తువులు/.test(x[1])) throw new Error(x.join(' | ')); });
+  await check('no page errors', async () => eq([...s.errors, ...r.errors, ...t.errors], []));
+  await check('no sideways scrolling on the phone', async () => { await s.go('assets'); await s.click('[data-avw=minor]'); const w = await s.evaluate(() => [document.documentElement.scrollWidth, innerWidth]); if (w[0] > w[1] + 1) throw new Error('sideways ' + w); });
+  await b.close(); srv.close(); console.log(`\n${ok} passed, ${bad} failed`); process.exit(bad ? 1 : 0);
+})();

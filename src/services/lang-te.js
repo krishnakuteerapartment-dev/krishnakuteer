@@ -246,6 +246,34 @@
     "Photos for the resident (optional, up to 3)": "నివాసికి ఫోటోలు (ఐచ్ఛికం, 3 వరకు)", "Status history": "స్థితి చరిత్ర", "Close": "మూసివేయండి", "Clear": "తొలగించు", "Are you happy with how this was fixed?": "సమస్య పరిష్కరించిన తీరుతో మీరు సంతోషంగా ఉన్నారా?", "(optional)": "(ఐచ్ఛికం)", "👍 Yes": "👍 అవును", "👎 No": "👎 లేదు", "Add a note (optional)": "గమనిక జోడించండి (ఐచ్ఛికం)", "👍 Satisfied": "👍 సంతృప్తి", "👎 Not satisfied": "👎 సంతృప్తి లేదు", "(your feedback)": "(మీ అభిప్రాయం)", "Change": "మార్చండి", "No feedback from the flat yet.": "ఫ్లాట్ నుండి ఇంకా అభిప్రాయం రాలేదు.", "Thank you for your feedback 👍": "మీ అభిప్రాయానికి ధన్యవాదాలు 👍", "Thank you. The Association has been told.": "ధన్యవాదాలు. అసోసియేషన్‌కు తెలియజేశాము.", "Feedback updated": "అభిప్రాయం మార్చబడింది", "Feedback": "అభిప్రాయం", "Entered by flat": "ఫ్లాట్ వారు నమోదు చేశారు", "Watchman not at the gate?": "గేట్ వద్ద వాచ్‌మెన్ లేరా?", "Show": "చూపించు", "Guest passes & gate phone numbers": "అతిథి పాస్‌లు & గేట్ ఫోన్ నంబర్లు"
   };
   for (var k3 in TE3) if (Object.prototype.hasOwnProperty.call(TE3, k3)) TE[k3] = TE3[k3];
+  /* Assets: Major assets and Minor items (chairs, bulbs and other small things bought for common use) */
+  var TE4 = {
+    "Good": "బాగుంది", "Damaged": "పాడైంది", "Lost": "పోయింది", "Used up": "వాడేశారు", "Lost / used up": "పోయినవి / వాడేసినవి",
+    "Quantity": "సంఖ్య", "Unit": "కొలమానం", "Qty": "సంఖ్య", "Bought on": "కొన్న తేదీ", "Total cost (₹)": "మొత్తం ఖర్చు (₹)", "Bought from (shop)": "ఎక్కడ కొన్నారు (షాప్)",
+    "Kept at": "ఎక్కడ ఉంచారు", "Add a minor item": "చిన్న వస్తువు జోడించండి", "Quick pick:": "త్వరగా ఎంచుకోండి:", "🖨 Print minor items": "🖨 చిన్న వస్తువుల జాబితా ప్రింట్",
+    "Spent on minor items:": "చిన్న వస్తువులపై ఖర్చు:", "Minor items": "చిన్న వస్తువులు", "No minor items added yet.": "ఇంకా చిన్న వస్తువులు జోడించలేదు.",
+    "No minor items added yet. Add chairs, bulbs, buckets and other small things bought for the apartment below.": "ఇంకా చిన్న వస్తువులు జోడించలేదు. అపార్ట్‌మెంట్ కోసం కొన్న కుర్చీలు, బల్బులు, బకెట్లు వంటి చిన్న వస్తువులను క్రింద జోడించండి.",
+    "e.g. Plastic chairs, LED bulbs": "ఉదా. ప్లాస్టిక్ కుర్చీలు, LED బల్బులు", "e.g. Terrace store room": "ఉదా. టెర్రస్ స్టోర్ రూమ్", "Brand, size, who has it…": "బ్రాండ్, సైజు, ఎవరి దగ్గర ఉంది…",
+    "Enter the name of the item": "వస్తువు పేరు నమోదు చేయండి", "Enter the name of the item.": "వస్తువు పేరు నమోదు చేయండి.",
+    "Enter the quantity (0 or more)": "సంఖ్య నమోదు చేయండి (0 లేదా అంతకంటే ఎక్కువ)", "Enter the quantity (0 or more).": "సంఖ్య నమోదు చేయండి (0 లేదా అంతకంటే ఎక్కువ).",
+    "Enter a cost of 0 or more": "ఖర్చు 0 లేదా అంతకంటే ఎక్కువ నమోదు చేయండి", "Enter a cost of 0 or more.": "ఖర్చు 0 లేదా అంతకంటే ఎక్కువ నమోదు చేయండి.",
+    "Delete this item? This is recorded in the audit log.": "ఈ వస్తువును తొలగించాలా? ఇది ఆడిట్ లాగ్‌లో నమోదవుతుంది.",
+    "🪑 Furniture": "🪑 ఫర్నిచర్", "💡 Electrical": "💡 ఎలక్ట్రికల్", "🧹 Cleaning": "🧹 శుభ్రపరచడం", "🚿 Plumbing": "🚿 ప్లంబింగ్", "🌱 Garden": "🌱 తోట", "🔒 Security": "🔒 భద్రత",
+    "🎉 Festival / decoration": "🎉 పండుగ / అలంకరణ", "🍽 Kitchen / utensils": "🍽 వంటగది / పాత్రలు", "🧰 Tools": "🧰 పనిముట్లు", "📒 Stationery": "📒 స్టేషనరీ", "📦 Other": "📦 ఇతరాలు",
+    "🪑 Plastic chairs": "🪑 ప్లాస్టిక్ కుర్చీలు", "💡 LED bulbs": "💡 LED బల్బులు", "💡 Tube lights": "💡 ట్యూబ్ లైట్లు", "💡 Extension board": "💡 ఎక్స్‌టెన్షన్ బోర్డు",
+    "🧹 Brooms & mops": "🧹 చీపుర్లు & మాప్‌లు", "🧹 Buckets & mugs": "🧹 బకెట్లు & మగ్గులు", "🧹 Dustbins": "🧹 చెత్త డబ్బాలు", "🌱 Water hose pipe": "🌱 నీటి పైపు",
+    "🔒 Padlocks": "🔒 తాళాలు", "🧰 Tool kit": "🧰 టూల్ కిట్"
+  };
+  for (var k4 in TE4) if (Object.prototype.hasOwnProperty.call(TE4, k4) && !Object.prototype.hasOwnProperty.call(TE, k4)) TE[k4] = TE4[k4];
+  var MIC_TE = { "Furniture": "ఫర్నిచర్", "Electrical": "ఎలక్ట్రికల్", "Cleaning": "శుభ్రపరచడం", "Plumbing": "ప్లంబింగ్", "Garden": "తోట", "Security": "భద్రత", "Festival / decoration": "పండుగ / అలంకరణ",
+    "Kitchen / utensils": "వంటగది / పాత్రలు", "Tools": "పనిముట్లు", "Stationery": "స్టేషనరీ", "Other": "ఇతరాలు" };
+  PAT.push(
+    [/^🏗 Major assets · (\d+)$/, function (m, a) { return "🏗 పెద్ద ఆస్తులు · " + a; }],
+    [/^🪑 Minor items · (\d+)$/, function (m, a) { return "🪑 చిన్న వస్తువులు · " + a; }],
+    [/^(\S+) (Furniture|Electrical|Cleaning|Plumbing|Garden|Security|Festival \/ decoration|Kitchen \/ utensils|Tools|Stationery|Other) · (\d+)$/, function (m, e, c, n) { return e + " " + MIC_TE[c] + " · " + n; }],
+    [/^Minor items: (.+)$/, function (m, a) { return "చిన్న వస్తువులు: " + (MIC_TE[a] || a); }]
+  );
+
   PAT.push(
     [/^Waiting for an answer · (\d+)$/, function (m, a) { return "సమాధానం కోసం ఎదురుచూస్తున్నవి · " + a; }],
     [/^(\d+) min waiting$/, function (m, a) { return a + " నిమిషాలుగా ఎదురుచూస్తున్నారు"; }],
