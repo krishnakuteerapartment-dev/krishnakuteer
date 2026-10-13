@@ -20,7 +20,12 @@ const LOC=d=>window.KK_LOC?KK_LOC(d):d,OPT=(q,o)=>window.KK_OPT?KK_OPT(q,o):o;
 const readCache=()=>{try{const c=JSON.parse(localStorage.getItem(SK)||"null");if(c&&c.tok&&c.tok===TOK)return LOC(c.d)}catch(e){}return null};
 const saveCache=d=>{try{localStorage.setItem(SK,JSON.stringify({tok:TOK,d}))}catch(e){}};
 const dropCache=()=>{try{localStorage.removeItem(SK)}catch(e){}};
-const getSnap=bg=>api({a:"snapshot"},bg).then(r=>{if(r.error)throw new Error(r.error.message);return LOC(r.data)});
+const getSnap=bg=>api({a:"snapshot"},bg).then(r=>{if(r.error)throw new Error(r.error.message);teAsk(r.data);return LOC(r.data)});
+/* Telugu: if some notices, complaints, events... have no Telugu copy yet, ask the server to make them now (15 at a time, up to
+   3 times per visit) and show them when ready, instead of waiting for the 5-minute background job */
+let TEASK=0;
+const teAsk=d=>{if(TEASK>=3||!window.KK_TEMISS||!KK_TEMISS(d))return;TEASK++;
+ setTimeout(()=>api({a:"after"},1).then(r=>{if(r&&r.translated>0){SNAPT=0;refresh()}}).catch(()=>{}),800)};
 /* ---------- INSTANT SAVE ----------
    Saving no longer waits for Google Sheets: the new item shows at once and "Saved" appears, while the real save runs
    quietly in the background (thin bar at the top of the screen). Saves are sent one after another, in order.

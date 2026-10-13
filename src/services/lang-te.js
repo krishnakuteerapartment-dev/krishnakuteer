@@ -143,7 +143,7 @@
     [/^(\S+) Complaint resolved: ([\s\S]*)$/, function (m, i, a) { return i + " ఫిర్యాదు పరిష్కరించబడింది: " + a; }],
     [/^(🛠 [\s\S]*) \(pending\)$/, function (m, a) { return a + " (పెండింగ్)"; }],
     [/^(🛠 [\s\S]*) \(partial\)$/, function (m, a) { return a + " (పాక్షికం)"; }],
-    [/^Flat (.+?) · (.*)$/, function (m, a, b) { return "ఫ్లాట్ " + a + " · " + b; }],
+    [/^Flat (.+?) · (.*)$/, function (m, a, b) { return "ఫ్లాట్ " + a + " · " + tr(b); }],
     [/^Flat (.+)$/, function (m, a) { return "ఫ్లాట్ " + a; }],
     [/^Namaste 🙏, (.*)$/, function (m, a) { return "నమస్తే 🙏, " + tr(a); }],
     [/^Collected in (.*)$/, function (m, a) { return a + " లో వసూలైనది"; }],
@@ -163,7 +163,7 @@
     [/^All dues cleared up to (.*)$/, function (m, a) { return a + " వరకు అన్ని బకాయిలు తీరాయి"; }],
     [/^(Open|Closed) · (\d+) votes?$/, function (m, s, n) { return (s === "Open" ? "తెరిచి ఉంది" : "ముగిసింది") + " · " + n + (+n === 1 ? " ఓటు" : " ఓట్లు"); }],
     [/^You voted: (.*)$/, function (m, a) { return "మీరు ఓటు వేశారు: " + a; }],
-    [/^Cash (.*) · Bank\/UPI (.*)$/, function (m, a, b) { return "నగదు " + a + " · బ్యాంక్/UPI " + b; }],
+    [/^Cash (.*) · Bank\/UPI (.*)$/, function (m, a, b) { var f = function (x) { return x.replace(/^₹-/, "−₹"); }; return "నగదు " + f(a) + " · బ్యాంక్/UPI " + f(b); }],
     [/^Opening (.*) \+ received (.*) − spent (.*)$/, function (m, a, b, c) { return "ప్రారంభం " + a + " + వచ్చినది " + b + " − ఖర్చు " + c; }],
     [/^Income (.*) − Expenses (.*)$/, function (m, a, b) { return "ఆదాయం " + a + " − ఖర్చులు " + b; }],
     [/^From (.*) to (.*)$/, function (m, a, b) { return a + " నుండి " + b + " వరకు"; }],
@@ -327,6 +327,119 @@
     [/^(\d+) of (\d+) flats: (.*)$/, function (m, a, b, c) { return b + " ఫ్లాట్లలో " + a + ": " + c; }]
   );
 
+  /* ---------- everything else still showing in English (found by checking every page in Telugu) ---------- */
+  var TE6 = {
+    /* money words as saved (lower case) */
+    "cash": "నగదు", "bank": "బ్యాంక్", "upi": "UPI", "cheque": "చెక్", "Bank": "బ్యాంక్", "Cheque": "చెక్",
+    "PAID": "చెల్లించారు", "PENDING": "బకాయి", "PARTIAL": "పాక్షికం", "pending": "పెండింగ్", "partial": "పాక్షికం", "done": "పూర్తయింది",
+    "Excess (+)": "మిగులు (+)", "Shortfall (−)": "లోటు (−)", "Celebration (name not set)": "వేడుక (పేరు ఇవ్వలేదు)",
+    "Save corpus fund": "కార్పస్ ఫండ్ సేవ్ చేయండి", "Save corpus fund interest": "కార్పస్ ఫండ్ వడ్డీ సేవ్ చేయండి", "Save other income": "ఇతర ఆదాయం సేవ్ చేయండి",
+    "Nothing recorded this month.": "ఈ నెలలో ఏమీ నమోదు కాలేదు.",
+    /* monthly statement register */
+    "KRISHNA KUTEER APARTMENT MONTHLY MAINTENANCE REGISTER": "కృష్ణ కుటీర్ అపార్ట్‌మెంట్ నెలవారీ నిర్వహణ రిజిస్టర్",
+    "MAINTENANCE COLLECTION DETAILS": "నిర్వహణ వసూళ్ల వివరాలు", "MONTHLY EXPENSE DETAILS": "నెలవారీ ఖర్చుల వివరాలు", "MONTHLY FINANCIAL SUMMARY": "నెలవారీ ఆర్థిక సారాంశం",
+    "Held separately; not in closing balance": "విడిగా ఉంచారు; ముగింపు నిల్వలో లేదు",
+    "Krishna Kuteer Apartment": "కృష్ణ కుటీర్ అపార్ట్‌మెంట్",
+    /* Home */
+    "Open Payments": "చెల్లింపులు తెరవండి", "Open Visitors": "సందర్శకులు తెరవండి", "Open Complaints": "ఫిర్యాదులు తెరవండి", "Open Expenses": "ఖర్చులు తెరవండి",
+    "Tap to change": "మార్చడానికి నొక్కండి", "Month shown in Overview and Insights": "అవలోకనం, విశ్లేషణలో చూపే నెల",
+    "Visitors each day for the last 30 days": "గత 30 రోజుల్లో రోజువారీ సందర్శకులు",
+    /* weekdays */
+    "Mon": "సోమ", "Tue": "మంగళ", "Wed": "బుధ", "Thu": "గురు", "Fri": "శుక్ర", "Sat": "శని", "Sun": "ఆది",
+    /* watchman */
+    "No leave yet.": "ఇంకా సెలవులు లేవు.", "watchman": "వాచ్‌మెన్",
+    "Use this when the watchman tells you about leave, or could not apply. It is approved at once and posted as a notice for all flats.": "వాచ్‌మెన్ సెలవు గురించి చెప్పినప్పుడు, లేదా ఆయన దరఖాస్తు చేయలేకపోయినప్పుడు ఇది వాడండి. ఇది వెంటనే ఆమోదం పొంది, అన్ని ఫ్లాట్లకు నోటీసుగా పెట్టబడుతుంది.",
+    "The Association approves it. Once approved, all flats see a notice.": "అసోసియేషన్ ఆమోదిస్తుంది. ఆమోదం తర్వాత అన్ని ఫ్లాట్లకు నోటీసు కనిపిస్తుంది.",
+    "P Present · ½ Half day · A Absent · L Paid leave · U Unpaid leave · – Not marked": "P హాజరు · ½ సగం రోజు · A గైర్హాజరు · L జీతంతో సెలవు · U జీతం లేని సెలవు · – నమోదు కాలేదు",
+    /* emergency contacts */
+    "Call": "కాల్", "National emergency number": "జాతీయ అత్యవసర నంబర్", "I have checked this number today (marks it verified)": "ఈ నంబర్‌ను ఈ రోజు సరిచూశాను (ధృవీకరించినట్లు గుర్తిస్తుంది)",
+    "Person or company": "వ్యక్తి లేదా సంస్థ", "e.g. Available 24 hours, AMC no. 1234": "ఉదా. 24 గంటలు అందుబాటులో, AMC నం. 1234",
+    /* documents */
+    "Request access": "యాక్సెస్ అడగండి", "Who can see it": "ఎవరు చూడగలరు", "Water (HMWSSB) & Water Related": "నీరు (HMWSSB) & నీటికి సంబంధించినవి", "Dust Collector": "చెత్త సేకరణ",
+    /* visitors */
+    "Courier": "కొరియర్", "Choose or type": "ఎంచుకోండి లేదా టైప్ చేయండి", "e.g. courier": "ఉదా. కొరియర్", "6-digit code from the guest": "అతిథి ఇచ్చిన 6 అంకెల కోడ్",
+    "e.g. My mother / Lakshmi (maid)": "ఉదా. మా అమ్మ / లక్ష్మి (పనిమనిషి)",
+    "“Ask flat to approve” sends an alert with Approve / Deny to the flat's phones. This screen turns green or red when they answer.": "“ఫ్లాట్ ఆమోదం అడగండి” నొక్కితే ఆ ఫ్లాట్ ఫోన్లకు ఆమోదించు / తిరస్కరించు అలర్ట్ వెళ్తుంది. వారు జవాబిచ్చినప్పుడు ఈ స్క్రీన్ ఆకుపచ్చ లేదా ఎరుపు రంగులోకి మారుతుంది.",
+    /* reminders, assets, meetings, complaints */
+    "Not linked to an item": "ఏ వస్తువుకూ లింక్ చేయలేదు", "e.g. Lift servicing": "ఉదా. లిఫ్ట్ సర్వీసింగ్", "Related item": "సంబంధిత వస్తువు",
+    "Anything useful: AMC details, capacity, battery count…": "ఉపయోగపడే ఏదైనా: AMC వివరాలు, సామర్థ్యం, బ్యాటరీల సంఖ్య…", "e.g. Cellar": "ఉదా. సెల్లార్", "e.g. Lift (Block A)": "ఉదా. లిఫ్ట్ (బ్లాక్ A)",
+    "1. Accounts\n2. Lift AMC renewal": "1. లెక్కలు\n2. లిఫ్ట్ AMC పునరుద్ధరణ", "e.g. Get 3 quotes for lift AMC": "ఉదా. లిఫ్ట్ AMC కి 3 కొటేషన్లు తీసుకోండి", "e.g. Treasurer": "ఉదా. కోశాధికారి",
+    "e.g. Family function": "ఉదా. కుటుంబ కార్యక్రమం", "e.g. Lakshmi": "ఉదా. లక్ష్మి", "dd/mm/yyyy": "రోజు/నెల/సంవత్సరం",
+    /* audit log: tables, values as saved */
+    "Polls": "ఓటింగ్", "Service records": "సర్వీస్ రికార్డులు", "Maintenance log": "నిర్వహణ పనులు", "Month lock": "నెల లాక్", "Maintenance per flat": "ఫ్లాట్‌కు నిర్వహణ రుసుము", "Passwords": "పాస్‌వర్డ్‌లు",
+    "open": "తెరిచి ఉంది", "closed": "ముగిసింది", "draft": "డ్రాఫ్ట్", "published": "ప్రచురించారు", "present": "హాజరు", "absent": "గైర్హాజరు", "half": "సగం రోజు", "working": "పనిచేస్తోంది",
+    "not working": "పనిచేయడం లేదు", "under repair": "రిపేర్‌లో", "yes": "అవును", "no": "కాదు", "Yes": "అవును", "No": "కాదు", "expense": "ఖర్చు", "income": "ఆదాయం", "corpus": "కార్పస్ ఫండ్",
+    "lift": "లిఫ్ట్", "plumber": "ప్లంబర్", "electrician": "ఎలక్ట్రీషియన్", "amc": "AMC", "staff": "సిబ్బంది", "meeting": "సమావేశం", "event": "కార్యక్రమం", "attendance": "హాజరు",
+    "resolved": "పరిష్కరించబడింది", "in_progress": "పురోగతిలో ఉంది", "approved": "ఆమోదించారు", "rejected": "తిరస్కరించారు", "active": "చురుకుగా", "inactive": "నిష్క్రియం"
+  };
+  for (var k6 in TE6) if (Object.prototype.hasOwnProperty.call(TE6, k6) && !Object.prototype.hasOwnProperty.call(TE, k6)) TE[k6] = TE6[k6];
+  var WDTE = { Monday: "సోమవారం", Tuesday: "మంగళవారం", Wednesday: "బుధవారం", Thursday: "గురువారం", Friday: "శుక్రవారం", Saturday: "శనివారం", Sunday: "ఆదివారం" };
+  var MON3 = { Jan: "జనవరి", Feb: "ఫిబ్రవరి", Mar: "మార్చి", Apr: "ఏప్రిల్", May: "మే", Jun: "జూన్", Jul: "జూలై", Aug: "ఆగస్టు", Sep: "సెప్టెంబర్", Oct: "అక్టోబర్", Nov: "నవంబర్", Dec: "డిసెంబర్" };
+  var MONRX = "January|February|March|April|May|June|July|August|September|October|November|December";
+  /* field names in the audit log ("Saved: flat id:", "· paid on:") */
+  var FLD = { "active": "చురుకుగా", "agenda": "ఎజెండా", "amount": "మొత్తం", "category": "వర్గం", "count": "సంఖ్య", "created on": "సృష్టించిన తేదీ", "description": "వివరణ", "details": "వివరాలు",
+    "due on": "గడువు తేదీ", "entry on": "నమోదు తేదీ", "flat id": "ఫ్లాట్", "in time": "లోపలికి వచ్చిన సమయం", "joined on": "చేరిన తేదీ", "kind": "రకం", "location": "ప్రదేశం", "logged on": "నమోదు తేదీ",
+    "marked at": "నమోదు సమయం", "marked by": "నమోదు చేసినవారు", "minutes": "సమావేశ నివేదిక", "mode": "విధానం", "month": "నెల", "name": "పేరు", "notify days": "అలర్ట్ రోజులు", "on date": "తేదీ",
+    "options": "ఎంపికలు", "paid leaves year": "సంవత్సరానికి జీతంతో సెలవులు", "paid on": "చెల్లించిన తేదీ", "phone": "ఫోన్", "place": "ప్రదేశం", "question": "ప్రశ్న", "receipt no": "రసీదు నం.",
+    "received on": "వచ్చిన తేదీ", "reference": "రిఫరెన్స్", "remarks": "వ్యాఖ్యలు", "repeat months": "పునరావృతం (నెలలు)", "resolutions": "తీర్మానాలు", "role": "పాత్ర", "spent on": "ఖర్చు తేదీ",
+    "staff id": "సిబ్బంది", "status": "స్థితి", "ticket no": "టికెట్ నం.", "title": "శీర్షిక", "updated by": "మార్చినవారు", "visit on": "సందర్శన తేదీ", "notes": "గమనికలు", "qty": "సంఖ్య", "cost": "ఖర్చు" };
+  var fld = function (a) { return FLD[a] || a; };
+  TE["dd/mm/yyyy"] = "రోజు/నెల/సంవత్సరం";
+  /* 10:00 AM -> ఉదయం 10:00 (PM: మధ్యాహ్నం till 3, సాయంత్రం till 7, then రాత్రి) */
+  var tm = function (t) {
+    var m = /^(\d{1,2}):(\d{2}) ?([AP]M)?$/.exec(t); if (!m || !m[3]) return t;
+    var h = +m[1], w = m[3] === "AM" ? (h === 12 || h < 4 ? "రాత్రి" : "ఉదయం") : (h === 12 || h < 4 ? "మధ్యాహ్నం" : h < 8 ? "సాయంత్రం" : "రాత్రి");
+    return w + " " + m[1] + ":" + m[2];
+  };
+  PAT.push(
+    [new RegExp("^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),? (\\d{1,2}) (" + MONRX + "),? (\\d{4})$"), function (m, w, d, mo, y) { return d + " " + MONTE[mo] + " " + y + ", " + WDTE[w]; }],
+    [/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4})$/, function (m, a, y) { return MON3[a] + " " + y; }],
+    [/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})$/, function (m, a, y) { return MON3[a] + "-" + y; }],
+    [new RegExp("^((?:" + MONRX + ") \\d{4}): received (₹[\\d,]+), spent (₹[\\d,]+)$"), function (m, a, b, c) { return monTe(a) + ": వచ్చినది " + b + ", ఖర్చు " + c; }],
+    [/^Received (₹[\d,]+), spent (₹[\d,]+)$/, function (m, a, b) { return "వచ్చినది " + a + ", ఖర్చు " + b; }],
+    [/^Money received and spent over the last (\d+) months$/, function (m, a) { return "గత " + a + " నెలల్లో వచ్చిన, ఖర్చైన డబ్బు"; }],
+    [/^(\d+) of (\d+) flats paid$/, function (m, a, b) { return b + " ఫ్లాట్లలో " + a + " చెల్లించాయి"; }],
+    [/^Open (\d+), In progress (\d+), Resolved (\d+)$/, function (m, a, b, c) { return "తెరిచి ఉన్నవి " + a + ", జరుగుతున్నవి " + b + ", పరిష్కరించినవి " + c; }],
+    [/^(Open|In progress|Resolved) (\d+)$/, function (m, a, b) { return ({ Open: "తెరిచి ఉన్నవి", "In progress": "జరుగుతున్నవి", Resolved: "పరిష్కరించినవి" })[a] + " " + b; }],
+    [/^Maintenance for (\d{4}-\d{2})$/, function (m, a) { return a + " నిర్వహణ రుసుము"; }],
+    [/^([\d,]+)\/Flat$/, function (m, a) { return a + "/ఫ్లాట్"; }],
+    [/^Paid on ([\s\S]+)$/, function (m, a) {
+      return "చెల్లించిన తేదీ " + a.replace(/\((cash|bank|upi|cheque)/g, function (x, b) { return "(" + TE[b]; }).replace(/, ref /g, ", రిఫరెన్స్ ");
+    }],
+    [/^Rs ([\d,.]+)$/, function (m, a) { return "₹" + a; }],
+    [/^receipt #(\S+)$/, function (m, a) { return "రసీదు #" + a; }],
+    [/^(\d{4}-\d{2}-\d{2}) · (\d+) visitor\(s\)$/, function (m, a, b) { return a + " · " + b + " సందర్శకులు"; }],
+    [/^Attendance #(\S+)$/, function (m, a) { return "హాజరు #" + a; }],
+    [/^Watchman ([^·]+)$/, function (m, a) { return "వాచ్‌మెన్ " + a; }],
+    [/^Saved: ([a-z ]+):$/, function (m, a) { return "సేవ్ అయింది: " + fld(a) + ":"; }],
+    [/^· ([a-z ]+):$/, function (m, a) { return "· " + fld(a) + ":"; }],
+    [/^(\d+) paid leaves? a year$/, function (m, a) { return "సంవత్సరానికి " + a + " జీతంతో సెలవులు"; }],
+    [/^joined (.+)$/, function (m, a) { return a + " న చేరారు"; }],
+    [/^in (\d{1,2}:\d{2}(?: ?[AP]M)?)$/, function (m, a) { return tm(a) + " కు లోపలికి"; }],
+    [/^out (\d{1,2}:\d{2}(?: ?[AP]M)?)$/, function (m, a) { return tm(a) + " కు బయటికి"; }],
+    [/^(\d{1,2}:\d{2} ?[AP]M)$/, function (m, a) { return tm(a); }],
+    [/^Due (\d{1,2}\/\d{1,2}\/\d{4})$/, function (m, a) { return "గడువు " + a; }],
+    [/^Ends (\d{1,2}\/\d{1,2}\/\d{4})$/, function (m, a) { return a + " న ముగుస్తుంది"; }],
+    [/^alert (\d+) days? before$/, function (m, a) { return a + " రోజుల ముందు అలర్ట్"; }],
+    [/^Every (\d+) months$/, function (m, a) { return "ప్రతి " + a + " నెలలకు"; }],
+    [/^(Excess \(\+\)|Shortfall \(−\)) (₹[\d,]+)$/, function (m, a, b) { return TE[a] + " " + b; }],
+    [/^Count entries \((\d+)\)$/, function (m, a) { return "లెక్క నమోదులు (" + a + ")"; }],
+    [/^Phone numbers the gate calls \((\d+) of (\d+) flats\)$/, function (m, a, b) { return "గేట్ నుండి కాల్ చేసే నంబర్లు (" + b + " ఫ్లాట్లలో " + a + ")"; }],
+    [/^Print (\d{4}-\d{2}) expenses$/, function (m, a) { return a + " ఖర్చులు ప్రింట్"; }],
+    [/^Print (\d{4}-\d{2}) sheet$/, function (m, a) { return a + " షీట్ ప్రింట్"; }],
+    [/^Call (.*?) ?(\+?\d[\d -]{1,})$/, function (m, a, b) { return (a ? tr(a) + " " : "") + b + " కు కాల్"; }]
+  );
+  /* sentences with a bold word inside (a button name): the whole sentence is swapped at once, so the Telugu word order stays right */
+  var HT = {
+    "Choose a folder and open it. If Drive asks, tap Request access: the Association approves each folder separately.":
+      "ఒక ఫోల్డర్ ఎంచుకుని తెరవండి. గూగుల్ డ్రైవ్ అడిగితే <b>యాక్సెస్ అడగండి</b> నొక్కండి: ప్రతి ఫోల్డర్‌ను అసోసియేషన్ విడిగా ఆమోదిస్తుంది.",
+    "Tap Call to phone straight away.": "వెంటనే ఫోన్ చేయడానికి <b>కాల్</b> నొక్కండి.",
+    "Record your own visitor's entry here, and tap Exit now when they leave. It goes into the visitor register as “Entered by flat”.":
+      "మీ సందర్శకుని రాకను ఇక్కడ మీరే నమోదు చేయండి, వారు వెళ్లేటప్పుడు <b>ఇప్పుడే బయటికి</b> నొక్కండి. ఇది సందర్శకుల రిజిస్టర్‌లో “ఫ్లాట్ నమోదు చేసింది” అని చేరుతుంది.",
+    "Expecting someone? Make a pass. A one-visit pass gives a 6-digit code to send your guest; they show it at the gate and walk in without a call. Always allowed is for daily help, milk or newspaper.":
+      "ఎవరైనా వస్తున్నారా? పాస్ తయారు చేయండి. <b>ఒక్కసారి</b> పాస్ 6 అంకెల కోడ్ ఇస్తుంది, దాన్ని మీ అతిథికి పంపండి; వారు గేట్ వద్ద చూపించి కాల్ లేకుండానే లోపలికి రావచ్చు. <b>ఎల్లప్పుడూ అనుమతి</b> పనిమనిషి, పాలు లేదా పేపర్ వారి కోసం."
+  };
+
   /* ---------- the translator (also fixes anything the app draws later, like pages, pop-ups and messages) ---------- */
   var has = Object.prototype.hasOwnProperty;
   function tr(s) {
@@ -339,8 +452,28 @@
         if (m) { v = PAT[i][1].apply(null, m); break; }
       }
     }
+    if (v === null || v === undefined) v = gen(k);
     if (v === null || v === undefined) return s;
     return s.replace(k, function () { return v; });
+  }
+  /* no exact wording: try the parts. "🖨 Print …" (sign + words), "A · B · C" (each part), "Lift (Association)" (word + bracket),
+     "Pending 8" / "Spent ₹2,500" (words + number). Only used when a part is really changed. */
+  function gen(k) {
+    var m = /^([^\sA-Za-z0-9₹(“"'\u0C00-\u0C7F]+\s+)([\s\S]+)$/.exec(k), r;
+    if (m) { r = tr(m[2]); if (r !== m[2]) return m[1] + r; }
+    if (k.indexOf(" · ") > 0) {
+      var ch = false, ps = k.split(" · ").map(function (p) { var x = tr(p); if (x !== p) ch = true; return x; });
+      if (ch) return ps.join(" · ");
+    }
+    if (k.indexOf("|") > 0 && k.indexOf(" ") < 0) {
+      var c2 = false, qs = k.split("|").map(function (p) { var x = tr(p); if (x !== p) c2 = true; return x; });
+      if (c2) return qs.join("|");
+    }
+    m = /^([\s\S]+?) \(([^()]+)\)$/.exec(k);
+    if (m) { var a = tr(m[1]), b = tr(m[2]); if (a !== m[1] || b !== m[2]) return a + " (" + b + ")"; }
+    m = /^([A-Za-z][A-Za-z /]*?) (₹?[\d,]+)$/.exec(k);
+    if (m) { r = tr(m[1]); if (r !== m[1]) return r + " " + m[2]; }
+    return null;
   }
   window.KK_TR = tr;
   var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1, CODE: 1, PRE: 1 };
@@ -355,6 +488,10 @@
   }
   var ATTR = ["placeholder", "title", "aria-label"];
   function doEl(el) {
+    if (el.firstElementChild && el.childElementCount < 4 && el.nodeName === "P") {
+      var h = HT[el.textContent.replace(/\s+/g, " ").trim()];
+      if (h) el.innerHTML = h;
+    }
     for (var i = 0; i < ATTR.length; i++) {
       var v = el.getAttribute(ATTR[i]);
       if (v) { var r = tr(v); if (r !== v) el.setAttribute(ATTR[i], r); }

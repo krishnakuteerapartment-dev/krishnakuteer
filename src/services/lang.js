@@ -73,6 +73,17 @@
     });
     return d;
   };
+  /* how many typed items still have no Telugu copy (the app then asks the server to make them, see teAsk in api.js) */
+  window.KK_TEMISS = function (d) {
+    if (L !== "te" || !d || typeof d !== "object") return 0;
+    var n = 0;
+    Object.keys(TEF).forEach(function (t) {
+      (Array.isArray(d[t]) ? d[t] : []).forEach(function (r) {
+        if (r && !r.te && !(r.id > 9e12) && TEF[t].some(function (k) { return /[A-Za-z]/.test(String(r[k] == null ? "" : r[k])); })) n++;
+      });
+    });
+    return n;
+  };
   /* poll answer as shown on screen (the vote itself still uses the English answer) */
   window.KK_OPT = function (q, o) {
     if (!q || !q.options_te) return o;
