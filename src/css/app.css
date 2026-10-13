@@ -111,3 +111,19 @@ svg.tr .mg.on text{fill:var(--ink);font-weight:700}
 .sp .ar{fill:rgba(37,99,235,.10)}.sp .ln{fill:none;stroke:#2563eb;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.sp .dt{fill:#2563eb;stroke:#fff;stroke-width:2}
 .sp small{color:var(--grey);font-size:.78rem}
 .ev .d.amb{background:#fdf0dc;color:#b45309}
+
+/* ===== Home: icons beside the numbers ===== */
+.grid .card.kc{display:flex;align-items:center;gap:12px}
+.kc>div{min-width:0}.kc span:not(.ki){display:block}
+.ki{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;flex:none;background:#e8f0fe;color:#2563eb}
+.ki svg{width:24px;height:24px;fill:currentColor}
+.ki.ki-users,.ki.ki-home,.ki.ki-v{background:#e8f0fe;color:#2563eb}
+.ki.ki-wallet,.ki.ki-check{background:#e4f6ea;color:#15803d}
+.ki.ki-clock{background:#fde8e8;color:#dc2626}
+.ki.ki-bars,.ki.ki-coins{background:#fef1dc;color:#ea8a0c}
+.vk{display:flex;align-items:center;justify-content:center;gap:12px;background:var(--sky);border-radius:12px;padding:12px}
+.vk .ki.ki-v{background:#fff;width:44px;height:44px}
+.vn{font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2;font-variant-numeric:tabular-nums}
+.vk small{color:var(--grey)}
+@media(max-width:380px){.grid .card.kc{gap:8px}.ki{width:38px;height:38px}.ki svg{width:20px;height:20px}}
+

@@ -19,9 +19,9 @@ async function homeHtml(F,staff,who){
  const rt=(F.rt||[]).find(r=>String(r.month).slice(0,7)===month),rate=f=>rt?+rt.amount:+f.monthly_amount,
   pm=f=>F.p.filter(p=>String(p.flat_id)===String(f.id)&&String(p.month).slice(0,7)===month).reduce((a,p)=>a+ +p.amount,0);let cards;
  if(staff){const due=F.fl.reduce((a,f)=>a+rate(f),0),paid=F.fl.reduce((a,f)=>a+pm(f),0),sp=F.x.filter(x=>String(x.spent_on).slice(0,7)===month).reduce((a,x)=>a+ +x.amount,0);
-  cards=[[F.fl.length,"Total flats"],[inr(paid),"Collected in "+month],[inr(Math.max(0,due-paid)),"Pending in "+month],[inr(sp),"Expenses in "+month]]}
+  cards=[[F.fl.length,"Total flats","users"],[inr(paid),"Collected in "+month,"wallet"],[inr(Math.max(0,due-paid)),"Pending in "+month,"clock"],[inr(sp),"Expenses in "+month,"bars"]]}
  else{const f=F.fl.find(x=>String(x.flat_no)===String(me.id))||F.fl[0];
-  if(f){const r=rate(f),p=pm(f);cards=[[inr(r),"Maintenance for "+month],[inr(p),"Paid this month"],[inr(Math.max(0,r-p)),"Pending amount"],[inr(F.p.filter(x=>String(x.flat_id)===String(f.id)).reduce((a,x)=>a+ +x.amount,0)),"Total contributions"]]}}
+  if(f){const r=rate(f),p=pm(f);cards=[[inr(r),"Maintenance for "+month,"home"],[inr(p),"Paid this month","check"],[inr(Math.max(0,r-p)),"Pending amount","clock"],[inr(F.p.filter(x=>String(x.flat_id)===String(f.id)).reduce((a,x)=>a+ +x.amount,0)),"Total contributions","coins"]]}}
  const QA=[["maint","💳","Payments"],["comp","🛠","Complaints"],["doc","📄","Documents"],["not","📢","Notices"],["poll","🗳","Voting"],["meet","📅","Meeting"],["assets","🛗","Assets"],["sos","📞","Contacts"]];
  if(staff)QA.splice(2,1,["exp","🧾","Expenses"]),QA.splice(3,1,["st","📊","Statement"]);if(isIn(R_COM))QA.splice(6,1,["rem","🔔","Reminders"]);
  const[n1,n2,n3,n4,n5,n6]=await Promise.all(["notices","status","maintenance_log","complaints","meetings","visitors"].map(t=>db.from(t).select("*"))),
@@ -29,9 +29,9 @@ async function homeHtml(F,staff,who){
   ev=(n5.data||[]).filter(e=>String(e.on_date)>=today).sort((a,b)=>String(a.on_date).localeCompare(b.on_date)||String(a.at_time).localeCompare(b.at_time)).slice(0,3),
   remc=(await gateHome())+(await staffHome())+(await remHome()),CH=await homeCharts(F,staff),up=await comingUp(F,ev,cards),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
  return `${window.KKPush?KKPush.card():""}<div class="wel"><h1>Namaste 🙏, ${esc(who)}</h1><small>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small></div>
- ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l])=>`<div class="card"><b>${v}</b><span>${esc(l)}</span></div>`).join("")}</div>`:""}
+ ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l,k])=>`<div class="card kc"><span class="ki ki-${k}">${KI[k]}</span><div><b>${v}</b><span>${esc(l)}</span></div></div>`).join("")}</div>`:""}
  ${CH.money?`<h2>Overview</h2><div class="ins two">${CH.money}${CH.coll}</div>`:""}
- <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today"],[vmon,"This month"]].map(([v,l])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div>${visitSpark(n6.data||[])}</div>
+ <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today","user"],[vmon,"This month","users"]].map(([v,l,k])=>`<div class="vk"><span class="ki ki-v">${KI[k]}</span><div><div class="vn">${v}</div><small>${l}</small></div></div>`).join("")}</div>${visitSpark(n6.data||[])}</div>
  <div class="qa">${QA.map(([k,e,l])=>`<button data-go="${k}" type="button"><span>${e}</span>${l}</button>`).join("")}</div>
  ${CH.trend||CH.cats||CH.comp?`<h2>Insights</h2><div class="ins">${CH.trend}${CH.cats}${CH.comp}</div>`:""}
  <h2>Apartment status</h2><div class="stg">${AP.map(([n,e],k)=>{const st=sm[n]||"active",c=ST3.find(x=>x[0]===st);return `<button type="button" class="t-${n.toLowerCase().replace(/\W/g,"")} s-${st} ${canS?"ed":""}" style="--i:${k};--c:${c[2]}" ${canS?`data-st="${n}" data-s="${st}" title="Tap to change"`:"disabled"}><span class="ic">${e}</span>${n}<i style="background:${c[2]}">${c[1]}</i></button>`}).join("")}</div>
@@ -164,3 +164,14 @@ async function comingUp(F, ev, cards) {
   return out.sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(0, 5);
 }
 const mline = d => `<span>${monLabel(d.mo)}</span> · <span>Received</span> <b>${inr(d.r)}</b> · <span>Spent</span> <b>${inr(d.x)}</b>`;
+/* icons beside the numbers on Home */
+const KI = (() => { const g = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`; return {
+  users: g('<circle cx="9" cy="8" r="3.4"/><path d="M2.5 19.5c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6z"/><circle cx="17" cy="9" r="2.6" opacity=".75"/><path d="M15.6 13.7c3.3-.4 6 1.7 6 5.2v.6h-4.4c0-2.3-.6-4.3-1.6-5.8z" opacity=".75"/>'),
+  user: g('<circle cx="12" cy="8" r="4"/><path d="M4 20.5c0-4.2 3.6-7 8-7s8 2.8 8 7z"/>'),
+  wallet: g('<path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H17a1 1 0 0 1 0 2H6.5a.5.5 0 0 0 0 1H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6.5A2.5 2.5 0 0 1 4 17.5z"/><circle cx="16.5" cy="13.5" r="1.6" fill="#fff"/>'),
+  clock: g('<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+  bars: g('<rect x="4" y="12" width="4" height="8" rx="1.2"/><rect x="10" y="8" width="4" height="12" rx="1.2"/><rect x="16" y="4" width="4" height="16" rx="1.2"/>'),
+  home: g('<path d="M3.5 11.2 12 4l8.5 7.2V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-5.5h-5v5.5H5A1.5 1.5 0 0 1 3.5 19z"/>'),
+  check: g('<circle cx="12" cy="12" r="9"/><path d="m8 12.3 2.7 2.7L16.2 9.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+  coins: g('<ellipse cx="12" cy="6.5" rx="7" ry="2.8"/><path d="M5 9.2c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8v3.3c0 1.6-3.1 2.8-7 2.8s-7-1.2-7-2.8z"/><path d="M5 15.2c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8v2.5c0 1.6-3.1 2.8-7 2.8s-7-1.2-7-2.8z"/>')
+}; })();
