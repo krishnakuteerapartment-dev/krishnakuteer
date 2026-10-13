@@ -93,7 +93,7 @@ async function min(code, loader) { return (await esbuild.transform(code, { loade
   const refs = h => (h || "").match(/assets\/[\w.-]+\.(js|css)/g) || [];
   const prev = (() => { let out = []; try { out = refs(fs.readFileSync(path.join(PUB, "index.html"), "utf8")); } catch (e) {}
     /* also the version last committed to git (= what the live site runs), even after several builds in a row */
-    try { out = out.concat(refs(require("child_process").execSync("git show HEAD:public/index.html", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString())); } catch (e) {}
+    for (const ref of ["HEAD", "main", "origin/main"]) try { out = out.concat(refs(require("child_process").execSync("git show " + ref + ":public/index.html", { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString())); } catch (e) {}
     return out; })();
   if (!CHECK) fs.mkdirSync(OUT, { recursive: true });
   const files = {}, sizes = [];

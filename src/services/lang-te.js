@@ -267,7 +267,7 @@
   for (var k4 in TE4) if (Object.prototype.hasOwnProperty.call(TE4, k4) && !Object.prototype.hasOwnProperty.call(TE, k4)) TE[k4] = TE4[k4];
   /* Home charts */
   var TE5 = {
-    "Overview": "అవలోకనం", "Fully paid": "పూర్తిగా చెల్లించారు", "Insights": "విశ్లేషణ", "Coming up": "రాబోయేవి", "Money": "డబ్బు", "Received": "వచ్చినది", "Spent": "ఖర్చు", "Left": "మిగిలినది",
+    "Overview": "అవలోకనం", "See all notices": "అన్ని నోటీసులు చూడండి", "New": "కొత్తది", "Yesterday": "నిన్న", "Maintenance work": "నిర్వహణ పని", "Notice": "నోటీసు", "Complaint resolved": "ఫిర్యాదు పరిష్కరించబడింది", "Event added": "కార్యక్రమం జోడించారు", "Meeting added": "సమావేశం జోడించారు", "New poll": "కొత్త పోల్", "New document": "కొత్త పత్రం", "New photo": "కొత్త ఫోటో", "Monthly statement": "నెలవారీ స్టేట్‌మెంట్", "View only": "చూడటానికి మాత్రమే", "Print monthly statement": "నెలవారీ స్టేట్‌మెంట్ ప్రింట్", "Fully paid": "పూర్తిగా చెల్లించారు", "Insights": "విశ్లేషణ", "Coming up": "రాబోయేవి", "Money": "డబ్బు", "Received": "వచ్చినది", "Spent": "ఖర్చు", "Left": "మిగిలినది",
     "Overspent": "అధిక ఖర్చు", "left": "మిగిలింది", "overspent": "అధిక ఖర్చు", "Maintenance collection": "నిర్వహణ వసూలు", "flats paid": "చెల్లించాయి",
     "Received vs spent": "వచ్చినది vs ఖర్చు", "6 months": "6 నెలలు", "12 months": "12 నెలలు", "Tap a month to see its figures.": "లెక్కలు చూడటానికి ఒక నెలను తాకండి.",
     "Where the money went": "డబ్బు ఎక్కడ ఖర్చయింది", "Your complaints": "మీ ఫిర్యాదులు", "Open Statement": "స్టేట్‌మెంట్ తెరవండి", "Service reminder": "సర్వీస్ రిమైండర్",
@@ -280,8 +280,11 @@
   var monTe = function (s) { return s.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/, function (m) { return MONTE[m]; }); };
   PAT.push(
     [/^((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{4})$/, function (m, a) { return monTe(a); }],
+    [/^(.+) · (Today|Yesterday|\d+ days ago|\d{1,2}\/\d{1,2}\/\d{4})$/, function (m, a, b) { return tr(a) + " · " + tr(b); }],
+    [/^(\d+) days ago$/, function (m, a) { return a + " రోజుల క్రితం"; }],
+    [/^See all notices \((\d+)\)$/, function (m, a) { return "అన్ని నోటీసులు చూడండి (" + a + ")"; }],
     [/^(\d+) in all$/, function (m, a) { return "మొత్తం " + a; }],
-    [/^(₹[\d,]+) of (₹[\d,]+) collected \((\d+)%\)$/, function (m, a, b, c) { return b + " లో " + a + " వసూలైంది (" + c + "%)"; }],
+    [/^(₹[\d,]+) collected · (₹[\d,]+) pending \((\d+)% of dues paid\)$/, function (m, a, b, c) { return a + " వసూలైంది · " + b + " బకాయి (" + c + "% చెల్లించారు)"; }],
     [/^Last 30 days · busiest: (\d+) on (.+)$/, function (m, a, b) { return "గత 30 రోజులు · ఎక్కువ: " + b + " న " + a; }],
     [/^Last 30 days$/, function () { return "గత 30 రోజులు"; }],
     [/^Maintenance (₹[\d,]+) pending$/, function (m, a) { return "నిర్వహణ " + a + " బకాయి"; }],

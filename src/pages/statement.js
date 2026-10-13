@@ -16,6 +16,7 @@ async function exportAll(kind){toast("Preparing your data…");
  save("krishna-kuteer-all-data-"+day+".xls","application/vnd.ms-excel",`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">${names.map(n=>sheet(n,D[n])).join("")}</Workbook>`)}
 let sv="m",yr=new Date().getFullYear();
 async function stmt(m){
+ if(me.role==="resident")return stmtView(m);
  const F=await loadFin(),canW=WRITE.includes(me.role),s=month+"-01",e=nx(+month.slice(0,4),+month.slice(5,7));
  const L=(k,x,neg)=>[k,neg?-x.cash:x.cash,neg?-x.bank:x.bank,neg?-T(x):T(x)],P1=per(F,s,e);
  const row=(a,b)=>`<div class="it" style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:6px;font-size:.85rem${b?";font-weight:700":""}"><div>${esc(a[0])}</div>${a.slice(1).map(v=>`<div style="text-align:right">${v===""?"":inr(v)}</div>`).join("")}</div>`;
@@ -46,3 +47,11 @@ async function stmt(m){
   printHTML(title,sheetHead(title)+`<table><thead><tr><th></th><th class="r">Cash</th><th class="r">Bank/UPI</th><th class="r">Total</th></tr></thead><tbody>${lines.map(l=>`<tr><td>${esc(l[0])}</td>${l.slice(1).map(v=>`<td class="r">${v===""?"":inr(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`+sig2)};
  $("#cv").onclick=()=>{const c="Item,Cash,Bank/UPI,Total\n"+lines.map(l=>`"${l[0]}",${l.slice(1).map(v=>v===""?"":Math.round(v)).join(",")}`).join("\n"),a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([c],{type:"text/csv"}));a.download=(sv==="m"?"statement-"+month:"statement-"+yr)+".csv";a.click()}}
+/* residents: the monthly statement, view only (it used to be at the bottom of Home) */
+async function stmtView(m){
+ const F=await loadFin(),s=month+"-01",e=nx(+month.slice(0,4),+month.slice(5,7));
+ if(!F.st||!F.fl.length){m.innerHTML=`<input type="month" id="mo" value="${month}"><div class="card" style="margin-top:10px">Monthly statement is not available yet.</div>`}
+ else{const R=register(F,s,e,per(F,s,e));
+  m.innerHTML=`<input type="month" id="mo" value="${month}"><h2>Monthly statement</h2><p style="margin:0 0 8px;color:var(--grey);font-size:.85rem">View only</p><style>${REGCSS}</style>${R.html}<div class="f">${prBtn("pst","Print monthly statement")}</div>`;
+  $("#pst").onclick=()=>printHTML("Monthly statement "+month,sheetHead("Monthly statement: "+month)+R.html+SIG,true)}
+ $("#mo").onchange=ev=>{if(ev.target.value){month=ev.target.value;render()}}}
