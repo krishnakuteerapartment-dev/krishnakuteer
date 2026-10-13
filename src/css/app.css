@@ -141,3 +141,22 @@ svg.tr .mg.on text{fill:var(--ink);font-weight:700}
 .ft small{display:block;color:var(--grey);font-size:.8rem;margin-top:2px}
 .feed .more{width:100%;margin-top:6px}
 
+
+/* Home: the month's money as five figures (opening, collections, expenses, net cash flow, closing) */
+.cf{display:grid;margin-top:2px}
+.cfr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.cfr:first-child{border-top:0;padding-top:2px}
+.cfr>span{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px;color:var(--ink);min-width:0}
+.cfr>span small{flex-basis:100%;color:var(--grey);font-size:.76rem;line-height:1.35}
+.cfr>span i{font-style:normal;font-weight:700;width:12px;color:var(--grey)}
+.cfr>b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.cfr.in>b{color:#1d4ed8}.cfr.out>b{color:#c2410c}
+.cfr.net{margin:4px -8px 0;padding:8px;border-radius:10px;border-top:0}
+.cfr.net.pos{background:#ecfdf3}.cfr.net.pos>b{color:var(--green)}
+.cfr.net.neg{background:#fdeeec}.cfr.net.neg>b{color:var(--red)}
+.cfr.cb{margin-top:6px;border-top:2px solid var(--ink);padding-top:9px}
+.cfr.cb>span{font-weight:700}.cfr.cb>span small{font-weight:400}.cfr.cb>b{font-size:1.15rem;color:var(--navy)}.cfr.cb.neg>b{color:var(--red)}
+.chk{margin:0 0 4px;font-size:.76rem;color:var(--grey);line-height:1.4}
+svg.tr .bl{fill:none;stroke:var(--navy);stroke-width:1.8;stroke-linejoin:round}
+svg.tr .bd{fill:#fff;stroke:var(--navy);stroke-width:1.6}
+.lg i.bli{height:0;border-top:2px solid var(--navy);border-radius:0;width:14px}

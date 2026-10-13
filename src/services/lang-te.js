@@ -373,6 +373,11 @@
     "resolved": "పరిష్కరించబడింది", "in_progress": "పురోగతిలో ఉంది", "approved": "ఆమోదించారు", "rejected": "తిరస్కరించారు", "active": "చురుకుగా", "inactive": "నిష్క్రియం"
   };
   for (var k6 in TE6) if (Object.prototype.hasOwnProperty.call(TE6, k6) && !Object.prototype.hasOwnProperty.call(TE, k6)) TE[k6] = TE6[k6];
+  var TE7 = { "Collections": "వసూళ్లు", "Net cash flow": "నికర నగదు ప్రవాహం", "Closing balance": "ముగింపు నిల్వ",
+    "This month only: collections − expenses": "ఈ నెల మాత్రమే: వసూళ్లు − ఖర్చులు", "Balance at month end": "నెల చివరి నిల్వ", "Balance in hand today": "ఈ రోజు చేతిలో ఉన్న నిల్వ",
+    "Cash + bank. Corpus fund is kept separately and not counted here.": "నగదు + బ్యాంక్. కార్పస్ ఫండ్ విడిగా ఉంటుంది, ఇక్కడ లెక్కించలేదు.",
+    "Bars: money in and out during each month. Line: the balance carried forward to the next month.": "బార్లు: ప్రతి నెలలో వచ్చిన, ఖర్చైన డబ్బు. గీత: తర్వాతి నెలకు తీసుకెళ్లే నిల్వ." };
+  for (var k7 in TE7) if (Object.prototype.hasOwnProperty.call(TE7, k7)) TE[k7] = TE7[k7];
   var WDTE = { Monday: "సోమవారం", Tuesday: "మంగళవారం", Wednesday: "బుధవారం", Thursday: "గురువారం", Friday: "శుక్రవారం", Saturday: "శనివారం", Sunday: "ఆదివారం" };
   var MON3 = { Jan: "జనవరి", Feb: "ఫిబ్రవరి", Mar: "మార్చి", Apr: "ఏప్రిల్", May: "మే", Jun: "జూన్", Jul: "జూలై", Aug: "ఆగస్టు", Sep: "సెప్టెంబర్", Oct: "అక్టోబర్", Nov: "నవంబర్", Dec: "డిసెంబర్" };
   var MONRX = "January|February|March|April|May|June|July|August|September|October|November|December";
@@ -406,6 +411,11 @@
     [/^Paid on ([\s\S]+)$/, function (m, a) {
       return "చెల్లించిన తేదీ " + a.replace(/\((cash|bank|upi|cheque)/g, function (x, b) { return "(" + TE[b]; }).replace(/, ref /g, ", రిఫరెన్స్ ");
     }],
+    [new RegExp("^Carried from ((?:" + MONRX + ") \\d{4})$"), function (m, a) { return monTe(a) + " నుండి వచ్చినది"; }],
+    [new RegExp("^Opening \\+ net cash flow · carried to ((?:" + MONRX + ") \\d{4})$"), function (m, a) { return "ప్రారంభ నిల్వ + నికర ప్రవాహం · " + monTe(a) + " కు వెళ్తుంది"; }],
+    [/^Maintenance (₹[\d,]+) \+ other income (₹[\d,]+)$/, function (m, a, b) { return "నిర్వహణ " + a + " + ఇతర ఆదాయం " + b; }],
+    [new RegExp("^((?:" + MONRX + ") \\d{4}): received (₹[\\d,]+), spent (₹[\\d,]+), balance at month end (−?₹[\\d,]+)$"), function (m, a, b, c, d) { return monTe(a) + ": వచ్చినది " + b + ", ఖర్చు " + c + ", నెల చివరి నిల్వ " + d; }],
+    [/^Since the accounts began: opening (−?₹[\d,]+) \+ received (₹[\d,]+) − spent (₹[\d,]+)$/, function (m, a, b, c) { return "లెక్కలు మొదలైనప్పటి నుండి: ప్రారంభం " + a + " + వచ్చినది " + b + " − ఖర్చు " + c; }],
     [/^Rs ([\d,.]+)$/, function (m, a) { return "₹" + a; }],
     [/^receipt #(\S+)$/, function (m, a) { return "రసీదు #" + a; }],
     [/^(\d{4}-\d{2}-\d{2}) · (\d+) visitor\(s\)$/, function (m, a, b) { return a + " · " + b + " సందర్శకులు"; }],

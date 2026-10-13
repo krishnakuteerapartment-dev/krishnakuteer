@@ -2,7 +2,7 @@
 async function dash(m,staff){
  let bal="";
  if(staff){const{data:b}=await db.from("balance").select("*").single();
-  bal=`<div class="card hero">Balance in hand<div class="big">${inr(b?.closing)}</div><small>Opening ${inr(b?.opening_balance)} + received ${inr(b?.received)} − spent ${inr(b?.spent)}</small><br><small>Cash ${inr(b?.cash)} · Bank/UPI ${inr(b?.bank)}</small></div>`}
+  const g=v=>+v<0?"−"+inr(-v):inr(v);bal=`<div class="card hero">Balance in hand today<div class="big">${g(b?.closing)}</div><small>Since the accounts began: opening ${g(b?.opening_balance)} + received ${inr(b?.received)} − spent ${inr(b?.spent)}</small><br><small>Cash ${g(b?.cash)} · Bank/UPI ${g(b?.bank)}</small></div>`}
  /* the monthly statement (register) is on the Statement page; Home shows the summary and charts */
  const F=await loadFin(),who=me.role==="resident"?"Flat "+me.id:cap(me.role||"resident"),home=await homeHtml(F,staff,who,bal);
  m.innerHTML=home;
@@ -93,10 +93,16 @@ async function homeCharts(F, staff) {
   let money = "", coll = "", trend = "", cats = "";
   if (F.st && F.fl.length) {
     const P = per(F, s, e), A = T(P.r) + T(P.i), E = T(P.e), L = A - E;
-    money = `<div class="card ch"><div class="cht"><b>Money</b><small>${ML}</small></div><div class="chd">
-      ${donut([{ v: Math.min(E, A || E), c: HC.sp, l: "Spent " + inr(E) }, { v: Math.max(L, 0), c: HC.rec, l: "Left " + inr(Math.max(L, 0)) }], L < 0 ? "−" + inr(-L) : inr(L), L < 0 ? "overspent" : "left", "Received " + inr(A) + ", spent " + inr(E))}
-      ${legend([[HC.rec, "Received", inr(A)], [HC.sp, "Spent", inr(E)], [L < 0 ? HC.pend : "var(--line)", L < 0 ? "Overspent" : "Left", inr(Math.abs(L))]])}</div>
-      <p class="chn">Closing balance (cash + bank): <b>${T(P.c) < 0 ? "−" + inr(-T(P.c)) : inr(T(P.c))}</b><span class="mut">Corpus fund is kept separately and not counted here.</span></p></div>`;
+    /* the five figures of the month: what was there at the start, what came in, what went out, the month's own result (net cash flow),
+       and what is carried to next month (closing = opening + net) */
+    const O = T(P.o), MC = T(P.r), OI = T(P.i), CB = T(P.c), prevM = monthsBack(2)[0], nextM = nx(+month.slice(0, 4), +month.slice(5, 7)).slice(0, 7);
+    money = `<div class="card ch"><div class="cht"><b>Money</b><small>${ML}</small></div><div class="cf">
+      <div class="cfr"><span>Opening balance<small>Carried from ${monLabel(prevM)}</small></span><b>${sgn(O)}</b></div>
+      <div class="cfr in"><span><i>+</i>Collections${OI ? `<small>Maintenance ${inr(MC)} + other income ${inr(OI)}</small>` : ""}</span><b>${inr(A)}</b></div>
+      <div class="cfr out"><span><i>−</i>Expenses</span><b>${inr(E)}</b></div>
+      <div class="cfr net ${L < 0 ? "neg" : "pos"}"><span>Net cash flow<small>This month only: collections − expenses</small></span><b>${L > 0 ? "+" : ""}${sgn(L)}</b></div>
+      <div class="cfr cb${CB < 0 ? " neg" : ""}"><span>Closing balance<small>Opening + net cash flow · carried to ${monLabel(nextM)}</small></span><b>${sgn(CB)}</b></div></div>
+      <p class="chn"><span class="mut">Cash + bank. Corpus fund is kept separately and not counted here.</span></p></div>`;
     /* maintenance collection: same rule as the monthly register (payments for this month's maintenance) */
     const rt = (F.rt || []).find(r => String(r.month).slice(0, 7) === month), due = f => rt ? +rt.amount : +f.monthly_amount;
     const paid = f => F.p.filter(p => String(p.flat_id) === String(f.id) && String(p.month).slice(0, 7) === month).reduce((a, p) => a + +p.amount, 0);
@@ -107,17 +113,20 @@ async function homeCharts(F, staff) {
       ${legend([[HC.ok, "Fully paid", nP], [HC.part, "Partial", nH], [HC.pend, "Pending", nN]])}</div>
       <div class="cpg" aria-hidden="true"><i style="width:${pct}%"></i></div><p class="chn">${inr(cP)} collected · ${inr(cN)} pending (${pct}% of dues paid)</p></div>`;
     /* received vs spent, month by month */
-    const ms = monthsBack(HCN), D = ms.map(mo => { const a = mo + "-01", b = nx(+mo.slice(0, 4), +mo.slice(5, 7)), Q = per(F, a, b); return { mo, r: T(Q.r) + T(Q.i), x: T(Q.e) }; });
-    const mx = Math.max(1, ...D.map(d => Math.max(d.r, d.x))), step = niceStep(mx), top = Math.ceil(mx / step) * step;
-    const W0 = 320, H0 = 150, L0 = 34, B0 = 128, gw = (W0 - L0 - 4) / D.length, bw = Math.max(3, Math.min(14, gw / 2 - 3)), y = v => B0 - v / top * (B0 - 10);
-    const grid = [0, 1, 2, 3].map(k => { const v = top / 3 * k; return `<line x1="${L0}" x2="${W0 - 2}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L0 - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${kfmt(v)}</text>`; }).join("");
-    const bar = (x, v, c) => { const h = Math.max(v > 0 ? 1.5 : 0, B0 - y(v)); return h ? `<path d="M${x.toFixed(1)} ${B0}V${(B0 - h + Math.min(3, h)).toFixed(1)}q0 -${Math.min(3, h).toFixed(1)} ${Math.min(3, bw / 2).toFixed(1)} -${Math.min(3, h).toFixed(1)}h${(bw - 2 * Math.min(3, bw / 2)).toFixed(1)}q${Math.min(3, bw / 2).toFixed(1)} 0 ${Math.min(3, bw / 2).toFixed(1)} ${Math.min(3, h).toFixed(1)}V${B0}z" fill="${c}"/>` : ""; };
+    const ms = monthsBack(HCN), D = ms.map(mo => { const a = mo + "-01", b = nx(+mo.slice(0, 4), +mo.slice(5, 7)), Q = per(F, a, b); return { mo, r: T(Q.r) + T(Q.i), x: T(Q.e), b: T(Q.c) }; });
+    /* bars = each month's money in and out; line = the balance carried forward at each month end (can go below zero) */
+    const hi = Math.max(1, ...D.map(d => Math.max(d.r, d.x, d.b))), lo = Math.min(0, ...D.map(d => d.b)), step = niceStep(hi - lo), top = Math.ceil(hi / step) * step, bot = Math.floor(lo / step) * step;
+    const W0 = 320, H0 = 150, L0 = 34, B0 = 128, gw = (W0 - L0 - 4) / D.length, bw = Math.max(3, Math.min(14, gw / 2 - 3)), y = v => B0 - (v - bot) / (top - bot) * (B0 - 10), Z = y(0);
+    const grid = Array.from({ length: Math.round((top - bot) / step) + 1 }, (_, k) => bot + step * k).map(v => `<line x1="${L0}" x2="${W0 - 2}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L0 - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v < 0 ? "−" + kfmt(-v) : kfmt(v)}</text>`).join("");
+    const bar = (x, v, c) => { const h = Math.max(v > 0 ? 1.5 : 0, Z - y(v)), q = Math.min(3, h), qw = Math.min(3, bw / 2); return h ? `<path d="M${x.toFixed(1)} ${Z.toFixed(1)}V${(Z - h + q).toFixed(1)}q0 -${q.toFixed(1)} ${qw.toFixed(1)} -${q.toFixed(1)}h${(bw - 2 * qw).toFixed(1)}q${qw.toFixed(1)} 0 ${qw.toFixed(1)} ${q.toFixed(1)}V${Z.toFixed(1)}z" fill="${c}"/>` : ""; };
+    const px = i => (L0 + gw * i + gw / 2).toFixed(1), bline = `<path d="${D.map((d, i) => (i ? "L" : "M") + px(i) + " " + y(d.b).toFixed(1)).join("")}" class="bl"/>${D.map((d, i) => `<circle cx="${px(i)}" cy="${y(d.b).toFixed(1)}" r="2.8" class="bd"/>`).join("")}`;
     const bars = D.map((d, i) => { const cx = L0 + gw * i + gw / 2; return `<g class="mg" data-mi="${i}">${bar(cx - bw - 1, d.r, HC.rec)}${bar(cx + 1, d.x, HC.sp)}
-      <text x="${cx.toFixed(1)}" y="${B0 + 14}" text-anchor="middle">${MN[+d.mo.slice(5, 7) - 1]}</text><rect x="${(L0 + gw * i).toFixed(1)}" y="4" width="${gw.toFixed(1)}" height="${B0 + 14}" class="hit"><title>${monLabel(d.mo)}: received ${inr(d.r)}, spent ${inr(d.x)}</title></rect></g>`; }).join("");
+      <text x="${cx.toFixed(1)}" y="${B0 + 14}" text-anchor="middle">${MN[+d.mo.slice(5, 7) - 1]}</text><rect x="${(L0 + gw * i).toFixed(1)}" y="4" width="${gw.toFixed(1)}" height="${B0 + 14}" class="hit"><title>${monLabel(d.mo)}: received ${inr(d.r)}, spent ${inr(d.x)}, balance at month end ${sgn(d.b)}</title></rect></g>`; }).join("");
     const last = D[D.length - 1];
     trend = `<div class="card ch"><div class="cht"><b>Received vs spent</b><span class="seg">${[6, 12].map(n => `<button type="button" class="${HCN === n ? "on" : ""}" data-hcn="${n}">${n} months</button>`).join("")}</span></div>
-      ${legend([[HC.rec, "Received", ""], [HC.sp, "Spent", ""]]).replace('class="lg"', 'class="lg row"')}
-      <svg viewBox="0 0 ${W0} ${H0}" class="tr" role="img" aria-label="Money received and spent over the last ${HCN} months">${grid}<line x1="${L0}" x2="${W0 - 2}" y1="${B0}" y2="${B0}" class="ax"/>${bars}</svg>
+      <div class="lg row"><div><span><i style="background:${HC.rec}"></i>Received</span></div><div><span><i style="background:${HC.sp}"></i>Spent</span></div><div><span><i class="bli"></i>Balance at month end</span></div></div>
+      <p class="chk">Bars: money in and out during each month. Line: the balance carried forward to the next month.</p>
+      <svg viewBox="0 0 ${W0} ${H0}" class="tr" role="img" aria-label="Money received and spent over the last ${HCN} months">${grid}<line x1="${L0}" x2="${W0 - 2}" y1="${Z.toFixed(1)}" y2="${Z.toFixed(1)}" class="ax"/>${bars}${bline}</svg>
       <p class="chn" id="hcd" data-d='${esc(JSON.stringify(D))}'>${mline(last)}<span class="mut">Tap a month to see its figures.</span></p>
       ${staff ? `<div class="f"><button class="ghost" type="button" data-go="st">Open Statement</button></div>` : ""}</div>`;
     /* where this month's money went */
@@ -168,7 +177,9 @@ async function comingUp(F, ev, cards) {
   } catch (x) {}
   return out.sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(0, 5);
 }
-const mline = d => `<span>${monLabel(d.mo)}</span> · <span>Received</span> <b>${inr(d.r)}</b> · <span>Spent</span> <b>${inr(d.x)}</b>`;
+const mline = d => `<span>${monLabel(d.mo)}</span> · <span>Received</span> <b>${inr(d.r)}</b> · <span>Spent</span> <b>${inr(d.x)}</b> · <span>Net</span> <b>${d.r - d.x > 0 ? "+" : ""}${sgn(d.r - d.x)}</b><br><span>Balance at month end</span> <b>${sgn(d.b)}</b>`;
+/* money that can be below zero: −₹9,666 */
+const sgn = v => v < 0 ? "−" + inr(-v) : inr(v);
 /* icons beside the numbers on Home */
 const KI = (() => { const g = d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`; return {
   users: g('<circle cx="9" cy="8" r="3.4"/><path d="M2.5 19.5c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6z"/><circle cx="17" cy="9" r="2.6" opacity=".75"/><path d="M15.6 13.7c3.3-.4 6 1.7 6 5.2v.6h-4.4c0-2.3-.6-4.3-1.6-5.8z" opacity=".75"/>'),
