@@ -160,3 +160,4 @@ svg.tr .mg.on text{fill:var(--ink);font-weight:700}
 svg.tr .bl{fill:none;stroke:var(--navy);stroke-width:1.8;stroke-linejoin:round}
 svg.tr .bd{fill:#fff;stroke:var(--navy);stroke-width:1.6}
 .lg i.bli{height:0;border-top:2px solid var(--navy);border-radius:0;width:14px}
+@media(min-width:760px){.ins.mny>.cfc{grid-column:2;grid-row:1/span 2}}

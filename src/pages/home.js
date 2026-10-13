@@ -32,7 +32,7 @@ async function homeHtml(F,staff,who,bal=""){
  return `${window.KKPush?KKPush.card():""}<div class="wel"><h1>Namaste 🙏, ${esc(who)}</h1><small>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small></div>
  ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l,k])=>`<div class="card kc"><span class="ki ki-${k}">${KI[k]}</span><div><b>${v}</b><span>${esc(l)}</span></div></div>`).join("")}</div>`:""}
  <div class="ovh"><h2>Overview</h2><input type="month" id="mo" value="${month}" aria-label="Month shown in Overview and Insights"></div>${bal}
- ${CH.money?`<div class="ins two">${CH.money}${CH.coll}</div>`:""}
+ ${CH.money?`<div class="ins two mny">${CH.money}${CH.flow}${CH.coll}</div>`:""}
  <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today","user"],[vmon,"This month","users"]].map(([v,l,k])=>`<div class="vk"><span class="ki ki-v">${KI[k]}</span><div><div class="vnum">${v}</div><small>${l}</small></div></div>`).join("")}</div>${visitSpark(n6.data||[])}</div>
  <div class="qa">${QA.map(([k,e,l])=>`<button data-go="${k}" type="button"><span>${e}</span>${l}</button>`).join("")}</div>
  ${CH.trend||CH.cats||CH.comp?`<h2>Insights</h2><div class="ins">${CH.trend}${CH.cats}${CH.comp}</div>`:""}
@@ -90,19 +90,23 @@ const legend = rows => `<div class="lg">${rows.map(([c, l, v]) => `<div><span><i
 function monthsBack(n) { const y = +month.slice(0, 4), m0 = +month.slice(5, 7) - 1, out = []; for (let k = n - 1; k >= 0; k--) { const d = new Date(Date.UTC(y, m0 - k, 1)); out.push(d.toISOString().slice(0, 7)); } return out; }
 async function homeCharts(F, staff) {
   const s = month + "-01", e = nx(+month.slice(0, 4), +month.slice(5, 7)), ML = monLabel(month);
-  let money = "", coll = "", trend = "", cats = "";
+  let money = "", flow = "", coll = "", trend = "", cats = "";
   if (F.st && F.fl.length) {
     const P = per(F, s, e), A = T(P.r) + T(P.i), E = T(P.e), L = A - E;
     /* the five figures of the month: what was there at the start, what came in, what went out, the month's own result (net cash flow),
        and what is carried to next month (closing = opening + net) */
     const O = T(P.o), MC = T(P.r), OI = T(P.i), CB = T(P.c), prevM = monthsBack(2)[0], nextM = nx(+month.slice(0, 4), +month.slice(5, 7)).slice(0, 7);
-    money = `<div class="card ch"><div class="cht"><b>Money</b><small>${ML}</small></div><div class="cf">
+    flow = `<div class="card ch cfc"><div class="cht"><b>Month summary</b><small>${ML}</small></div><div class="cf">
       <div class="cfr"><span>Opening balance<small>Carried from ${monLabel(prevM)}</small></span><b>${sgn(O)}</b></div>
       <div class="cfr in"><span><i>+</i>Collections${OI ? `<small>Maintenance ${inr(MC)} + other income ${inr(OI)}</small>` : ""}</span><b>${inr(A)}</b></div>
       <div class="cfr out"><span><i>−</i>Expenses</span><b>${inr(E)}</b></div>
       <div class="cfr net ${L < 0 ? "neg" : "pos"}"><span>Net cash flow<small>This month only: collections − expenses</small></span><b>${L > 0 ? "+" : ""}${sgn(L)}</b></div>
       <div class="cfr cb${CB < 0 ? " neg" : ""}"><span>Closing balance<small>Opening + net cash flow · carried to ${monLabel(nextM)}</small></span><b>${sgn(CB)}</b></div></div>
       <p class="chn"><span class="mut">Cash + bank. Corpus fund is kept separately and not counted here.</span></p></div>`;
+    money = `<div class="card ch"><div class="cht"><b>Money</b><small>${ML}</small></div><div class="chd">
+      ${donut([{ v: Math.min(E, A || E), c: HC.sp, l: "Spent " + inr(E) }, { v: Math.max(L, 0), c: HC.rec, l: "Left " + inr(Math.max(L, 0)) }], L < 0 ? "−" + inr(-L) : inr(L), L < 0 ? "overspent" : "left", "Received " + inr(A) + ", spent " + inr(E))}
+      ${legend([[HC.rec, "Received", inr(A)], [HC.sp, "Spent", inr(E)], [L < 0 ? HC.pend : "var(--line)", L < 0 ? "Overspent" : "Left", inr(Math.abs(L))]])}</div>
+      <p class="chn">Closing balance (cash + bank): <b>${T(P.c) < 0 ? "−" + inr(-T(P.c)) : inr(T(P.c))}</b><span class="mut">Corpus fund is kept separately and not counted here.</span></p></div>`;
     /* maintenance collection: same rule as the monthly register (payments for this month's maintenance) */
     const rt = (F.rt || []).find(r => String(r.month).slice(0, 7) === month), due = f => rt ? +rt.amount : +f.monthly_amount;
     const paid = f => F.p.filter(p => String(p.flat_id) === String(f.id) && String(p.month).slice(0, 7) === month).reduce((a, p) => a + +p.amount, 0);
@@ -143,7 +147,7 @@ async function homeCharts(F, staff) {
       comp = `<div class="card ch" data-go="comp" role="button" tabindex="0" title="Open Complaints"><div class="cht"><b>${me.role === "resident" ? "Your complaints" : "Complaints"}</b><small>${tot} in all</small></div>
         <div class="cbar" role="img" aria-label="${S.map(s => s[1] + " " + n(s[0])).join(", ")}">${S.filter(s => n(s[0])).map(s => `<i style="flex:${n(s[0])};background:${s[2]}" title="${s[1]} ${n(s[0])}"></i>`).join("")}</div>
         ${legend(S.map(s => [s[2], s[1], n(s[0])])).replace('class="lg"', 'class="lg row"')}</div>`; } } catch (x) {}
-  return { money, coll, trend, cats, comp };
+  return { money, flow, coll, trend, cats, comp };
 }
 const niceStep = mx => { const raw = mx / 3, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
 const kfmt = v => v >= 100000 ? (v / 100000).toFixed(v % 100000 ? 1 : 0) + "L" : v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : String(Math.round(v));

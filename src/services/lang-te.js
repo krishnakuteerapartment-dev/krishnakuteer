@@ -374,7 +374,7 @@
   };
   for (var k6 in TE6) if (Object.prototype.hasOwnProperty.call(TE6, k6) && !Object.prototype.hasOwnProperty.call(TE, k6)) TE[k6] = TE6[k6];
   var TE7 = { "Collections": "వసూళ్లు", "Net cash flow": "నికర నగదు ప్రవాహం", "Closing balance": "ముగింపు నిల్వ",
-    "This month only: collections − expenses": "ఈ నెల మాత్రమే: వసూళ్లు − ఖర్చులు", "Balance at month end": "నెల చివరి నిల్వ", "Balance in hand today": "ఈ రోజు చేతిలో ఉన్న నిల్వ",
+    "This month only: collections − expenses": "ఈ నెల మాత్రమే: వసూళ్లు − ఖర్చులు", "Balance at month end": "నెల చివరి నిల్వ", "Balance in hand today": "ఈ రోజు చేతిలో ఉన్న నిల్వ", "Month summary": "నెల సారాంశం",
     "Cash + bank. Corpus fund is kept separately and not counted here.": "నగదు + బ్యాంక్. కార్పస్ ఫండ్ విడిగా ఉంటుంది, ఇక్కడ లెక్కించలేదు.",
     "Bars: money in and out during each month. Line: the balance carried forward to the next month.": "బార్లు: ప్రతి నెలలో వచ్చిన, ఖర్చైన డబ్బు. గీత: తర్వాతి నెలకు తీసుకెళ్లే నిల్వ." };
   for (var k7 in TE7) if (Object.prototype.hasOwnProperty.call(TE7, k7)) TE[k7] = TE7[k7];
