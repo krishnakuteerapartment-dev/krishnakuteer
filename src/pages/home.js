@@ -10,7 +10,7 @@ async function dash(m,staff){
   body=`<h2>Monthly statement</h2><p style="margin:0 0 8px;color:var(--grey);font-size:.85rem">View only</p><style>${REGCSS}</style>${R.html}<div class="f">${prBtn("pdash","Print monthly statement")}</div>`;window.__R=R}
  const who=me.role==="resident"?"Flat "+me.id:cap(me.role||"resident"),home=await homeHtml(F,staff,who);
  m.innerHTML=`${home}${bal}<input type="month" id="mo" value="${month}">${body}`;
- m.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{tab=b.dataset.go;render()});
+ m.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{tab=b.dataset.go;render()});bindCharts(m);
  m.querySelectorAll("[data-st]").forEach(b=>b.onclick=async()=>{const o=ST3.map(x=>x[0]),n=o[(o.indexOf(b.dataset.s)+1)%3],{error}=await db.from("status").upsert({item:b.dataset.st,state:n,updated_on:ld()},{onConflict:"item"});error?toast(error.message):render()});
  $("#mo").onchange=e=>{month=e.target.value;render()};
  if($("#pdash"))$("#pdash").onclick=()=>printHTML("Monthly statement "+month,sheetHead("Monthly statement: "+month)+window.__R.html+SIG,true)}
@@ -27,13 +27,15 @@ async function homeHtml(F,staff,who){
  const[n1,n2,n3,n4,n5,n6]=await Promise.all(["notices","status","maintenance_log","complaints","meetings","visitors"].map(t=>db.from(t).select("*"))),
   nts=(n1.data||[]).sort((a,b)=>b.id-a.id),sm=Object.fromEntries((n2.data||[]).map(r=>[r.item,r.state])),canS=WRITE.includes(me.role),today=ld(),vday=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,10)===today).reduce((a,r)=>a+(+r.count||0),0),vmon=(n6.data||[]).filter(r=>String(r.visit_on).slice(0,7)===today.slice(0,7)).reduce((a,r)=>a+(+r.count||0),0),
   ev=(n5.data||[]).filter(e=>String(e.on_date)>=today).sort((a,b)=>String(a.on_date).localeCompare(b.on_date)||String(a.at_time).localeCompare(b.at_time)).slice(0,3),
-  remc=(await gateHome())+(await staffHome())+(await remHome()),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
+  remc=(await gateHome())+(await staffHome())+(await remHome()),CH=await homeCharts(F,staff),up=await comingUp(F,ev,cards),act=[].concat((n3.data||[]).map(r=>({d:String(r.logged_on).slice(0,10),i:"🛠",t:r.details+(r.status==="completed"?"":" ("+r.status+")")})),nts.map(n=>({d:String(n.created_on).slice(0,10),i:"📢",t:n.title})),(n4.data||[]).filter(c=>c.status==="resolved").map(c=>({d:String(c.updated_at).slice(0,10),i:"✅",t:"Complaint resolved: "+c.title}))).sort((a,b)=>b.d.localeCompare(a.d)).slice(0,5);
  return `${window.KKPush?KKPush.card():""}<div class="wel"><h1>Namaste 🙏, ${esc(who)}</h1><small>${new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</small></div>
  ${remc}${cards?`<div class="grid" style="margin-bottom:14px">${cards.map(([v,l])=>`<div class="card"><b>${v}</b><span>${esc(l)}</span></div>`).join("")}</div>`:""}
- <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today"],[vmon,"This month"]].map(([v,l])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div></div>
+ ${CH.money?`<h2>Overview</h2><div class="ins two">${CH.money}${CH.coll}</div>`:""}
+ <h2>Visitors</h2><div class="card" data-go="vis" role="button" tabindex="0" title="Open Visitors" style="cursor:pointer;padding:12px;margin-bottom:14px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[[vday,"Today"],[vmon,"This month"]].map(([v,l])=>`<div style="background:var(--sky);border-radius:12px;padding:12px;text-align:center"><div style="font-size:1.7rem;font-weight:800;color:var(--navy);line-height:1.2">${v}</div><small style="color:var(--grey)">${l}</small></div>`).join("")}</div>${visitSpark(n6.data||[])}</div>
  <div class="qa">${QA.map(([k,e,l])=>`<button data-go="${k}" type="button"><span>${e}</span>${l}</button>`).join("")}</div>
+ ${CH.trend||CH.cats||CH.comp?`<h2>Insights</h2><div class="ins">${CH.trend}${CH.cats}${CH.comp}</div>`:""}
  <h2>Apartment status</h2><div class="stg">${AP.map(([n,e],k)=>{const st=sm[n]||"active",c=ST3.find(x=>x[0]===st);return `<button type="button" class="t-${n.toLowerCase().replace(/\W/g,"")} s-${st} ${canS?"ed":""}" style="--i:${k};--c:${c[2]}" ${canS?`data-st="${n}" data-s="${st}" title="Tap to change"`:"disabled"}><span class="ic">${e}</span>${n}<i style="background:${c[2]}">${c[1]}</i></button>`}).join("")}</div>
- ${ev.length?`<h2>Upcoming events</h2>${ev.map(e=>{const t=mdy(e.on_date);return `<div class="card ev"><div class="d">${t.d}<small>${t.m}</small></div><div><b>${esc(e.title)}</b><small style="display:block;color:var(--grey)">${esc([e.at_time,e.place].filter(Boolean).join(" · "))} ${e.kind==="event"?"· Event":""}</small></div></div>`}).join("")}`:""}
+ ${up.length?`<h2>Coming up</h2>${up.map(u=>{const t=mdy(u.d);return `<div class="card ev"${u.go?` data-go="${u.go}" role="button" tabindex="0" style="cursor:pointer"`:""}><div class="d${u.c?" "+u.c:""}">${t.d}<small>${t.m}</small></div><div><b>${esc(u.t)}</b><small style="display:block;color:var(--grey)">${esc(u.s||"")}</small></div></div>`}).join("")}`:""}
  ${nts.length?`<h2>Latest notices</h2>${nts.slice(0,2).map(n=>`<div class="card nt">${esc(n.title)}<small>${esc(n.created_on)}</small></div>`).join("")}`:""}
  ${act.length?`<h2>Recent activity</h2><div class="card"><div class="tl">${act.map(a=>`<div>${a.i} ${esc(a.t)}<small>${dm(a.d)}</small></div>`).join("")}</div></div>`:""}`}
 /* the warning card on the Home page (committee only) */
@@ -63,3 +65,102 @@ async function staffHome() {
     return `<div class="card" data-go="staff" role="button" tabindex="0" style="cursor:pointer;border-left:4px solid #b45309"><b>🛡 Leave request${W.length > 1 ? "s" : ""}</b> <span class="tag amb">${W.length} waiting</span><small style="display:block;color:var(--grey)">${W.slice(0, 3).map(x => esc(nm(x.staff_id)) + ": " + dmx(x.from_date) + (+x.days > 1 ? " – " + dmx(x.to_date) : "")).join(" · ")}</small></div>`;
   } catch (e) { return ""; }
 }
+/* ---------- Home charts: small pictures drawn in the page itself (no chart library, so Home stays fast) ----------
+   Colours: received = blue, spent = orange (checked for colour-blind readers); paid / partial / pending and complaint
+   states use the status colours, always with a label and a count next to them. */
+let HCN = 6; /* months in the "Received vs spent" chart (6 or 12) */
+const HC = { rec: "#2563eb", sp: "#eb6834", ok: "#15803d", part: "#d97706", pend: "#c0362c", prog: "#2563eb" };
+const MONF = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const monLabel = mo => MONF[+mo.slice(5, 7) - 1] + " " + mo.slice(0, 4);
+/* a ring split into parts; centre shows two short lines */
+function donut(parts, c1, c2, label) {
+  const R = 40, W = 13, C = 2 * Math.PI * R, live = parts.filter(p => p.v > 0), tot = live.reduce((a, p) => a + p.v, 0), gap = live.length > 1 ? 2 : 0;
+  let off = 0;
+  const segs = tot ? live.map(p => { const len = p.v / tot * C, s = `<circle r="${R}" cx="50" cy="50" fill="none" stroke="${p.c}" stroke-width="${W}" stroke-dasharray="${Math.max(len - gap, .01).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 50 50)"><title>${esc(p.l)}</title></circle>`; off += len; return s; }).join("") : "";
+  return `<svg viewBox="0 0 100 100" class="dn" role="img" aria-label="${esc(label)}"><circle r="${R}" cx="50" cy="50" fill="none" stroke="var(--sky)" stroke-width="${W}"/>${segs}
+   <text x="50" y="49" text-anchor="middle" class="c1">${esc(c1)}</text><text x="50" y="63" text-anchor="middle" class="c2">${esc(c2)}</text></svg>`;
+}
+const legend = rows => `<div class="lg">${rows.map(([c, l, v]) => `<div><span><i style="background:${c}"></i>${esc(l)}</span><b>${v}</b></div>`).join("")}</div>`;
+/* month list ending at the selected month */
+function monthsBack(n) { const y = +month.slice(0, 4), m0 = +month.slice(5, 7) - 1, out = []; for (let k = n - 1; k >= 0; k--) { const d = new Date(Date.UTC(y, m0 - k, 1)); out.push(d.toISOString().slice(0, 7)); } return out; }
+async function homeCharts(F, staff) {
+  const s = month + "-01", e = nx(+month.slice(0, 4), +month.slice(5, 7)), ML = monLabel(month);
+  let money = "", coll = "", trend = "", cats = "";
+  if (F.st && F.fl.length) {
+    const P = per(F, s, e), A = T(P.r) + T(P.i), E = T(P.e), L = A - E;
+    money = `<div class="card ch"><div class="cht"><b>Money</b><small>${ML}</small></div><div class="chd">
+      ${donut([{ v: Math.min(E, A || E), c: HC.sp, l: "Spent " + inr(E) }, { v: Math.max(L, 0), c: HC.rec, l: "Left " + inr(Math.max(L, 0)) }], L < 0 ? "−" + inr(-L) : inr(L), L < 0 ? "overspent" : "left", "Received " + inr(A) + ", spent " + inr(E))}
+      ${legend([[HC.rec, "Received", inr(A)], [HC.sp, "Spent", inr(E)], [L < 0 ? HC.pend : "var(--line)", L < 0 ? "Overspent" : "Left", inr(Math.abs(L))]])}</div>
+      <p class="chn">Closing balance (cash + bank): <b>${T(P.c) < 0 ? "−" + inr(-T(P.c)) : inr(T(P.c))}</b><span class="mut">Corpus fund is kept separately and not counted here.</span></p></div>`;
+    /* maintenance collection: same rule as the monthly register (payments for this month's maintenance) */
+    const rt = (F.rt || []).find(r => String(r.month).slice(0, 7) === month), due = f => rt ? +rt.amount : +f.monthly_amount;
+    const paid = f => F.p.filter(p => String(p.flat_id) === String(f.id) && String(p.month).slice(0, 7) === month).reduce((a, p) => a + +p.amount, 0);
+    let nP = 0, nH = 0, nN = 0, cD = 0, cP = 0; F.fl.forEach(f => { const d = due(f), p = paid(f); cD += d; cP += p; if (p >= d && d > 0) nP++; else if (p > 0) nH++; else nN++; });
+    const pct = cD ? Math.min(100, Math.round(cP / cD * 100)) : 0;
+    coll = `<div class="card ch" data-go="maint" role="button" tabindex="0" title="Open Payments"><div class="cht"><b>Maintenance collection</b><small>${ML}</small></div><div class="chd">
+      ${donut([{ v: nP, c: HC.ok, l: "Fully paid " + nP }, { v: nH, c: HC.part, l: "Partial " + nH }, { v: nN, c: HC.pend, l: "Pending " + nN }], nP + "/" + F.fl.length, "flats paid", nP + " of " + F.fl.length + " flats paid")}
+      ${legend([[HC.ok, "Fully paid", nP], [HC.part, "Partial", nH], [HC.pend, "Pending", nN]])}</div>
+      <div class="pg" aria-hidden="true"><i style="width:${pct}%"></i></div><p class="chn">${inr(cP)} of ${inr(cD)} collected (${pct}%)</p></div>`;
+    /* received vs spent, month by month */
+    const ms = monthsBack(HCN), D = ms.map(mo => { const a = mo + "-01", b = nx(+mo.slice(0, 4), +mo.slice(5, 7)), Q = per(F, a, b); return { mo, r: T(Q.r) + T(Q.i), x: T(Q.e) }; });
+    const mx = Math.max(1, ...D.map(d => Math.max(d.r, d.x))), step = niceStep(mx), top = Math.ceil(mx / step) * step;
+    const W0 = 320, H0 = 150, L0 = 34, B0 = 128, gw = (W0 - L0 - 4) / D.length, bw = Math.max(3, Math.min(14, gw / 2 - 3)), y = v => B0 - v / top * (B0 - 10);
+    const grid = [0, 1, 2, 3].map(k => { const v = top / 3 * k; return `<line x1="${L0}" x2="${W0 - 2}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="gl"/><text x="${L0 - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${kfmt(v)}</text>`; }).join("");
+    const bar = (x, v, c) => { const h = Math.max(v > 0 ? 1.5 : 0, B0 - y(v)); return h ? `<path d="M${x.toFixed(1)} ${B0}V${(B0 - h + Math.min(3, h)).toFixed(1)}q0 -${Math.min(3, h).toFixed(1)} ${Math.min(3, bw / 2).toFixed(1)} -${Math.min(3, h).toFixed(1)}h${(bw - 2 * Math.min(3, bw / 2)).toFixed(1)}q${Math.min(3, bw / 2).toFixed(1)} 0 ${Math.min(3, bw / 2).toFixed(1)} ${Math.min(3, h).toFixed(1)}V${B0}z" fill="${c}"/>` : ""; };
+    const bars = D.map((d, i) => { const cx = L0 + gw * i + gw / 2; return `<g class="mg" data-mi="${i}">${bar(cx - bw - 1, d.r, HC.rec)}${bar(cx + 1, d.x, HC.sp)}
+      <text x="${cx.toFixed(1)}" y="${B0 + 14}" text-anchor="middle">${MN[+d.mo.slice(5, 7) - 1]}</text><rect x="${(L0 + gw * i).toFixed(1)}" y="4" width="${gw.toFixed(1)}" height="${B0 + 14}" class="hit"><title>${monLabel(d.mo)}: received ${inr(d.r)}, spent ${inr(d.x)}</title></rect></g>`; }).join("");
+    const last = D[D.length - 1];
+    trend = `<div class="card ch"><div class="cht"><b>Received vs spent</b><span class="seg">${[6, 12].map(n => `<button type="button" class="${HCN === n ? "on" : ""}" data-hcn="${n}">${n} months</button>`).join("")}</span></div>
+      ${legend([[HC.rec, "Received", ""], [HC.sp, "Spent", ""]]).replace('class="lg"', 'class="lg row"')}
+      <svg viewBox="0 0 ${W0} ${H0}" class="tr" role="img" aria-label="Money received and spent over the last ${HCN} months">${grid}<line x1="${L0}" x2="${W0 - 2}" y1="${B0}" y2="${B0}" class="ax"/>${bars}</svg>
+      <p class="chn" id="hcd" data-d='${esc(JSON.stringify(D))}'>${mline(last)}<span class="mut">Tap a month to see its figures.</span></p>
+      ${staff ? `<div class="f"><button class="ghost" type="button" data-go="st">Open Statement</button></div>` : ""}</div>`;
+    /* where this month's money went */
+    const C = Object.entries(P.cat).sort((a, b) => b[1] - a[1]), top5 = C.slice(0, 5), rest = C.slice(5).reduce((a, c) => a + c[1], 0);
+    if (rest) top5.push(["Other", rest]);
+    const cm = Math.max(1, ...top5.map(c => c[1]));
+    if (top5.length) cats = `<div class="card ch"${staff ? ` data-go="exp" role="button" tabindex="0" title="Open Expenses"` : ""}><div class="cht"><b>Where the money went</b><small>${ML}</small></div>
+      <div class="hb">${top5.map(([k, v]) => `<span class="k">${esc(k)}</span><span class="t"><i style="width:${Math.max(2, v / cm * 100).toFixed(1)}%"></i></span><b>${inr(v)}</b>`).join("")}</div></div>`;
+  }
+  /* complaints: residents see only their own (the server sends only theirs) */
+  let comp = "";
+  try { const { data } = await db.from("complaints").select("*"), L1 = data || [];
+    if (L1.length) { const n = k => L1.filter(c => (c.status || "open") === k).length, S = [["open", "Open", HC.part], ["in_progress", "In progress", HC.prog], ["resolved", "Resolved", HC.ok]], tot = L1.length;
+      comp = `<div class="card ch" data-go="comp" role="button" tabindex="0" title="Open Complaints"><div class="cht"><b>${me.role === "resident" ? "Your complaints" : "Complaints"}</b><small>${tot} in all</small></div>
+        <div class="bar" role="img" aria-label="${S.map(s => s[1] + " " + n(s[0])).join(", ")}">${S.filter(s => n(s[0])).map(s => `<i style="flex:${n(s[0])};background:${s[2]}" title="${s[1]} ${n(s[0])}"></i>`).join("")}</div>
+        ${legend(S.map(s => [s[2], s[1], n(s[0])])).replace('class="lg"', 'class="lg row"')}</div>`; } } catch (x) {}
+  return { money, coll, trend, cats, comp };
+}
+const niceStep = mx => { const raw = mx / 3, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
+const kfmt = v => v >= 100000 ? (v / 100000).toFixed(v % 100000 ? 1 : 0) + "L" : v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : String(Math.round(v));
+/* visitors in the last 30 days, as a small line */
+function visitSpark(rows) {
+  const days = [], T0 = ld(); for (let k = 29; k >= 0; k--) { const d = new Date(T0 + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - k); days.push(d.toISOString().slice(0, 10)); }
+  const v = days.map(d => rows.filter(r => String(r.visit_on).slice(0, 10) === d).reduce((a, r) => a + (+r.count || 0), 0)), mx = Math.max(1, ...v), W = 300, H = 46;
+  const pts = v.map((n, i) => [i / (v.length - 1) * (W - 8) + 4, H - 6 - n / mx * (H - 14)]), line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+  const pk = v.indexOf(Math.max(...v)), lp = pts[pts.length - 1];
+  return `<div class="sp"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Visitors each day for the last 30 days"><path d="${line}L${(W - 4)} ${H - 6}L4 ${H - 6}Z" class="ar"/><path d="${line}" class="ln"/><circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3.5" class="dt"/></svg>
+    <small>Last 30 days${Math.max(...v) ? ` · busiest: ${v[pk]} on ${dm(days[pk])}` : ""}</small></div>`;
+}
+/* chart taps: month details and the 6 / 12 months switch */
+function bindCharts(m) {
+  m.querySelectorAll("[data-hcn]").forEach(b => b.onclick = ev => { ev.stopPropagation(); HCN = +b.dataset.hcn; render(); });
+  const out = m.querySelector("#hcd"); if (!out) return; let D = []; try { D = JSON.parse(out.dataset.d); } catch (x) {}
+  m.querySelectorAll(".mg").forEach(g => g.onclick = () => { const d = D[+g.dataset.mi]; if (!d) return; m.querySelectorAll(".mg").forEach(x => x.classList.toggle("on", x === g));
+    out.innerHTML = mline(d); });
+}
+/* "Coming up" on Home: meetings and events, your unpaid maintenance (flats), service dates and AMC / warranty ends (Association) */
+async function comingUp(F, ev, cards) {
+  const out = ev.map(e => ({ d: e.on_date, t: e.title, s: [e.at_time, e.place].filter(Boolean).join(" · ") + (e.kind === "event" ? " · Event" : " · Meeting"), go: "meet" }));
+  try {
+    if (me.role === "resident" && month === ld().slice(0, 7)) { const f = F.fl.find(x => String(x.flat_no) === String(me.id)), rt = (F.rt || []).find(r => String(r.month).slice(0, 7) === month);
+      if (f) { const due = rt ? +rt.amount : +f.monthly_amount, p = F.p.filter(x => String(x.flat_id) === String(f.id) && String(x.month).slice(0, 7) === month).reduce((a, x) => a + +x.amount, 0);
+        if (due - p > 0) { const end = nx(+month.slice(0, 4), +month.slice(5, 7)), last = new Date(end + "T00:00:00Z"); last.setUTCDate(0);
+          out.push({ d: last.toISOString().slice(0, 10), t: "Maintenance " + inr(due - p) + " pending", s: monLabel(month) + " · pay the Treasurer", go: "maint", c: "amb" }); } } }
+    if (isIn(R_COM)) { const [r, a] = await Promise.all([db.from("reminders").select("*"), db.from("assets").select("*")]);
+      (r.data || []).filter(x => x.status !== "done" && dLeft(x.due_on) >= 0 && dLeft(x.due_on) <= 30).forEach(x => out.push({ d: x.due_on, t: x.title, s: "Service reminder", go: "rem" }));
+      (a.data || []).filter(x => x.warranty_until && dLeft(x.warranty_until) >= 0 && dLeft(x.warranty_until) <= 60).forEach(x => out.push({ d: x.warranty_until, t: "Warranty / AMC ends: " + x.name, s: "Assets", go: "assets", c: "amb" })); }
+  } catch (x) {}
+  return out.sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(0, 5);
+}
+const mline = d => `<span>${monLabel(d.mo)}</span> · <span>Received</span> <b>${inr(d.r)}</b> · <span>Spent</span> <b>${inr(d.x)}</b>`;

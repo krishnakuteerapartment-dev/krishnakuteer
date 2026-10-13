@@ -265,6 +265,30 @@
     "🔒 Padlocks": "🔒 తాళాలు", "🧰 Tool kit": "🧰 టూల్ కిట్"
   };
   for (var k4 in TE4) if (Object.prototype.hasOwnProperty.call(TE4, k4) && !Object.prototype.hasOwnProperty.call(TE, k4)) TE[k4] = TE4[k4];
+  /* Home charts */
+  var TE5 = {
+    "Overview": "అవలోకనం", "Fully paid": "పూర్తిగా చెల్లించారు", "Insights": "విశ్లేషణ", "Coming up": "రాబోయేవి", "Money": "డబ్బు", "Received": "వచ్చినది", "Spent": "ఖర్చు", "Left": "మిగిలినది",
+    "Overspent": "అధిక ఖర్చు", "left": "మిగిలింది", "overspent": "అధిక ఖర్చు", "Maintenance collection": "నిర్వహణ వసూలు", "flats paid": "చెల్లించాయి",
+    "Received vs spent": "వచ్చినది vs ఖర్చు", "6 months": "6 నెలలు", "12 months": "12 నెలలు", "Tap a month to see its figures.": "లెక్కలు చూడటానికి ఒక నెలను తాకండి.",
+    "Where the money went": "డబ్బు ఎక్కడ ఖర్చయింది", "Your complaints": "మీ ఫిర్యాదులు", "Open Statement": "స్టేట్‌మెంట్ తెరవండి", "Service reminder": "సర్వీస్ రిమైండర్",
+    "Closing balance (cash + bank):": "ముగింపు నిల్వ (నగదు + బ్యాంక్):", "Corpus fund is kept separately and not counted here.": "కార్పస్ ఫండ్ విడిగా ఉంటుంది, ఇక్కడ లెక్కించలేదు.",
+    "Assets": "ఆస్తులు", "January": "జనవరి", "February": "ఫిబ్రవరి", "March": "మార్చి", "April": "ఏప్రిల్", "May": "మే", "June": "జూన్", "July": "జూలై",
+    "August": "ఆగస్టు", "September": "సెప్టెంబర్", "October": "అక్టోబర్", "November": "నవంబర్", "December": "డిసెంబర్"
+  };
+  for (var k5 in TE5) if (Object.prototype.hasOwnProperty.call(TE5, k5) && !Object.prototype.hasOwnProperty.call(TE, k5)) TE[k5] = TE5[k5];
+  var MONTE = { January: "జనవరి", February: "ఫిబ్రవరి", March: "మార్చి", April: "ఏప్రిల్", May: "మే", June: "జూన్", July: "జూలై", August: "ఆగస్టు", September: "సెప్టెంబర్", October: "అక్టోబర్", November: "నవంబర్", December: "డిసెంబర్" };
+  var monTe = function (s) { return s.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/, function (m) { return MONTE[m]; }); };
+  PAT.push(
+    [/^((?:January|February|March|April|May|June|July|August|September|October|November|December) \d{4})$/, function (m, a) { return monTe(a); }],
+    [/^(\d+) in all$/, function (m, a) { return "మొత్తం " + a; }],
+    [/^(₹[\d,]+) of (₹[\d,]+) collected \((\d+)%\)$/, function (m, a, b, c) { return b + " లో " + a + " వసూలైంది (" + c + "%)"; }],
+    [/^Last 30 days · busiest: (\d+) on (.+)$/, function (m, a, b) { return "గత 30 రోజులు · ఎక్కువ: " + b + " న " + a; }],
+    [/^Last 30 days$/, function () { return "గత 30 రోజులు"; }],
+    [/^Maintenance (₹[\d,]+) pending$/, function (m, a) { return "నిర్వహణ " + a + " బకాయి"; }],
+    [/^(.+) · pay the Treasurer$/, function (m, a) { return monTe(a) + " · కోశాధికారికి చెల్లించండి"; }],
+    [/^Warranty \/ AMC ends: (.+)$/, function (m, a) { return "వారంటీ / AMC ముగింపు: " + a; }],
+    [/^(.*) · Meeting$/, function (m, a) { return a + " · సమావేశం"; }]
+  );
   var MIC_TE = { "Furniture": "ఫర్నిచర్", "Electrical": "ఎలక్ట్రికల్", "Cleaning": "శుభ్రపరచడం", "Plumbing": "ప్లంబింగ్", "Garden": "తోట", "Security": "భద్రత", "Festival / decoration": "పండుగ / అలంకరణ",
     "Kitchen / utensils": "వంటగది / పాత్రలు", "Tools": "పనిముట్లు", "Stationery": "స్టేషనరీ", "Other": "ఇతరాలు" };
   PAT.push(
