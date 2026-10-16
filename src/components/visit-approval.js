@@ -6,7 +6,7 @@ let vp = "d", VF = null, GATE_T = null, PASSHOW = null, ALF = "";
 /* gate: the Always allowed list's flat filter starts at "All flats" whenever the app is opened again or comes back from the background */
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && ALF) { ALF = ""; if (typeof tab !== "undefined" && tab === "vis" && me && isIn(R_VIS)) calm(); } });
 /* visitor approval: what each status means on screen */
-const VST = { waiting: ["Waiting for flat", "amb"], no_answer: ["No answer", "red"], approved: ["Approved", "grn"], denied: ["Denied", "red"], leave_at_gate: ["Leave at gate", "gry"],
+const VST = { waiting: ["Waiting for flat", "amb"], no_answer: ["No answer", "red"], approved: ["Approved", "grn"], denied: ["Denied", "red"], leave_at_gate: ["Leave at gate", "gry"], register: ["From register book", "gry"],
   pre_approved: ["Pre-approved", "grn"], always: ["Always allowed", "grn"], cancelled: ["Cancelled", "gry"], by_flat: ["Entered by flat", "gry"] };
 const vTag = r => r.status && VST[r.status] ? `<span class="tag ${VST[r.status][1]}">${VST[r.status][0]}</span>` : "";
 const askedAt = r => { const m = /\d{2}:\d{2}$/.exec(String(r.created_at || "")); return m ? m[0] : r.in_time; };

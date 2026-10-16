@@ -378,6 +378,55 @@
     "Cash + bank. Corpus fund is kept separately and not counted here.": "నగదు + బ్యాంక్. కార్పస్ ఫండ్ విడిగా ఉంటుంది, ఇక్కడ లెక్కించలేదు.",
     "Bars: money in and out during each month. Line: the balance carried forward to the next month.": "బార్లు: ప్రతి నెలలో వచ్చిన, ఖర్చైన డబ్బు. గీత: తర్వాతి నెలకు తీసుకెళ్లే నిల్వ." };
   for (var k7 in TE7) if (Object.prototype.hasOwnProperty.call(TE7, k7)) TE[k7] = TE7[k7];
+  /* Visitor register photo import (Secretary) */
+  var TE8 = {
+    "Visitor register book": "సందర్శకుల రిజిస్టర్ పుస్తకం", "✍️ Add visitor manually": "✍️ సందర్శకుడిని మాన్యువల్‌గా జోడించండి", "📷 Upload register photo": "📷 రిజిస్టర్ ఫోటో అప్‌లోడ్",
+    "Copy entries from the handwritten register: one at a time, or photograph a full page and the app reads every row for you to check before saving.": "చేతితో రాసిన రిజిస్టర్‌లోని ఎంట్రీలను ఇక్కడికి తీసుకురండి: ఒక్కొక్కటిగా, లేదా పూర్తి పేజీ ఫోటో తీస్తే యాప్ ప్రతి వరుసను చదువుతుంది; సేవ్ చేసే ముందు మీరు సరిచూడండి.",
+    "From register book": "రిజిస్టర్ పుస్తకం నుండి", "Visitor register photo": "సందర్శకుల రిజిస్టర్ ఫోటో", "Photo": "ఫోటో", "Read": "చదవడం", "Check": "సరిచూడండి", "Save": "సేవ్",
+    "Photograph one full page of the register": "రిజిస్టర్‌లో ఒక పూర్తి పేజీని ఫోటో తీయండి",
+    "Lay the book flat, take the photo from straight above.": "పుస్తకాన్ని సమతలంగా పెట్టి, నేరుగా పై నుండి ఫోటో తీయండి.",
+    "Get the whole page in, with all its columns.": "అన్ని కాలమ్‌లతో సహా పేజీ మొత్తం రావాలి.", "Use good light; avoid your shadow and glare.": "మంచి వెలుతురులో తీయండి; మీ నీడ, మెరుపు పడకుండా చూడండి.",
+    "Take photo": "ఫోటో తీయండి", "Choose from gallery": "గ్యాలరీ నుండి ఎంచుకోండి", "JPG, PNG or WEBP (phone camera photos). One page at a time.": "JPG, PNG లేదా WEBP (ఫోన్ కెమెరా ఫోటోలు). ఒకసారి ఒక పేజీ.",
+    "⟲ Turn left": "⟲ ఎడమకు తిప్పండి", "⟳ Turn right": "⟳ కుడికి తిప్పండి", "Improve contrast": "స్పష్టత పెంచండి", "Read the register": "రిజిస్టర్ చదవండి", "Cancel import": "దిగుమతి రద్దు",
+    "Earlier imports": "గత దిగుమతులు", "Register photo": "రిజిస్టర్ ఫోటో", "Hide": "దాచండి", "Show": "చూపించు",
+    "The register reader is not set up yet. It needs a Gemini key in Apps Script (GEMINI_KEY). Until then you can still add visitors manually.": "రిజిస్టర్ చదివే సదుపాయం ఇంకా సెటప్ కాలేదు. Apps Scriptలో Gemini కీ (GEMINI_KEY) కావాలి. అప్పటివరకు సందర్శకులను మాన్యువల్‌గా జోడించవచ్చు.",
+    "The photo looks blurry. A sharper photo will be read much better: hold the phone still and tap the screen to focus.": "ఫోటో మసకగా ఉంది. స్పష్టమైన ఫోటో బాగా చదవబడుతుంది: ఫోన్ కదలకుండా పట్టుకుని, ఫోకస్ కోసం స్క్రీన్‌పై నొక్కండి.",
+    "Preparing the photo…": "ఫోటో సిద్ధం చేస్తోంది…", "Uploading the photo…": "ఫోటో అప్‌లోడ్ అవుతోంది…", "Reading the handwriting…": "చేతిరాత చదువుతోంది…", "Done": "పూర్తయింది",
+    "Reading handwriting usually takes 20 to 60 seconds. Keep this screen open.": "చేతిరాత చదవడానికి సాధారణంగా 20 నుండి 60 సెకన్లు పడుతుంది. ఈ స్క్రీన్ తెరిచే ఉంచండి.",
+    "Choose another photo": "మరో ఫోటో ఎంచుకోండి", "Try again": "మళ్ళీ ప్రయత్నించండి", "Review entries": "ఎంట్రీలను సరిచూడండి",
+    "entries found on the page": "ఎంట్రీలు పేజీలో దొరికాయి", "entry found on the page": "ఎంట్రీ పేజీలో దొరికింది", "All read clearly": "అన్నీ స్పష్టంగా చదివింది",
+    "Next, check every entry against the photo. Highlighted fields could not be read with confidence: correct them or tap Looks right. Nothing is saved until you tap Save all entries.": "తర్వాత ప్రతి ఎంట్రీని ఫోటోతో పోల్చి చూడండి. రంగుతో గుర్తించిన వాటిని ఖచ్చితంగా చదవలేకపోయింది: వాటిని సరిచేయండి లేదా సరిగ్గానే ఉంది నొక్కండి. అన్ని ఎంట్రీలు సేవ్ చేయండి నొక్కే వరకు ఏదీ సేవ్ కాదు.",
+    "Visitor name": "సందర్శకుడి పేరు", "Flat": "ఫ్లాట్", "Purpose": "ఉద్దేశ్యం", "Phone": "ఫోన్", "In time": "లోపలికి వచ్చిన సమయం", "Out time": "బయటికి వెళ్ళిన సమయం", "Remarks": "వ్యాఖ్యలు", "optional": "ఐచ్ఛికం",
+    "Choose…": "ఎంచుకోండి…", "Common area / office": "ఉమ్మడి ప్రదేశం / ఆఫీసు", "Looks right ✓": "సరిగ్గానే ఉంది ✓", "Not sure this was read right.": "సరిగ్గా చదివిందో లేదో ఖచ్చితంగా తెలియదు.",
+    "Enter the visitor's name": "సందర్శకుడి పేరు నమోదు చేయండి", "Enter the date": "తేదీ నమోదు చేయండి", "Date is in the future": "తేదీ భవిష్యత్తులో ఉంది", "Choose the flat": "ఫ్లాట్ ఎంచుకోండి",
+    "Not a flat in this apartment": "ఈ అపార్ట్‌మెంట్‌లో ఈ ఫ్లాట్ లేదు", "Enter the in time": "లోపలికి వచ్చిన సమయం నమోదు చేయండి", "Check the out time": "బయటికి వెళ్ళిన సమయం సరిచూడండి", "Digits only (6 to 15)": "అంకెలు మాత్రమే (6 నుండి 15)",
+    "Ready": "సిద్ధం", "Needs correction": "సరిచేయాలి", "Possible duplicate": "ఇప్పటికే ఉండవచ్చు", "Removed": "తీసివేశారు", "Undo": "రద్దు", "Saved ✓": "సేవ్ అయింది ✓", "Not saved, try again": "సేవ్ కాలేదు, మళ్ళీ ప్రయత్నించండి",
+    "Save it anyway": "అయినా సేవ్ చేయండి", "Save it anyway (duplicate)": "అయినా సేవ్ చేయండి (నకిలీ)", "+ Add a missing entry": "+ మిగిలిపోయిన ఎంట్రీ జోడించండి",
+    "Read another page": "మరో పేజీ చదవండి", "View visitor history": "సందర్శకుల చరిత్ర చూడండి", "Saving…": "సేవ్ అవుతోంది…", "Nothing new was saved.": "కొత్తగా ఏదీ సేవ్ కాలేదు.",
+    "Not saved: no connection. Tap Save again; nothing will be saved twice.": "సేవ్ కాలేదు: ఇంటర్నెట్ లేదు. మళ్ళీ సేవ్ నొక్కండి; ఏదీ రెండుసార్లు సేవ్ కాదు.",
+    "Only the Secretary can import register photos.": "రిజిస్టర్ ఫోటోలను కార్యదర్శి మాత్రమే దిగుమతి చేయగలరు.", "The photo did not arrive. Please upload it again.": "ఫోటో చేరలేదు. దయచేసి మళ్ళీ అప్‌లోడ్ చేయండి.",
+    "This photo can't be opened here. Please use a JPG or PNG photo.": "ఈ ఫోటో ఇక్కడ తెరవలేము. దయచేసి JPG లేదా PNG ఫోటో వాడండి.", "This photo is too small to read. Please use the camera's full size.": "ఈ ఫోటో చదవడానికి చాలా చిన్నది. కెమెరా పూర్తి సైజులో తీయండి."
+  };
+  for (var k8 in TE8) if (Object.prototype.hasOwnProperty.call(TE8, k8) && !Object.prototype.hasOwnProperty.call(TE, k8)) TE[k8] = TE8[k8];
+  PAT.push(
+    [/^(\d+) need checking$/, function (m, a) { return a + " సరిచూడాలి"; }],
+    [/^(\d+) possible duplicates?$/, function (m, a) { return a + " ఇప్పటికే ఉండవచ్చు"; }],
+    [/^(\d+) duplicates?( skipped)?$/, function (m, a, b) { return a + (b ? " నకిలీలు వదిలేశారు" : " నకిలీలు"); }],
+    [/^(\d+) ready$/, function (m, a) { return a + " సిద్ధం"; }], [/^(\d+) saved$/, function (m, a) { return a + " సేవ్ అయ్యాయి"; }],
+    [/^(\d+) to check$/, function (m, a) { return a + " సరిచూడాలి"; }], [/^(\d+) need correction$/, function (m, a) { return a + " సరిచేయాలి"; }],
+    [/^(\d+) failed to save$/, function (m, a) { return a + " సేవ్ కాలేదు"; }],
+    [/^Check (\d+) fields?$/, function (m, a) { return a + " సరిచూడాలి"; }],
+    [/^(Save all entries|Save remaining) \((\d+)\)$/, function (m, a, b) { return (a === "Save remaining" ? "మిగిలినవి సేవ్ చేయండి" : "అన్ని ఎంట్రీలు సేవ్ చేయండి") + " (" + b + ")"; }],
+    [/^(\d+) entr(?:y|ies) saved to the visitor register\.$/, function (m, a) { return a + " ఎంట్రీలు సందర్శకుల రిజిస్టర్‌లో సేవ్ అయ్యాయి."; }],
+    [/^(\d+) read · (\d+) saved · (.*)$/, function (m, a, b, c) { return a + " చదివింది · " + b + " సేవ్ · " + tr(c); }],
+    [/^S\.No (.+)$/, function (m, a) { return "క్ర.సం. " + a; }],
+    [/^Read as “(.*)”\. (.*)$/, function (m, a, b) { return "“" + a + "” అని చదివింది. " + tr(b); }],
+    [/^Read as “(.*)”\.$/, function (m, a) { return "“" + a + "” అని చదివింది."; }],
+    [/^Remove entry (\d+)$/, function (m, a) { return a + " వ ఎంట్రీ తీసివేయండి"; }],
+    [/^Looks like an entry already in the register: (.*)\. It will not be saved again\.$/, function (m, a) { return "ఈ ఎంట్రీ ఇప్పటికే రిజిస్టర్‌లో ఉన్నట్లుంది: " + a + ". మళ్ళీ సేవ్ కాదు."; }],
+    [/^(\d+) entr(?:y is|ies are) ready\. (\d+) others? still needs? checking and will not be saved now\. Save the ready ones\?$/, function (m, a, b) { return a + " ఎంట్రీలు సిద్ధంగా ఉన్నాయి. మరో " + b + " ఇంకా సరిచూడాలి, ఇప్పుడు సేవ్ కావు. సిద్ధంగా ఉన్నవి సేవ్ చేయాలా?"; }],
+    [/^Cancel this import\? (\d+) entr(?:y has|ies have) not been saved\.$/, function (m, a) { return "ఈ దిగుమతి రద్దు చేయాలా? " + a + " ఎంట్రీలు ఇంకా సేవ్ కాలేదు."; }]
+  );
   var WDTE = { Monday: "సోమవారం", Tuesday: "మంగళవారం", Wednesday: "బుధవారం", Thursday: "గురువారం", Friday: "శుక్రవారం", Saturday: "శనివారం", Sunday: "ఆదివారం" };
   var MON3 = { Jan: "జనవరి", Feb: "ఫిబ్రవరి", Mar: "మార్చి", Apr: "ఏప్రిల్", May: "మే", Jun: "జూన్", Jul: "జూలై", Aug: "ఆగస్టు", Sep: "సెప్టెంబర్", Oct: "అక్టోబర్", Nov: "నవంబర్", Dec: "డిసెంబర్" };
   var MONRX = "January|February|March|April|May|June|July|August|September|October|November|December";

@@ -21,7 +21,7 @@ const TABLES = {
   meetings: ['id', 'title', 'on_date', 'at_time', 'place', 'kind', 'created_at', 'te', 'agenda', 'attendance', 'attendees_other', 'minutes', 'resolutions', 'status', 'published_on'],
   polls: ['id', 'question', 'options', 'status', 'created_at', 'te'],
   votes: ['id', 'poll_id', 'flat_no', 'choice', 'created_at'],
-  visitors: ['id', 'visit_on', 'count', 'created_at', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'phone', 'added_by', 'status', 'decided_by', 'decided_at', 'pass_id'],
+  visitors: ['id', 'visit_on', 'count', 'created_at', 'name', 'flat_no', 'purpose', 'in_time', 'out_time', 'phone', 'added_by', 'status', 'decided_by', 'decided_at', 'pass_id', 'remarks', 'import_id', 'import_key'],
   status: ['item', 'state', 'updated_on'],
   push_tokens: ['token', 'username', 'role', 'updated_at'],
   /* ---- apartment assets, service history, reminders, emergency contacts, meeting action items, audit trail ---- */
@@ -38,7 +38,9 @@ const TABLES = {
   /* watchman: staff list, leave (applied by the gate login or recorded by the Association) and daily attendance */
   staff: ['id', 'name', 'role', 'phone', 'joined_on', 'paid_leaves_year', 'active', 'notes', 'created_at'],
   leaves: ['id', 'staff_id', 'from_date', 'to_date', 'days', 'kind', 'reason', 'status', 'requested_by', 'decided_by', 'decided_at', 'notice_id', 'created_at'],
-  attendance: ['id', 'staff_id', 'on_date', 'status', 'marked_by', 'marked_at', 'created_at']
+  attendance: ['id', 'staff_id', 'on_date', 'status', 'marked_by', 'marked_at', 'created_at'],
+  /* register photo imports (Secretary): one row per photographed page */
+  visitor_imports: ['id', 'at', 'by', 'photo', 'model', 'found', 'unsure', 'saved', 'duplicates', 'failed', 'status', 'note']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
@@ -213,6 +215,14 @@ function route_(b) {
     const lock = LockService.getScriptLock(); lock.waitLock(20000);
     try { const r = b.a === 'flatPhone' ? flatPhone_(u, b) : decideByUser_(u, b); if (r && r.ok) r.snapshot = snapshot_(u); return r; } finally { lock.releaseLock(); }
   }
+  if (b.a === 'registerScan') { ensureHeader_('visitors'); ensureHeader_('visitor_imports'); return regScan_(u, b); }
+  if (b.a === 'registerSave' || b.a === 'registerCancel') {
+    ensureHeader_('visitors'); ensureHeader_('visitor_imports');
+    const lock = LockService.getScriptLock(); lock.waitLock(20000); TOUCHED_ = {};
+    try { const r = b.a === 'registerSave' ? regSave_(u, b) : regCancel_(u, b); if (r && r.ok) { Object.keys(TOUCHED_).forEach(patchSnap_); r.snapshot = snapshot_(u); } return r; }
+    finally { lock.releaseLock(); }
+  }
+  if (b.a === 'registerImports') { ensureHeader_('visitor_imports'); return regList_(u); }
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
@@ -459,7 +469,8 @@ const MAX_BYTES = 1000000, PIECE = 45000;
 function upload_(u, b) {
   const err = m => ({ error: { message: m } });
   if (!verified_(u)) return err('Please verify your e-mail first.');
-  if (b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
+  if (b.kind === 'register' ? REG_ROLE.indexOf(u.role) < 0 : b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
+  if (b.kind === 'register' && !/^data:image\/(jpeg|png|webp);/.test(String(b.img || ''))) return err('Please choose a photo (JPG or PNG).');
   const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf|audio\/(?:webm|ogg|mp4|mpeg));base64,([A-Za-z0-9+\/=]+)$/.exec(String(b.img || ''));
   if (!m) return err('Please choose a photo or a PDF file.');
   if (m[1] === 'application/pdf' && b.kind !== 'gallery') return err('PDF files are not allowed here.');
@@ -488,7 +499,8 @@ function photo_(u, b) {
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
   const ok = T.gallery.some(r => String(r.photo) === id && (r.visibility !== 'committee' || u.role !== 'resident')) ||
     T.complaints.some(r => (String(r.photos || '').split('|').concat(String(r.reply_photos || '').split('|')).indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
-  const f = ok && fileRows_(id);
+  const okReg = !ok && REG_ROLE.indexOf(u.role) >= 0 && sh_('visitor_imports') && read_('visitor_imports').some(r => String(r.photo) === id);
+  const f = (ok || okReg) && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
   const v = f.sh.getRange(f.first, 3, f.n, 2).getValues();
   return { ok: true, img: 'data:' + v[0][0] + ';base64,' + v.map(r => r[1]).join('') };
@@ -1412,6 +1424,189 @@ function testPush() { Logger.log(JSON.stringify(pushAll_('Test alert', 'Push not
 function sendAppUpdateNow() { Logger.log(JSON.stringify(pushAll_('Krishna Kuteer updated', 'A new version of the app is ready. Open it to see what is new.', '/'))); }
 function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').length); }
 
+
+/* ---------- VISITOR REGISTER PHOTO IMPORT (Secretary only) ----------
+   The Secretary photographs one page of the handwritten visitor register. Google's Gemini AI reads the page and returns each row.
+   The Secretary checks and corrects every row in the app, then saves them all at once. Nothing is saved without that check.
+   SET UP ONCE:
+     1. Open https://aistudio.google.com/apikey (sign in with the Google account that owns this Sheet) and tap "Create API key".
+     2. Here in Apps Script: Project Settings (gear icon) > Script properties > Add script property
+          Property: GEMINI_KEY      Value: the key you copied
+        (optional) Property: GEMINI_MODEL   Value: another Gemini model name, if Google retires the default one.
+     3. Run testGemini() once and click Allow. The log should say "Gemini is working".
+   Free key: free of charge with a daily limit; Google may use what is sent to improve its products. To keep the register photos
+   out of that, turn on billing for the key in AI Studio (a page costs well under one rupee). */
+const REG_ROLE = ['secretary'];                                  /* who may import register photos */
+const GEM_MODEL_ = () => PROPS_().getProperty('GEMINI_MODEL') || 'gemini-flash-latest';
+const REG_MAX_ROWS = 200;
+function regPrompt_() {
+  return 'You are reading a photo of ONE page of a handwritten visitor register kept at the gate of an apartment building in Hyderabad, India. ' +
+    'The columns are usually: S.No, Date, Visitor Name, Flat No (the flat visited), Purpose of visit, Phone No, In Time, Signature, Out Time, Remarks. ' +
+    'Use the headings written on the page if the order is different. The photo may be tilted, curved or unevenly lit; follow each ruled row carefully so every value stays in its own row and column.\n' +
+    'Transcribe every visitor row on the page, top to bottom. Rules:\n' +
+    '- Copy what is written. NEVER guess, invent or "correct" a value.\n' +
+    '- If a cell is empty, return "".\n' +
+    '- If a cell has writing you cannot read, return "" for it and add the field name to "unclear".\n' +
+    '- If you can read a cell but are not fully sure, return your reading and add the field name to "unsure".\n' +
+    '- Ignore the Signature column completely.\n' +
+    '- Ditto marks (", do, -do-, same) mean the same value as the row above: copy that value.\n' +
+    '- date: as written. date_iso: the same date as YYYY-MM-DD; the day comes BEFORE the month (Indian style). Today is ' + today_() + '; if the year is not written, use the year that makes the date closest to today without being in the future. If you cannot work it out, return "" and add "date" to "unsure".\n' +
+    '- in_time and out_time: 24-hour HH:MM. If AM/PM is not written, use the most likely time for a visitor (07:00-21:59) and add the field to "unsure".\n' +
+    '- phone: digits only, as written (no guessing of missing digits).\n' +
+    '- Skip the heading row, completely crossed-out rows and empty rows.\n' +
+    'Field names for "unsure"/"unclear": serial, date, name, flat, purpose, phone, in_time, out_time, remarks.\n' +
+    'Reply with JSON only, exactly this shape: {"readable": true, "problem": "", "rows": [{"serial": "", "date": "", "date_iso": "", "name": "", "flat": "", "purpose": "", "phone": "", "in_time": "", "out_time": "", "remarks": "", "unsure": [], "unclear": []}]}\n' +
+    'If the photo is not a visitor register, or is too blurry, dark or cut off to read, reply {"readable": false, "problem": "<one short sentence in plain English>", "rows": []}.';
+}
+/* Gemini: image in, JSON out */
+function gemini_(mime, b64) {
+  const key = PROPS_().getProperty('GEMINI_KEY');
+  if (!key) throw new Error('The register reader is not set up yet. In Apps Script, add the GEMINI_KEY script property (see the note above regScan_ in Code.gs).');
+  const model = GEM_MODEL_();
+  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': key },
+    payload: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: regPrompt_() }, { inlineData: { mimeType: mime, data: b64 } }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0 } })
+  });
+  const code = res.getResponseCode(), txt = res.getContentText();
+  if (code === 429) throw new Error('The register reader has reached its limit for now. Please try again in a few minutes (or tomorrow).');
+  if (code === 400 && /API key/i.test(txt)) throw new Error('The GEMINI_KEY in Apps Script is not valid. Create a new key and save it again.');
+  if (code === 403) throw new Error('The GEMINI_KEY in Apps Script is not allowed to use Gemini. Check the key in Google AI Studio.');
+  if (code === 404) throw new Error('The Gemini model "' + model + '" is not available. Set GEMINI_MODEL in Apps Script to a current Flash model.');
+  if (code >= 500) throw new Error('Google\'s reader is busy. Please try again in a minute.');
+  if (code !== 200) throw new Error('The register reader could not read this photo (error ' + code + ').');
+  let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('The register reader sent an unexpected answer. Please try again.'); }
+  const c = (j.candidates || [])[0];
+  if (!c || !c.content) throw new Error(c && c.finishReason === 'SAFETY' ? 'The reader refused this photo. Please take a clearer photo of the register page only.' : 'The register reader gave no answer. Please try again.');
+  const out = (c.content.parts || []).filter(p => p.text && !p.thought).map(p => p.text).join('').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+  let r; try { r = JSON.parse(out); } catch (e) { throw new Error('The register reader sent an unexpected answer. Please try again.'); }
+  return { model: model, r: r };
+}
+/* ---- turning what was read into app values (anything that does not fit is left blank and flagged, never guessed) ---- */
+function regDate_(iso, raw) {
+  const ok = d => isDate_(d) && !isNaN(new Date(d + 'T00:00:00Z')) && new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) === d && d <= today_() && d >= '2015-01-01';
+  if (ok(String(iso || ''))) return String(iso);
+  const m = /^\s*(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})\s*$/.exec(String(raw || ''));
+  if (m) { const y = m[3].length === 2 ? '20' + m[3] : m[3], d = y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2); if (ok(d)) return d; }
+  return '';
+}
+function regTime_(x) {
+  const s = String(x || '').trim().toLowerCase().replace(/\s+/g, '');
+  const m = /^(\d{1,2})(?:[:.](\d{2}))?(am|pm|a\.m\.|p\.m\.)?$/.exec(s) || /^(\d{1,2})(\d{2})(am|pm)?$/.exec(s);
+  if (!m) return '';
+  let h = +m[1]; const mi = m[2] == null ? 0 : +m[2], ap = (m[3] || '').charAt(0);
+  if (ap === 'p' && h < 12) h += 12; if (ap === 'a' && h === 12) h = 0;
+  if (h > 23 || mi > 59) return '';
+  return ('0' + h).slice(-2) + ':' + ('0' + mi).slice(-2);
+}
+function regFlat_(raw, flats) {
+  const s = String(raw || '').trim(); if (!s) return '';
+  const exact = flats.filter(f => String(f.flat_no).toLowerCase() === s.toLowerCase())[0]; if (exact) return String(exact.flat_no);
+  const d = (s.match(/\d+/g) || []).join(''); const hit = d && flats.filter(f => String(f.flat_no).replace(/\D/g, '') === d);
+  return hit && hit.length === 1 ? String(hit[0].flat_no) : '';
+}
+const regNorm_ = x => String(x || '').toLowerCase().replace(/[^a-z0-9ఀ-౿]/g, '');
+const regDupKey_ = r => [String(r.visit_on).slice(0, 10), regNorm_(r.name), String(r.flat_no || '').toLowerCase(), String(r.in_time || '').slice(0, 5)].join('|');
+function regRows_(read, flats) {
+  const F = ['serial', 'date', 'name', 'flat', 'purpose', 'phone', 'in_time', 'out_time', 'remarks'];
+  return (Array.isArray(read.rows) ? read.rows : []).slice(0, REG_MAX_ROWS).map((x, i) => {
+    x = x || {}; const t = k => String(x[k] == null ? '' : x[k]).replace(/\s+/g, ' ').trim();
+    const flags = {};
+    [].concat(x.unsure || [], x.unclear || []).forEach(k => { if (F.indexOf(k) >= 0) flags[k === 'flat' ? 'flat_no' : k === 'date' ? 'visit_on' : k] = 1; });
+    const visit_on = regDate_(t('date_iso'), t('date')); if (!visit_on && (t('date') || t('date_iso'))) flags.visit_on = 1;
+    const flat_no = regFlat_(t('flat'), flats); if (!flat_no && t('flat')) flags.flat_no = 1;
+    const tin = regTime_(t('in_time')), tout = regTime_(t('out_time'));
+    if (!tin && t('in_time')) flags.in_time = 1; if (!tout && t('out_time')) flags.out_time = 1;
+    let phone = t('phone').replace(/[^\d+]/g, ''); if (phone && !/^(\+?91)?[6-9]\d{9}$|^0\d{9,11}$/.test(phone)) flags.phone = 1;
+    return { key: 'r' + (i + 1), serial: t('serial').slice(0, 10), visit_on: visit_on, name: t('name').slice(0, 80), flat_no: flat_no, purpose: t('purpose').slice(0, 80),
+      phone: phone.slice(0, 15), in_time: tin, out_time: tout, remarks: t('remarks').slice(0, 200), flags: Object.keys(flags),
+      raw: { date: t('date'), flat: t('flat'), in_time: t('in_time'), out_time: t('out_time'), phone: t('phone') } };
+  });
+}
+function regScan_(u, b) {
+  const err = m => ({ error: { message: m } });
+  if (REG_ROLE.indexOf(u.role) < 0) return err('Only the Secretary can import register photos.');
+  const id = String(b.photo || ''), f = fileRows_(id);
+  if (!f || CacheService.getScriptCache().get('up_' + id) !== String(u.username)) return err('The photo did not arrive. Please upload it again.');
+  const v = f.sh.getRange(f.first, 3, f.n, 2).getValues(), mime = String(v[0][0]);
+  if (!/^image\/(jpeg|png|webp)$/.test(mime)) return err('Please choose a photo (JPG or PNG).');
+  let g; try { g = gemini_(mime, v.map(r => r[1]).join('')); } catch (e) { return err(e.message); }
+  const flats = read_('flats'), rows = g.r && g.r.readable !== false ? regRows_(g.r, flats) : [];
+  if (!rows.length) return err((g.r && g.r.problem ? String(g.r.problem).slice(0, 200) + ' ' : '') + 'No visitor entries could be read from this photo. Retake it straight from above, in good light, with the whole page in view.');
+  /* possible duplicates of entries already in the register (same date, name, flat and in-time) */
+  const have = {}; read_('visitors').forEach(r => { if (r.name) have[regDupKey_(r)] = r.id; });
+  rows.forEach(r => { const k = regDupKey_(r); if (r.visit_on && r.name && have[k]) r.dup = have[k]; });
+  const unsure = rows.filter(r => r.flags.length).length, lock = LockService.getScriptLock(); lock.waitLock(20000);
+  let imp; try { imp = appendRec_('visitor_imports', { at: now_(), by: u.username, photo: id, model: g.model, found: rows.length, unsure: unsure, saved: 0, duplicates: rows.filter(r => r.dup).length, failed: 0, status: 'read' }); }
+  finally { lock.releaseLock(); }
+  return { ok: true, import_id: imp.id, photo: id, rows: rows };
+}
+function regSave_(u, b) {
+  const err = m => ({ error: { message: m } });
+  if (REG_ROLE.indexOf(u.role) < 0) return err('Only the Secretary can import register photos.');
+  const imp = byId_('visitor_imports', b.import_id); if (!imp) return err('This import was not found. Please read the photo again.');
+  const rows = Array.isArray(b.rows) ? b.rows.slice(0, REG_MAX_ROWS) : []; if (!rows.length) return err('There are no entries to save.');
+  const flats = read_('flats').map(f => String(f.flat_no)).concat(['Common area']), visitors = read_('visitors'), byKey = {}, have = {};
+  visitors.forEach(r => { if (r.import_key) byKey[String(r.import_key)] = r.id; if (r.name) have[regDupKey_(r)] = r.id; });
+  const results = [], recs = [], today = today_();
+  rows.forEach(x => {
+    x = x || {}; const key = String(x.key || ''), res = { key: key };
+    if (!/^[A-Za-z0-9_-]{1,24}$/.test(key)) { res.status = 'invalid'; res.message = 'Bad row.'; results.push(res); return; }
+    const ik = imp.id + ':' + key;
+    if (byKey[ik]) { res.status = 'saved'; res.id = byKey[ik]; res.already = true; results.push(res); return; } /* saved by an earlier try: never twice */
+    const r = { visit_on: String(x.visit_on || ''), name: String(x.name || '').replace(/\s+/g, ' ').trim(), flat_no: String(x.flat_no || ''), purpose: String(x.purpose || '').trim().slice(0, 80),
+      phone: String(x.phone || '').replace(/[^\d+]/g, ''), in_time: String(x.in_time || ''), out_time: String(x.out_time || ''), remarks: String(x.remarks || '').trim().slice(0, 200) };
+    const bad = [];
+    if (!r.name || r.name.length > 80) bad.push('name');
+    if (!isDate_(r.visit_on) || r.visit_on > today) bad.push('date');
+    if (flats.indexOf(r.flat_no) < 0) bad.push('flat');
+    if (!isTime_(r.in_time)) bad.push('in-time');
+    if (r.out_time && !isTime_(r.out_time)) bad.push('out-time');
+    if (r.phone && !/^\+?\d{6,15}$/.test(r.phone)) bad.push('phone');
+    if (bad.length) { res.status = 'invalid'; res.message = 'Check the ' + bad.join(', ') + '.'; results.push(res); return; }
+    const dk = regDupKey_(r);
+    if (have[dk] && x.force !== true) { res.status = 'duplicate'; res.id = have[dk]; res.message = 'Already in the register.'; results.push(res); return; }
+    have[dk] = 'new';
+    recs.push(Object.assign(r, { count: 1, added_by: u.username, status: 'register', import_id: imp.id, import_key: ik, created_at: now_() }));
+    res.status = 'saved'; res.rec = recs[recs.length - 1]; results.push(res);
+  });
+  /* one write for the whole batch */
+  if (recs.length) {
+    const sh = sh_('visitors'), cols = TABLES.visitors; let id = nextId_('visitors', 'id');
+    recs.forEach(r => { r.id = id++; });
+    try {
+      const start = Math.max(sh.getLastRow(), 1) + 1, need = start + recs.length - 1 - sh.getMaxRows();
+      if (need > 0) sh.insertRowsAfter(sh.getMaxRows(), need);
+      sh.getRange(start, 1, recs.length, cols.length).setValues(recs.map(r => cols.map(c => r[c] == null ? '' : cell_(r[c]))));
+      TOUCHED_.visitors = 1;
+    } catch (e) { results.forEach(x => { if (x.rec) { x.status = 'failed'; x.message = 'Could not save. Please try again.'; } }); }
+  }
+  results.forEach(x => { if (x.rec) { if (x.status === 'saved') x.id = x.rec.id; delete x.rec; } });
+  const n = s => results.filter(x => x.status === s).length, saved = (+imp.saved || 0) + results.filter(x => x.status === 'saved' && !x.already).length;
+  setCells_('visitor_imports', imp.__r, { saved: saved, duplicates: n('duplicate'), failed: n('failed') + n('invalid'), status: n('failed') + n('invalid') + n('duplicate') ? 'partly saved' : 'saved' });
+  const fresh = results.filter(x => x.status === 'saved' && !x.already).length;
+  if (fresh) audit_(u, 'insert', 'visitors', 'import ' + imp.id, 'Visitor register photo: ' + fresh + ' entr' + (fresh === 1 ? 'y' : 'ies') + ' saved', null, null);
+  return { ok: true, results: results };
+}
+function regCancel_(u, b) {
+  if (REG_ROLE.indexOf(u.role) < 0) return { error: { message: 'Only the Secretary can import register photos.' } };
+  const imp = byId_('visitor_imports', b.import_id);
+  if (imp && !(+imp.saved)) setCells_('visitor_imports', imp.__r, { status: 'cancelled' });
+  return { ok: true };
+}
+function regList_(u) {
+  if (REG_ROLE.indexOf(u.role) < 0) return { error: { message: 'Only the Secretary can import register photos.' } };
+  const rows = sh_('visitor_imports') ? read_('visitor_imports') : [];
+  return { ok: true, ready: !!PROPS_().getProperty('GEMINI_KEY'), imports: rows.slice(-15).reverse().map(r => ({ id: r.id, at: r.at, by: r.by, photo: r.photo, found: r.found, saved: r.saved, status: r.status })) };
+}
+/* Run once after adding GEMINI_KEY: checks that the key and model answer */
+function testGemini() {
+  const key = PROPS_().getProperty('GEMINI_KEY');
+  if (!key) { Logger.log('Add the GEMINI_KEY script property first (Project Settings > Script properties).'); return; }
+  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(GEM_MODEL_()) + ':generateContent', { method: 'post', contentType: 'application/json',
+    muteHttpExceptions: true, headers: { 'x-goog-api-key': key }, payload: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the single word OK.' }] }] }) });
+  Logger.log(res.getResponseCode() === 200 ? 'Gemini is working (model ' + GEM_MODEL_() + ').' : 'Gemini answered ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
+}
 
 /* ---------- TELUGU: typed text (notices, complaints, events, polls...) gets a Telugu copy ----------
    When something is posted, Google Translate makes a Telugu copy and saves it in the 'te' column of that tab.

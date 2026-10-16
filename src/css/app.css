@@ -161,3 +161,65 @@ svg.tr .bl{fill:none;stroke:var(--navy);stroke-width:1.8;stroke-linejoin:round}
 svg.tr .bd{fill:#fff;stroke:var(--navy);stroke-width:1.6}
 .lg i.bli{height:0;border-top:2px solid var(--navy);border-radius:0;width:14px}
 @media(min-width:760px){.ins.mny>.cfc{grid-column:2;grid-row:1/span 2}}
+
+/* ---------- Visitor register photo import (Secretary) ---------- */
+html.rgon,html.rgon body{overflow:hidden}
+.rgx{position:fixed;inset:0;z-index:45;background:var(--bg);display:flex;flex-direction:column;animation:fadeIn .15s}
+.rgh{display:flex;align-items:center;gap:10px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));background:linear-gradient(135deg,#0e1a2f,#1d3b78);color:#fff}
+.rgh b{display:block;font-size:1.02rem}
+.rgh small{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:.74rem;color:#b9cdf5;margin-top:2px}
+.rgh small span.on{color:#fff;font-weight:700}.rgh small span.dn{color:#9fe0b4}.rgh small i{font-style:normal;opacity:.6}
+button.rgi{width:38px;height:38px;min-height:0;padding:0;flex:none;border-radius:10px;background:rgba(255,255,255,.14);color:inherit;font-size:1rem;display:grid;place-items:center}
+.rgc{flex:1;overflow:auto;padding:14px;-webkit-overflow-scrolling:touch}
+.rgc>.card,.rgc .card{margin-bottom:12px}
+.rgf{display:flex;gap:8px;padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(14,26,47,.06)}
+.rgf button{flex:1;min-height:46px}.rgf button:disabled{opacity:.45;cursor:default}
+.rgtips{margin:8px 0 12px;padding-left:1.1rem;color:var(--grey);font-size:.9rem}.rgtips li{margin:2px 0}
+.rgpick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rgbig{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 8px;border-radius:14px;background:var(--navy);color:#fff;font-weight:600;cursor:pointer;text-align:center}
+.rgbig span{font-size:1.7rem}.rgbig.alt{background:var(--sky);color:#1b4aa8;border:1px dashed rgba(47,111,224,.6)}
+.rgsm{display:block;color:var(--grey);font-size:.8rem;margin-top:8px}
+.rgprev{background:#e9eef6;border-radius:12px;overflow:hidden;display:grid;place-items:center;max-height:52vh}
+.rgprev img{max-width:100%;max-height:52vh;display:block}
+.rgtools button{width:auto;flex:none}
+.rgchk{display:inline-flex;align-items:center;gap:7px;font-size:.88rem;cursor:pointer}.rgchk input{width:auto;margin:0}
+.note.warn{background:#fdf0dc;color:#7a4206;border-radius:10px;padding:8px 11px}
+.note.bad{background:#fde8e6;color:#8a1c12;border-radius:10px;padding:8px 11px}
+.rgold .it small{display:block}.rgold button{width:auto}
+.rgbusy{text-align:center;padding:28px 18px}.rgbusy small{display:block;color:var(--grey);margin-top:10px}
+.rgspin{width:44px;height:44px;margin:0 auto 12px;border-radius:50%;border:4px solid var(--sky);border-top-color:var(--blue);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rgbar{height:8px;border-radius:99px;background:var(--sky);overflow:hidden;margin-top:14px}.rgbar i{display:block;height:100%;background:var(--blue);border-radius:99px;transition:width .6s}
+.rgsum{text-align:center;padding:22px 16px}.rgbig2{font-size:2.6rem;font-weight:800;color:var(--navy);line-height:1}
+.rgpills{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:8px}
+.rgrv{display:grid;gap:12px}
+.rgph{position:sticky;top:-14px;z-index:2;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(14,26,47,.08)}
+.rgpt{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid var(--line)}
+.rgpt span{display:flex;gap:6px}
+button.rgsmb{width:auto;min-height:0;padding:5px 11px;font-size:.82rem}
+.rgpi{height:30vh;overflow:auto;background:#e9eef6;touch-action:pan-x pan-y pinch-zoom}.rgpi img{display:block;max-width:none}
+.rgph.min .rgpi{display:none}
+.rgtot{padding:12px 14px}.rgtot .rgpills{justify-content:flex-start}
+.rgrow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:10px}
+.rgrow.sv{background:#f3fbf5;border-color:#cdebd6}.rgrow.sv small{color:var(--grey)}
+.rgrow.del{opacity:.65}
+.rgrh{display:flex;align-items:center;gap:8px;margin-bottom:6px}.rgrh b{flex:1}.rgrh b small{color:var(--grey);font-weight:500}
+button.rgdel{background:#fde8e6;color:#b42318;width:34px;height:34px}
+.rgg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.rgfd{min-width:0}.rgfd.w{grid-column:1/-1}
+.rgfd label{display:block;font-size:.76rem;font-weight:600;color:var(--grey);margin-bottom:3px}.rgfd label small{font-weight:400}
+.rgfd input,.rgfd select{padding:9px 10px}
+.rgfd.uns input,.rgfd.uns select{border:2px solid #d97706;background:#fffaf0}
+.rgfd.bad input,.rgfd.bad select{border:2px solid #c0362c;background:#fff7f6}
+.rgh2{display:block;font-size:.76rem;margin-top:3px;color:#7a4206}.rgfd.bad .rgh2{color:#8a1c12}
+button.rgok{width:auto;min-height:0;padding:2px 8px;font-size:.74rem;border-radius:99px;background:#e4f6ea;color:#15803d;margin-left:2px}
+.rgmeta .note{margin:4px 0 8px}
+.rgdup .rgchk{display:flex;margin-top:6px;color:var(--ink)}
+button.rgadd{width:100%;border-style:dashed}
+.rgcard .btnrow button{flex:1 1 180px;width:auto}
+.rgv{z-index:46}
+@media(min-width:900px){
+ .rgrv{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+ .rgph{top:0}.rgpi{height:calc(100vh - 190px)}
+ .rgc{padding:18px 24px}
+}

@@ -36,6 +36,7 @@ const MODULES = {
   contacts: { files: ["pages/contacts.js"] },
   audit: { files: ["pages/audit.js"] },
   watchman: { files: ["pages/watchman.js"] },
+  regscan: { files: ["components/register-import.js"] }, /* Secretary: visitor register photo import */
 };
 /* page functions the menu (shell.js) and the month re-lock call, always after need(...) has loaded their file */
 const CORE_MAY_CALL = ["dash", "maint", "incomeBox", "works", "celeb", "visitors", "docs", "exps", "stmt", "complaints", "meetings", "polls",
