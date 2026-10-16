@@ -1459,15 +1459,26 @@ function regPrompt_() {
     'If the photo is not a visitor register, or is too blurry, dark or cut off to read, reply {"readable": false, "problem": "<one short sentence in plain English>", "rows": []}.';
 }
 /* Gemini: image in, JSON out */
+/* Google sometimes answers 503 "high demand" for a few seconds or minutes: wait and try again, then try the lighter model */
+const GEM_FALLBACK = 'gemini-flash-lite-latest';
+function gemFetch_(key, model, body) {
+  let res;
+  for (let i = 0; i < 3; i++) {
+    res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent',
+      { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body) });
+    const c = res.getResponseCode(); if (c !== 503 && c !== 500 && c !== 502) break;
+    if (i < 2 && typeof Utilities.sleep === 'function') Utilities.sleep(3000 * (i + 1));
+  }
+  return res;
+}
 function gemini_(mime, b64) {
   const key = PROPS_().getProperty('GEMINI_KEY');
   if (!key) throw new Error('The register reader is not set up yet. In Apps Script, add the GEMINI_KEY script property (see the note above regScan_ in Code.gs).');
-  const model = GEM_MODEL_();
-  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-goog-api-key': key },
-    payload: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: regPrompt_() }, { inlineData: { mimeType: mime, data: b64 } }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0 } })
-  });
+  let model = GEM_MODEL_();
+  const body = { contents: [{ role: 'user', parts: [{ text: regPrompt_() }, { inlineData: { mimeType: mime, data: b64 } }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0 } };
+  let res = gemFetch_(key, model, body);
+  if (res.getResponseCode() >= 500 && model !== GEM_FALLBACK) { model = GEM_FALLBACK; res = gemFetch_(key, model, body); }
   const code = res.getResponseCode(), txt = res.getContentText();
   if (code === 429) throw new Error('The register reader has reached its limit for now. Please try again in a few minutes (or tomorrow).');
   if (code === 400 && /API key/i.test(txt)) throw new Error('The GEMINI_KEY in Apps Script is not valid. Create a new key and save it again.');
@@ -1603,9 +1614,11 @@ function regList_(u) {
 function testGemini() {
   const key = PROPS_().getProperty('GEMINI_KEY');
   if (!key) { Logger.log('Add the GEMINI_KEY script property first (Project Settings > Script properties).'); return; }
-  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(GEM_MODEL_()) + ':generateContent', { method: 'post', contentType: 'application/json',
-    muteHttpExceptions: true, headers: { 'x-goog-api-key': key }, payload: JSON.stringify({ contents: [{ parts: [{ text: 'Reply with the single word OK.' }] }] }) });
-  Logger.log(res.getResponseCode() === 200 ? 'Gemini is working (model ' + GEM_MODEL_() + ').' : 'Gemini answered ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
+  const body = { contents: [{ parts: [{ text: 'Reply with the single word OK.' }] }] };
+  [GEM_MODEL_(), GEM_FALLBACK].forEach(m => {
+    const res = gemFetch_(key, m, body), c = res.getResponseCode();
+    Logger.log(c === 200 ? 'Gemini is working (model ' + m + ').' : c === 503 ? 'Model ' + m + ': Google is busy right now (503). Your key is fine; the app waits and retries by itself.' : 'Model ' + m + ' answered ' + c + ': ' + res.getContentText().slice(0, 300));
+  });
 }
 
 /* ---------- TELUGU: typed text (notices, complaints, events, polls...) gets a Telugu copy ----------

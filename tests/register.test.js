@@ -51,6 +51,8 @@ t('treasurer cannot view the register photo', () => no(C('tre', { a: 'photo', id
 t('someone else\'s upload id cannot be read', () => { const other = ok(C('tre', { a: 'upload', kind: 'complaint', img: IMG })).id; no(C('sec', { a: 'registerScan', photo: other }), /did not arrive/); });
 t('blurry page: plain message, nothing recorded', () => { READ = { readable: false, problem: 'The photo is too blurry.', rows: [] }; const n = G.x.read_('visitor_imports').length; no(C('sec', { a: 'registerScan', photo }), /too blurry/); assert.strictEqual(G.x.read_('visitor_imports').length, n); });
 t('daily limit: friendly message', () => { HTTP = 429; no(C('sec', { a: 'registerScan', photo }), /limit/); HTTP = 200; });
+t('busy (503): retries, then the lighter model reads it', () => { let n = 0; const f = G.ctx.UrlFetchApp.fetch; READ = GOOD; G.ctx.UrlFetchApp.fetch = (u, o) => { n++; const c = /lite/.test(u) ? 200 : 503, r = f(u, o), body = r.getContentText(); return { getResponseCode: () => c, getContentText: () => c === 200 ? body : '{}' }; };
+  const r = ok(C('sec', { a: 'registerScan', photo })); G.ctx.UrlFetchApp.fetch = f; assert.strictEqual(n, 4); assert.strictEqual(r.rows.length, 4); assert(/lite/.test(G.x.read_('visitor_imports').pop().model)); });
 
 console.log('Saving');
 const fix = (r, o) => Object.assign({}, r, o);
