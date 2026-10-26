@@ -6,13 +6,17 @@ const sheetHead=(title,extra="")=>`<h1>KRISHNA KUTEER APARTMENT</h1><div class="
 /* Printing works inside the page itself (no hidden iframe, no pop-up), so it also works on phones.
    The sheet is built in an isolated shadow root; while printing, everything else on the page is hidden. */
 let PRN_END=null;
-function printHTML(title,html,land,margin){
+/* clean: no date, title, web address or page number from the browser on the paper. Browsers print those in the page's top and
+   bottom margins, so in a browser the page gets no top/bottom margin and the sheet's own padding (repeated on every page) makes it.
+   The Android app's print screen never adds them, so there the page keeps its normal margins. */
+function printHTML(title,html,land,margin,clean){
  if(PRN_END)PRN_END();
  if(!document.body.attachShadow){toast("This browser cannot print from here. Please update it.");return}
  document.body.classList.remove("menu-open");
  const host=document.createElement("div");host.id="prn";host.setAttribute("aria-hidden","true");
- host.attachShadow({mode:"open"}).innerHTML=`<style>:host{display:block;background:#fff;color:#16202f}${PRN_CSS}${REGCSS}</style><div class="pw">${html}</div>`;
- const pg=document.createElement("style");pg.textContent=`@page{size:${land?"landscape":"portrait"};margin:${margin||(land?10:12)}mm}`;
+ const mm=margin||(land?10:12),cl=!!clean&&!KKP()&&window.CSS&&CSS.supports&&CSS.supports("box-decoration-break","clone");
+ host.attachShadow({mode:"open"}).innerHTML=`<style>:host{display:block;background:#fff;color:#16202f}${PRN_CSS}${REGCSS}</style>${cl?`<div style="padding:${mm}mm 0;-webkit-box-decoration-break:clone;box-decoration-break:clone">`:""}<div class="pw">${html}</div>${cl?"</div>":""}`;
+ const pg=document.createElement("style");pg.textContent=`@page{size:${land?"landscape":"portrait"};margin:${cl?"0 "+mm+"mm":mm+"mm"}}`;
  document.head.appendChild(pg);document.body.appendChild(host);document.body.classList.add("printing");
  const old=document.title;document.title=title;let tm=null;
  const app=!!KKP(),end=()=>{if(PRN_END!==end)return;PRN_END=null;clearTimeout(tm);window.removeEventListener("afterprint",onAfter);host.remove();pg.remove();document.body.classList.remove("printing");document.title=old};

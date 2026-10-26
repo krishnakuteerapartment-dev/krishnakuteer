@@ -85,10 +85,17 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
     await s.click('#lpback'); await s.waitForSelector('.lpi'); eq(await s.locator('.lpi').count(), 1); await shot(s, '04-list'); });
   await check('print: the letter on the letterhead, signature and sign-off on the last page', async () => {
     await s.click('[data-lpp]'); await s.waitForFunction(() => window.__prints === 1, null, { timeout: 10000 }); await s.waitForTimeout(400);
+    const pgcss = await s.evaluate(() => [...document.head.querySelectorAll('style')].map(x => x.textContent).find(t => /@page/.test(t)) || '');
+    if (!/margin:0 15mm/.test(pgcss)) throw new Error('page margins: ' + pgcss);
     await s.pdf({ path: path.join(OUT, 'letter.pdf'), format: 'A4', preferCSSPageSize: true, printBackground: true });
     const tx = execFileSync('pdftotext', ['-layout', path.join(OUT, 'letter.pdf'), '-']).toString();
     [HEAD.bearers[2][1], HEAD.side[0][1][0], 'Subject:', 'Yours faithfully,', HEAD.signer].forEach(x => { if (!tx.includes(x)) throw new Error('PDF missing ' + x); });
-    if (/Letter pad|New letter/.test(tx)) throw new Error('app screen printed'); await s.evaluate(() => dispatchEvent(new Event('afterprint'))); });
+    if (/Letter pad|New letter/.test(tx)) throw new Error('app screen printed');
+    /* the browser's own header and footer (date, title, web address, page number) go in the page's top and bottom margins: there are none,
+       and the sheet's own 15 mm padding is repeated at the top and bottom of every page instead */
+    const p2 = execFileSync('pdftotext', ['-bbox', '-f', '2', '-l', '2', path.join(OUT, 'letter.pdf'), '-']).toString(), y2 = +(/<word xMin="[\d.]+" yMin="([\d.]+)"/.exec(p2) || [])[1];
+    if (!(y2 > 42 && y2 < 60)) throw new Error('page 2 text starts ' + y2 + ' pt from the top, not about 15 mm');
+    await s.evaluate(() => dispatchEvent(new Event('afterprint'))); });
   await check('Word: a .docx file with the letterhead, members and letter', async () => {
     const [dl] = await Promise.all([s.waitForEvent('download'), s.click('[data-lpw]')]); const f = path.join(OUT, 'letter.docx'); await dl.saveAs(f);
     if (!/\.docx$/.test(dl.suggestedFilename())) throw new Error(dl.suggestedFilename());

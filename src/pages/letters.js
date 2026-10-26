@@ -94,7 +94,7 @@ async function lpPrint(L) {
   try { await Promise.all([document.fonts.load('400 12pt "KK Bookman"'), document.fonts.load('700 12pt "KK Bookman"')]); } catch (e) {}
   const I = await lpImgs(L, H);
   if (!I.logo) await new Promise(ok => { const i = new Image(); i.onload = i.onerror = ok; i.src = LP_LOGO; });
-  printHTML((L.subject || "Letter").slice(0, 80), lpHTML(L, H, I), false, 15);
+  printHTML((L.subject || "Letter").slice(0, 80), lpHTML(L, H, I), false, 15, true); /* no web address or date on the letter */
 }
 /* ---------- writing a letter ---------- */
 const LP_F = [["on_date", "Date"], ["ref_no", "Ref. No. (optional)"], ["to_text", "To (name and address)"], ["subject", "Subject"], ["salutation", "Greeting"], ["body", "Letter"], ["closing", "Closing line"], ["signoff", "Sign-off"], ["signer", "Name under the signature"], ["designation", "Designation"]];
