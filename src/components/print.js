@@ -15,8 +15,12 @@ function printHTML(title,html,land){
  const pg=document.createElement("style");pg.textContent=`@page{size:${land?"landscape":"portrait"};margin:${land?10:12}mm}`;
  document.head.appendChild(pg);document.body.appendChild(host);document.body.classList.add("printing");
  const old=document.title;document.title=title;let tm=null;
- const end=()=>{if(PRN_END!==end)return;PRN_END=null;clearTimeout(tm);window.removeEventListener("afterprint",end);host.remove();pg.remove();document.body.classList.remove("printing");document.title=old};
- PRN_END=end;window.addEventListener("afterprint",end);tm=setTimeout(end,KKP()?600000:180000);
+ const app=!!KKP(),end=()=>{if(PRN_END!==end)return;PRN_END=null;clearTimeout(tm);window.removeEventListener("afterprint",onAfter);host.remove();pg.remove();document.body.classList.remove("printing");document.title=old};
+ /* Android app: the print screen draws the page twice, once for the preview and again for "Save as PDF" or the printer.
+    The app's browser sends its own "afterprint" after the preview; ignore it, or the second drawing would show the app screen.
+    Only the KKPrint plugin's "afterprint" (sent when the print screen closes; it is not a browser event) puts the page back. */
+ const onAfter=e=>{if(app&&e.isTrusted)return;end()};
+ PRN_END=end;window.addEventListener("afterprint",onAfter);tm=setTimeout(end,app?600000:180000);
  requestAnimationFrame(()=>setTimeout(()=>{try{const P=KKP();if(P)P.print({title,landscape:!!land}).catch(()=>{toast("Could not open the print window");end()});else window.print()}catch(e){toast("Could not open the print window");end()}},120))}
 /* Android app: its built-in browser ignores window.print(), so the app's own KKPrint plugin (MainActivity / KKPrintPlugin.java)
    opens Android's print screen instead, and sends "afterprint" back when the print screen closes. Browsers use window.print(). */
