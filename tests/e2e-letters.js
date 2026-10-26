@@ -47,7 +47,7 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
   await check('letterhead details: names, members, signature saved', async () => {
     await s.click('#lphd'); await s.waitForSelector('#lh_t1');
     for (let i = 0; i < HEAD.bearers.length; i++) { await s.fill('#lh_br' + i, HEAD.bearers[i][0]); await s.fill('#lh_bn' + i, HEAD.bearers[i][1]); }
-    for (let i = 0; i < HEAD.side.length; i++) { await s.fill('#lh_sh' + i, HEAD.side[i][0]); await s.fill('#lh_sn' + i, HEAD.side[i][1].join('\n')); }
+    for (let i = 0; i < HEAD.side.length; i++) { await s.fill('#lh_sh' + i, HEAD.side[i][0]); await s.fill('#lh_sl' + i, HEAD.side[i][1].join('\n')); }
     await s.fill('#lh_sn', HEAD.signer);
     const [fc] = await Promise.all([s.waitForEvent('filechooser'), s.click('#lh_sg')]); await fc.setFiles(REAL && REAL.sign ? REAL.sign : SIGN);
     await s.waitForSelector('.lpimg img.sg');
@@ -62,7 +62,18 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
     const tx = await s.evaluate(() => document.querySelector('#lpsheet').shadowRoot.textContent);
     [HEAD.bearers[0][1], HEAD.side[1][1][0], LET.subject, 'Yours faithfully,', HEAD.signer].forEach(x => { if (!tx.includes(x)) throw new Error('preview missing ' + x); });
     await shot(s, '03-editor', true); });
-  await check('save keeps the letter in the list', async () => { await s.click('#lpsave'); await s.waitForTimeout(400); eq(G.x.read_('letters').length, 1); eq(G.x.read_('letters')[0].subject, LET.subject);
+  await check('letterhead: each name with its designation under it', async () => {
+    const t0 = await s.evaluate(() => document.querySelector('#lpsheet').shadowRoot.querySelector('.lpb div').innerText.split('\n').map(x => x.trim()));
+    eq(t0[0], HEAD.bearers[0][1]); eq(t0[1], HEAD.bearers[0][0]); });
+  const NEWB = ['JOINT SECRETARY', 'D. JOINT SECRETARY'], addB = HEAD.bearers.length < 4;
+  if (addB) await check('names and designations can be changed while writing a letter', async () => {
+    eq(await s.evaluate(() => document.querySelector('#lpnm').open), false);
+    if (!(await s.locator('#lpwho').innerText()).includes(HEAD.bearers[0][1])) throw new Error('summary does not list the names');
+    await s.click('#lpnm summary'); await s.fill('#ln_bn3', NEWB[1]); await s.fill('#ln_br3', NEWB[0]); await s.waitForTimeout(600);
+    const tx = await s.evaluate(() => document.querySelector('#lpsheet').shadowRoot.querySelector('.lpb').innerText);
+    if (!tx.includes(NEWB[1]) || !tx.includes(NEWB[0])) throw new Error('preview missing the new name'); await shot(s, '03b-names', true); });
+  await check('save keeps the letter in the list (and the changed names for every letter)', async () => { await s.click('#lpsave'); await s.waitForTimeout(600); eq(G.x.read_('letters').length, 1); eq(G.x.read_('letters')[0].subject, LET.subject);
+    if (addB) { const h = JSON.parse(G.props.get('LETTERHEAD')); eq(h.bearers.length, HEAD.bearers.length + 1); eq(h.bearers[HEAD.bearers.length].name, NEWB[1]); eq(h.bearers[HEAD.bearers.length].role, NEWB[0]); }
     await s.click('#lpback'); await s.waitForSelector('.lpi'); eq(await s.locator('.lpi').count(), 1); await shot(s, '04-list'); });
   await check('print: the letter on the letterhead, signature and sign-off on the last page', async () => {
     await s.click('[data-lpp]'); await s.waitForFunction(() => window.__prints === 1, null, { timeout: 10000 }); await s.waitForTimeout(400);
@@ -75,7 +86,8 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
     if (!/\.docx$/.test(dl.suggestedFilename())) throw new Error(dl.suggestedFilename());
     const x = execFileSync('unzip', ['-p', f, 'word/document.xml']).toString(), h = execFileSync('unzip', ['-p', f, 'word/header1.xml']).toString();
     [LET.subject.slice(0, 30), 'Yours faithfully,', HEAD.side[1][1][0]].forEach(t => { if (!x.includes(t)) throw new Error('docx missing ' + t); });
-    if (!h.includes(HEAD.bearers[0][1])) throw new Error('header missing bearer'); if (!x.includes('r:embed="rId20"')) throw new Error('no signature picture'); if (!x.includes('r:embed="rId21"')) throw new Error('no stamp picture'); });
+    if (!h.includes(HEAD.bearers[0][1])) throw new Error('header missing bearer');
+    if (!(h.indexOf('>' + HEAD.bearers[0][1] + '<') < h.indexOf('>' + HEAD.bearers[0][0] + '<'))) throw new Error('designation is not under the name in Word'); if (!x.includes('r:embed="rId20"')) throw new Error('no signature picture'); if (!x.includes('r:embed="rId21"')) throw new Error('no stamp picture'); });
   await check('copy makes a new letter; delete removes it', async () => { await s.click('[data-lpc]'); await s.waitForSelector('#lf_subject'); await s.click('#lpsave'); await s.waitForTimeout(400); eq(G.x.read_('letters').length, 2);
     await s.click('#lpback'); await s.waitForSelector('.lpi'); await s.locator('[data-lpd]').first().click(); await s.waitForTimeout(800); eq(G.x.read_('letters').length, 1); });
   await check('changes are in the audit log', async () => { const a = G.x.read_('audit_log').map(r => r.summary).join(' | '); if (!/Letter: /.test(a) || !/Letterhead details changed/.test(a)) throw new Error(a.slice(0, 200)); });
@@ -93,7 +105,8 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
   }
   await a.close();
   const d = await session(b, 'secretary', { viewport: { width: 1280, height: 900 } });
-  await check('computer: form and preview side by side', async () => { await d.go('lp'); await d.click('[data-lpo]'); await d.waitForSelector('#lpsheet'); await d.waitForTimeout(800); await shot(d, '05-desktop'); });
+  await check('computer: form and preview side by side', async () => { await d.go('lp'); await d.click('[data-lpo]'); await d.waitForSelector('#lpsheet'); await d.waitForTimeout(800); await shot(d, '05-desktop');
+    await d.click('#lpnm summary'); await d.waitForTimeout(300); await shot(d, '06-desktop-names'); });
   await b.close(); srv.close();
   console.log(`\n${ok} passed, ${bad} failed`); process.exit(bad ? 1 : 0);
 })();

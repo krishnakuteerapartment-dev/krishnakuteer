@@ -245,3 +245,8 @@ button.rgadd{width:100%;border-style:dashed}
 .login .hero-img+.logo.assoc{width:112px;height:112px;margin:-62px auto 10px;padding:3px;background:#fff;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 16px rgba(14,26,47,.25);overflow:hidden}
 .login .logo.assoc img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
 .lpimg img.stp{width:110px;height:110px}
+.lpleft{display:grid;gap:12px;min-width:0;align-content:start}.lpleft>.card{margin:0}
+.lpnames>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}.lpnames>summary::-webkit-details-marker{display:none}
+.lpnames>summary b:after{content:" ▾";color:var(--grey);font-weight:400}.lpnames[open]>summary b:after{content:" ▴"}.lpnames>summary small{color:var(--grey);font-size:.8rem}
+.lpnames textarea{width:100%;font:inherit;padding:11px 13px;border-radius:10px;border:1px solid var(--line);resize:vertical;line-height:1.5}
+.lpnh{margin:14px 0 0;font-size:.92rem;color:var(--navy)}.lpnh small{color:var(--grey);font-weight:400}.lpnames .btnrow button{width:auto}

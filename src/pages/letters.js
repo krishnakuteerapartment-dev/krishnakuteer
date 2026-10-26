@@ -33,7 +33,7 @@ const LP_CSS = `.pw{padding:0!important;background:#fff}
 .lpt .t{font-weight:700;font-size:21.5pt;line-height:1.3;letter-spacing:.2pt}
 .lpt .ad{font-size:9.5pt;margin-top:1mm}
 .lpb{display:flex;justify-content:space-around;gap:3mm;margin-top:2.6mm;font-weight:700;font-size:11pt;line-height:1.3}
-.lpb div{text-align:left}
+.lpb div{flex:1 1 0;min-width:0;text-align:center;overflow-wrap:break-word}.lpb .d{font-size:10pt}.lpb.n4{font-size:10pt;gap:2mm}.lpb.n4 .d{font-size:9pt}
 .lpr{border-top:1.7px solid #111;margin:0}
 .lps{float:left;width:51mm;height:220mm;border-right:1.7px solid #111;margin:0 6mm 0 0;padding:9mm 2mm 0 0;box-sizing:border-box;font-weight:700;font-size:10.4pt}
 .lps .g{margin:0 0 9mm}.lps .gh{margin:0 0 6mm;padding-left:1mm}
@@ -55,7 +55,7 @@ function lpHTML(L, H, I) {
   const logo = I.logo, sig = I.sig, stamp = I.stamp;
   const hb = (H.bearers || []).filter(p => p.role || p.name), side = (H.side || []).filter(g => g.head || (g.names || []).length);
   return `<style>${LP_CSS}</style><div class="lp"><div class="lph"><img src="${logo || LP_LOGO}" alt=""><div class="lpt"><div class="t">${esc(H.title1 || "")}</div>${H.title2 ? `<div class="t">${esc(H.title2)}</div>` : ""}${H.address ? `<div class="ad">${esc(H.address)}</div>` : ""}
-   ${hb.length ? `<div class="lpb">${hb.map(p => `<div>${esc(p.role)}<br>${esc(p.name)}</div>`).join("")}</div>` : ""}</div></div><div class="lpr"></div>
+   ${hb.length ? `<div class="lpb${hb.length > 3 ? " n4" : ""}">${hb.map(p => `<div>${esc(p.name || "")}${p.name && p.role ? "<br>" : ""}${p.role ? `<span class="d">${esc(p.role)}</span>` : ""}</div>`).join("")}</div>` : ""}</div></div><div class="lpr"></div>
    <div class="lps">${side.map(g => `<div class="g"><div class="gh">${esc(g.head)}</div>${(g.names || []).map(n => `<div class="n">${esc(n)}</div>`).join("")}</div>`).join("")}</div>
    <div class="lpm">${L.to_text ? `<div class="to">To,<br><br>${esc(L.to_text).replace(/\n/g, "<br>")}${L.on_date ? `<br>Date: ${lpDate(L.on_date)}` : ""}${L.ref_no ? `<br>Ref. No.: ${esc(L.ref_no)}` : ""}</div>` : L.on_date ? `<div class="to">Date: ${lpDate(L.on_date)}</div>` : ""}
    ${L.subject ? `<div class="sj">Subject: ${lpText(L.subject)}</div>` : ""}${L.salutation ? `<div class="sl">${esc(L.salutation)}</div>` : ""}${lpBody(L.body)}
@@ -99,7 +99,8 @@ async function lpPrint(L) {
 /* ---------- writing a letter ---------- */
 const LP_F = [["on_date", "Date"], ["ref_no", "Ref. No. (optional)"], ["to_text", "To (name and address)"], ["subject", "Subject"], ["salutation", "Greeting"], ["body", "Letter"], ["closing", "Closing line"], ["signoff", "Sign-off"], ["signer", "Name under the signature"], ["designation", "Designation"]];
 function lpEdit(m) {
-  const L = LP.cur, H = LP.head;
+  const L = LP.cur, H = LP.head, who = lpWho(H);
+  if (!LP.headDirty) LP.headBak = JSON.stringify(H); /* to undo name changes that are not saved */
   const f = (k, l) => {
     const v = esc(L[k] ?? "");
     const c = k === "on_date" ? `<input id="lf_${k}" type="date" value="${v}">` : k === "to_text" ? `<textarea id="lf_${k}" rows="3" placeholder="SKYWARDS ELEVATORS&#10;Address (optional)">${v}</textarea>`
@@ -108,18 +109,26 @@ function lpEdit(m) {
     return `<div class="${["to_text", "subject", "body", "closing"].includes(k) ? "w" : ""}"><label class="fl" for="lf_${k}">${l}</label>${c}</div>`;
   };
   m.innerHTML = `<div class="lpbar"><button type="button" class="ghost" id="lpback">← All letters</button></div>
-   <div class="lped"><div class="card lpform"><h3 style="margin:0 0 6px">${L.id ? "Edit letter" : "New letter"}</h3><div class="f">${LP_F.map(([k, l]) => f(k, l)).join("")}
+   <div class="lped"><div class="lpleft"><details class="card lpnames" id="lpnm"${who ? "" : " open"}><summary><b>👥 Names and designations</b><small id="lpwho">${who ? esc(who) : "Not filled in yet: add the office bearers' names"}</small></summary>
+    <p class="note">Printed at the top and down the left side of every letter. When a new Association body takes over, change them here; 💾 Save keeps them for all letters.</p>${lpNamesHTML(H, "ln_")}
+    <div class="btnrow"><button type="button" class="ghost" id="lpnsave">💾 Save names</button></div></details><div class="card lpform"><h3 style="margin:0 0 6px">${L.id ? "Edit letter" : "New letter"}</h3><div class="f">${LP_F.map(([k, l]) => f(k, l)).join("")}
     <label class="w lpchk"><input type="checkbox" id="lf_sign"${L.sign === "yes" ? " checked" : ""}${H.sign ? "" : " disabled"}> Add my signature${H.sign ? "" : " <small>(upload it in Letterhead details first)</small>"}</label>
     <label class="w lpchk"><input type="checkbox" id="lf_stamp"${L.stamp === "yes" ? " checked" : ""}${H.stamp ? "" : " disabled"}> Add the Secretary stamp${H.stamp ? "" : " <small>(upload it in Letterhead details first)</small>"}</label></div>
-    <div class="btnrow lpacts"><button type="button" id="lpsave">💾 Save</button><button type="button" class="ghost" id="lppr">📄 Print / Save as PDF</button><button type="button" class="ghost" id="lpwd">📝 Download Word file</button></div></div>
+    <div class="btnrow lpacts"><button type="button" id="lpsave">💾 Save</button><button type="button" class="ghost" id="lppr">📄 Print / Save as PDF</button><button type="button" class="ghost" id="lpwd">📝 Download Word file</button></div></div></div>
    <div class="lpprev"><div class="lpph"><b>Preview</b><small>Page 1 ends at the dashed line</small></div><div class="lpsheet" id="lpsheet"></div></div></div>`;
   const grab = () => { LP_F.forEach(([k]) => { L[k] = $("#lf_" + k).value; }); L.sign = $("#lf_sign").checked ? "yes" : "no"; L.stamp = $("#lf_stamp").checked ? "yes" : "no"; };
   let t = null; const upd = () => { grab(); LP.dirty = true; clearTimeout(t); t = setTimeout(lpPreview, 250); };
   m.querySelectorAll(".lpform input,.lpform textarea").forEach(el => { el.oninput = upd; el.onchange = upd; });
+  const updN = () => { lpNamesRead(LP.head, "ln_"); LP.headDirty = true; const w = lpWho(LP.head); $("#lpwho").textContent = w || "Not filled in yet: add the office bearers' names"; clearTimeout(t); t = setTimeout(lpPreview, 250); };
+  m.querySelectorAll(".lpnames input,.lpnames textarea").forEach(el => { el.oninput = updN; });
+  const saveNames = async () => { if (!LP.headDirty) return true; const r = await api({ a: "letterheadSave", head: LP.head }); if (r.error) { toast(r.error.message); return false; }
+    LP.head = Object.assign(lpBlank(), r.head); LP.headBak = JSON.stringify(LP.head); LP.headDirty = false; return true; };
+  $("#lpnsave").onclick = async () => { if (!LP.headDirty) return toast("The names are already saved"); if (await saveNames()) toast("Names saved. Every letter now prints them."); };
   $("#lpbold").onclick = () => { const ta = $("#lf_body"), a = ta.selectionStart, b = ta.selectionEnd; if (a === b) { toast("Select the words to make bold first"); return; }
     ta.setRangeText("**" + ta.value.slice(a, b).replace(/\*\*/g, "") + "**", a, b, "end"); ta.focus(); upd(); };
-  $("#lpback").onclick = () => { if (LP.dirty && !confirm("Leave without saving this letter?")) return; LP.dirty = false; lpList(m); };
-  $("#lpsave").onclick = async () => { grab(); const r = await api({ a: "letterSave", letter: L }); if (r.error) return toast(r.error.message); L.id = r.id; LP.dirty = false; toast("Letter saved");
+  $("#lpback").onclick = () => { if ((LP.dirty || LP.headDirty) && !confirm(LP.dirty ? "Leave without saving this letter?" : "Leave without saving the names?")) return;
+    if (LP.headDirty) { LP.head = Object.assign(lpBlank(), JSON.parse(LP.headBak)); LP.headDirty = false; } LP.dirty = false; lpList(m); };
+  $("#lpsave").onclick = async () => { grab(); if (!(await saveNames())) return; const r = await api({ a: "letterSave", letter: L }); if (r.error) return toast(r.error.message); L.id = r.id; LP.dirty = false; toast("Letter saved");
     const i = LP.list.findIndex(x => String(x.id) === String(r.id)); if (i >= 0) LP.list[i] = Object.assign({}, L); else LP.list.unshift(Object.assign({}, L)); const h3 = $(".lpform h3"); if (h3) h3.textContent = "Edit letter"; };
   $("#lppr").onclick = () => { grab(); lpPrint(L); };
   $("#lpwd").onclick = () => { grab(); lpWord(L); };
@@ -136,6 +145,19 @@ async function lpPreview() {
   fit(); if (!LP.ro && window.ResizeObserver) { LP.ro = new ResizeObserver(() => { const b = $("#lpsheet"); if (b && b.shadowRoot) { const pg = b.shadowRoot.querySelector(".pg"); if (pg) { pg.style.zoom = 1; pg.style.zoom = Math.min(1, b.clientWidth / pg.offsetWidth); } } }); }
   if (LP.ro) { LP.ro.disconnect(); LP.ro.observe(box); }
 }
+/* ---------- names and designations on the letterhead ----------
+   Office bearers under the Association name (name, designation under it) and up to three groups down the left side of page 1.
+   The same fields are in Letterhead details and, folded, at the top of every letter, so a new Association body is a quick change. */
+function lpNamesHTML(H, p) {
+  const bear = (H.bearers || []).concat([{}, {}, {}, {}]).slice(0, 4), side = (H.side || []).concat([{}, {}, {}]).slice(0, 3);
+  return `<h4 class="lpnh">Office bearers <small>(under the Association name)</small></h4><div class="f">${bear.map((b, i) => fld("Name " + (i + 1), inp(p + "bn" + i, b.name || "", 'placeholder="Full name" autocomplete="off"')) + fld("Designation " + (i + 1), inp(p + "br" + i, b.role || "", 'placeholder="e.g. PRESIDENT" autocomplete="off"'))).join("")}</div>
+   <h4 class="lpnh">Left side of page 1</h4><div class="f">${side.map((g, i) => fld("Heading " + (i + 1), inp(p + "sh" + i, g.head || "", 'placeholder="e.g. EXECUTIVE MEMBERS" autocomplete="off"'), 1) + `<div class="w"><label class="fl" for="${p}sl${i}">Names under heading ${i + 1}, one per line</label><textarea id="${p}sl${i}" rows="${Math.max(3, (g.names || []).length + 1)}">${esc((g.names || []).join("\n"))}</textarea></div>`).join("")}</div>`;
+}
+function lpNamesRead(H, p) {
+  H.bearers = [0, 1, 2, 3].map(i => ({ name: val(p + "bn" + i), role: val(p + "br" + i) })).filter(b => b.role || b.name);
+  H.side = [0, 1, 2].map(i => { const t = $("#" + p + "sl" + i); return { head: val(p + "sh" + i), names: String(t ? t.value : "").split("\n").map(x => x.trim()).filter(Boolean) }; }).filter(g => g.head || g.names.length);
+}
+const lpWho = H => (H.bearers || []).filter(b => b.name).map(b => b.name + (b.role ? " (" + b.role + ")" : "")).join(", ");
 /* ---------- letterhead details ---------- */
 async function lpPick(kind) {
   return new Promise(ok => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = async () => {
@@ -160,22 +182,19 @@ async function lpPick(kind) {
 }
 async function lpHeadView(m) {
   LP.view = "head"; const H = JSON.parse(JSON.stringify(LP.head)), [logo, sig, stamp] = await Promise.all([lpImg(H.logo), lpImg(H.sign), lpImg(H.stamp)]);
-  const bear = H.bearers.concat([{ role: "", name: "" }]).slice(0, 4);
   m.innerHTML = `<div class="lpbar"><button type="button" class="ghost" id="lpback">← All letters</button></div>
-   <h2>Letterhead details</h2><p class="note">Printed on every letter. Change anything here when the committee changes.</p>
+   <h2>Letterhead details</h2><p class="note">Printed on every letter. When a new Association body takes over, change the names here.</p>
    <div class="card"><h3>Name at the top</h3><div class="f">${fld("Line 1", inp("lh_t1", H.title1), 1)}${fld("Line 2", inp("lh_t2", H.title2), 1)}${fld("Address or phone (optional, small line)", inp("lh_ad", H.address), 1)}</div></div>
-   <div class="card"><h3>Office bearers <small>(under the name)</small></h3><div class="f">${bear.map((p, i) => fld("Post " + (i + 1), inp("lh_br" + i, p.role, 'placeholder="e.g. PRESIDENT"')) + fld("Name", inp("lh_bn" + i, p.name, 'placeholder="e.g. M. RAJA LAXMI"'))).join("")}</div></div>
-   <div class="card"><h3>Left side of page 1</h3><div class="f">${[0, 1].map(i => { const g = H.side[i] || { head: "", names: [] }; return fld("Heading " + (i + 1), inp("lh_sh" + i, g.head, 'placeholder="e.g. MEMBERS"'), 1) + `<div class="w"><label class="fl" for="lh_sn${i}">Names, one per line</label><textarea id="lh_sn${i}" rows="${Math.max(3, g.names.length + 1)}">${esc(g.names.join("\n"))}</textarea></div>`; }).join("")}</div></div>
+   <div class="card lpnames"><h3>Names and designations</h3>${lpNamesHTML(H, "lh_")}</div>
    <div class="card"><h3>Logo</h3><div class="lpimg"><img src="${logo || LP_LOGO}" alt="Logo"><div class="btnrow"><button type="button" class="ghost" id="lh_lg">Change logo</button>${H.logo ? `<button type="button" class="ghost" id="lh_lgd">Use the standard logo</button>` : ""}</div></div></div>
    <div class="card"><h3>Signature</h3><p class="note">Sign on plain white paper and take a clear photo. The paper is removed automatically. It is kept private: only the Secretary login can use it.</p>
     <div class="lpimg">${sig ? `<img src="${sig}" alt="Signature" class="sg">` : `<span class="note">No signature yet.</span>`}<div class="btnrow"><button type="button" class="ghost" id="lh_sg">${sig ? "Change signature" : "Upload signature"}</button>${sig ? `<button type="button" class="ghost" id="lh_sgd">Remove</button>` : ""}</div></div>
-    <div class="f">${fld("Sign-off", inp("lh_so", H.signoff, 'placeholder="Yours faithfully,"'))}${fld("Name under the signature", inp("lh_sn", H.signer, 'placeholder="e.g. T. Sai Vakula"'))}${fld("Designation", inp("lh_ds", H.designation))}</div></div>
+    <div class="f">${fld("Sign-off", inp("lh_so", H.signoff, 'placeholder="Yours faithfully,"'))}${fld("Name under the signature", inp("lh_sn", H.signer, 'placeholder="Full name"'))}${fld("Designation", inp("lh_ds", H.designation))}</div></div>
    <div class="card"><h3>Secretary stamp</h3><p class="note">A photo or scan of the stamp. Only the stamp's ink is kept (the paper or background is removed). Private: only the Secretary login can use it.</p>
     <div class="lpimg">${stamp ? `<img src="${stamp}" alt="Stamp" class="stp">` : `<span class="note">No stamp yet.</span>`}<div class="btnrow"><button type="button" class="ghost" id="lh_st">${stamp ? "Change stamp" : "Upload stamp"}</button>${stamp ? `<button type="button" class="ghost" id="lh_std">Remove</button>` : ""}</div></div></div>
    <div class="btnrow"><button type="button" id="lh_save">💾 Save letterhead</button></div>`;
   const read = () => { H.title1 = val("lh_t1"); H.title2 = val("lh_t2"); H.address = val("lh_ad"); H.signoff = val("lh_so"); H.signer = val("lh_sn"); H.designation = val("lh_ds");
-    H.bearers = [0, 1, 2, 3].map(i => ({ role: val("lh_br" + i), name: val("lh_bn" + i) })).filter(p => p.role || p.name);
-    H.side = [0, 1].map(i => ({ head: val("lh_sh" + i), names: $("#lh_sn" + i).value.split("\n").map(s => s.trim()).filter(Boolean) })); };
+    lpNamesRead(H, "lh_"); };
   const save = async () => { read(); const r = await api({ a: "letterheadSave", head: H }); if (r.error) { toast(r.error.message); return false; } LP.head = Object.assign(lpBlank(), r.head); toast("Letterhead saved"); return true; };
   const up = async (kind) => { const d = await lpPick(kind); if (!d) return; const r = await api({ a: "upload", kind: "letter", img: d }); if (r.error) return toast(r.error.message);
     LP.img[r.id] = d; read(); H[kind] = r.id; LP.head = H; if (await save()) lpHeadView(m); };
@@ -233,7 +252,7 @@ function lpxDoc(L, H, logo, sig, stamp) {
   /* first-page header: logo | name and office bearers, then the line */
   const tcell = (w, inner, va = "center") => `<w:tc><w:tcPr><w:tcW w:w="${Math.round(w * LPX_MM)}" w:type="dxa"/><w:vAlign w:val="${va}"/></w:tcPr>${inner}</w:tc>`;
   const bTab = bear.length ? `<w:tbl><w:tblPr><w:tblW w:w="${Math.round(138 * LPX_MM)}" w:type="dxa"/><w:jc w:val="center"/>${LPX_NOB}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${bear.map(() => `<w:gridCol w:w="${Math.round(138 / bear.length * LPX_MM)}"/>`).join("")}</w:tblGrid>
-    <w:tr>${bear.map(p => tcell(138 / bear.length, lpxP(lpxRuns(p.role + "\n" + p.name, { b: 1, sz: 22 }), '<w:spacing w:before="100" w:after="0" w:line="270" w:lineRule="exact"/>'))).join("")}</w:tr></w:tbl>` : "";
+    <w:tr>${bear.map(p => tcell(138 / bear.length, lpxP(lpxRuns(p.name || "", { b: 1, sz: bear.length > 3 ? 20 : 22 }) + (p.name && p.role ? "<w:r><w:br/></w:r>" : "") + lpxRuns(p.role || "", { b: 1, sz: bear.length > 3 ? 18 : 20 }), '<w:spacing w:before="100" w:after="0" w:line="270" w:lineRule="exact"/><w:jc w:val="center"/>'))).join("")}</w:tr></w:tbl>` : "";
   const TL = '<w:spacing w:after="0" w:line="540" w:lineRule="exact"/><w:jc w:val="center"/>', titles = lpxP(lpxRuns(H.title1 || "", { b: 1, sz: 43 }), TL) + (H.title2 ? lpxP(lpxRuns(H.title2, { b: 1, sz: 43 }), TL) : "") + (H.address ? lpxP(lpxRuns(H.address, { sz: 19 }), '<w:spacing w:after="0" w:line="250" w:lineRule="exact"/><w:jc w:val="center"/>') : "");
   const hdr1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ${LPX_NS}><w:tbl><w:tblPr><w:tblW w:w="${Math.round(TW * LPX_MM)}" w:type="dxa"/>${LPX_NOB}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr>
    <w:tblGrid><w:gridCol w:w="${Math.round(40 * LPX_MM)}"/><w:gridCol w:w="${Math.round((TW - 40) * LPX_MM)}"/></w:tblGrid><w:tr><w:trPr><w:trHeight w:val="${Math.round(43 * LPX_MM)}" w:hRule="exact"/></w:trPr>

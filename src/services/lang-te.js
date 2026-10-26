@@ -439,7 +439,12 @@
     "Preview": "ప్రివ్యూ", "Page 1 ends at the dashed line": "చుక్కల గీత వద్ద పేజీ 1 ముగుస్తుంది", "Bold": "బోల్డ్",
     "Blank line = new paragraph. Select words and tap Bold, or type **like this**.": "ఖాళీ లైన్ = కొత్త పేరా. పదాలను ఎంచుకుని బోల్డ్ నొక్కండి, లేదా **ఇలా** టైప్ చేయండి.",
     "Letter saved": "లేఖ సేవ్ అయింది", "Letter deleted": "లేఖ తొలగించబడింది", "Leave without saving this letter?": "ఈ లేఖను సేవ్ చేయకుండా వెళ్ళాలా?", "Copied. Change what you need and save.": "కాపీ అయింది. కావలసినవి మార్చి సేవ్ చేయండి.",
-    "Select the words to make bold first": "ముందు బోల్డ్ చేయాల్సిన పదాలను ఎంచుకోండి", "Letterhead details": "లెటర్‌హెడ్ వివరాలు", "Printed on every letter. Change anything here when the committee changes.": "ప్రతి లేఖపై ప్రింట్ అవుతుంది. కమిటీ మారినప్పుడు ఇక్కడ మార్చండి.",
+    "Select the words to make bold first": "ముందు బోల్డ్ చేయాల్సిన పదాలను ఎంచుకోండి", "Letterhead details": "లెటర్‌హెడ్ వివరాలు", "Printed on every letter. When a new Association body takes over, change the names here.": "ప్రతి లేఖపై ప్రింట్ అవుతుంది. కొత్త అసోసియేషన్ కార్యవర్గం వచ్చినప్పుడు ఇక్కడ పేర్లు మార్చండి.",
+    "Names and designations": "పేర్లు మరియు హోదాలు", "👥 Names and designations": "👥 పేర్లు మరియు హోదాలు", "(under the Association name)": "(అసోసియేషన్ పేరు కింద)", "Full name": "పూర్తి పేరు",
+    "e.g. PRESIDENT": "ఉదా. PRESIDENT", "e.g. EXECUTIVE MEMBERS": "ఉదా. EXECUTIVE MEMBERS", "Not filled in yet: add the office bearers' names": "ఇంకా నింపలేదు: పదాధికారుల పేర్లు జోడించండి",
+    "Printed at the top and down the left side of every letter. When a new Association body takes over, change them here; 💾 Save keeps them for all letters.": "ప్రతి లేఖ పైభాగంలో మరియు ఎడమ వైపు ప్రింట్ అవుతాయి. కొత్త అసోసియేషన్ కార్యవర్గం వచ్చినప్పుడు ఇక్కడ మార్చండి; 💾 సేవ్ చేస్తే అన్ని లేఖలకు ఉంటాయి.",
+    "💾 Save names": "💾 పేర్లు సేవ్ చేయండి", "The names are already saved": "పేర్లు ఇప్పటికే సేవ్ అయ్యాయి", "Names saved. Every letter now prints them.": "పేర్లు సేవ్ అయ్యాయి. ఇప్పుడు ప్రతి లేఖపై ఇవే ప్రింట్ అవుతాయి.",
+    "Leave without saving the names?": "పేర్లు సేవ్ చేయకుండా వెళ్లాలా?",
     "Name at the top": "పైన పేరు", "Line 1": "లైన్ 1", "Line 2": "లైన్ 2", "Address or phone (optional, small line)": "చిరునామా లేదా ఫోన్ (ఐచ్ఛికం, చిన్న లైన్)", "Office bearers": "పదాధికారులు", "(under the name)": "(పేరు కింద)",
     "Left side of page 1": "పేజీ 1 ఎడమ వైపు", "Names, one per line": "పేర్లు, లైన్‌కు ఒకటి", "Logo": "లోగో", "Change logo": "లోగో మార్చండి", "Use the standard logo": "సాధారణ లోగో వాడండి", "Signature": "సంతకం",
     "Sign on plain white paper and take a clear photo. The paper is removed automatically. It is kept private: only the Secretary login can use it.": "తెల్ల కాగితంపై సంతకం చేసి స్పష్టమైన ఫోటో తీయండి. కాగితం ఆటోమేటిక్‌గా తొలగించబడుతుంది. ఇది ప్రైవేట్: కార్యదర్శి లాగిన్ మాత్రమే వాడగలదు.",
@@ -455,7 +460,8 @@
   PAT.push(
     [/^Saved in Downloads: (.+)$/, function (m, a) { return "డౌన్‌లోడ్స్‌లో సేవ్ అయింది: " + a; }],
     [/^Letters · (\d+)$/, function (m, a) { return "లేఖలు · " + a; }],
-    [/^Post (\d)$/, function (m, a) { return "పదవి " + a; }], [/^Heading (\d)$/, function (m, a) { return "శీర్షిక " + a; }],
+    [/^Post (\d)$/, function (m, a) { return "పదవి " + a; }], [/^Name (\d)$/, function (m, a) { return "పేరు " + a; }], [/^Designation (\d)$/, function (m, a) { return "హోదా " + a; }],
+    [/^Names under heading (\d), one per line$/, function (m, a) { return "శీర్షిక " + a + " కింద పేర్లు, లైన్‌కు ఒకటి"; }], [/^Heading (\d)$/, function (m, a) { return "శీర్షిక " + a; }],
     [/^Delete the letter “(.*)”\?$/, function (m, a) { return "“" + a + "” లేఖను తొలగించాలా?"; }]
   );
   var WDTE = { Monday: "సోమవారం", Tuesday: "మంగళవారం", Wednesday: "బుధవారం", Thursday: "గురువారం", Friday: "శుక్రవారం", Saturday: "శనివారం", Sunday: "ఆదివారం" };
