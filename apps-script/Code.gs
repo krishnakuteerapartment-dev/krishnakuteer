@@ -42,7 +42,7 @@ const TABLES = {
   /* register photo imports (Secretary): one row per photographed page */
   visitor_imports: ['id', 'at', 'by', 'photo', 'model', 'found', 'unsure', 'saved', 'duplicates', 'failed', 'status', 'note'],
   /* Letter pad (Secretary): letters printed on the Association's letterhead */
-  letters: ['id', 'on_date', 'ref_no', 'to_text', 'subject', 'salutation', 'body', 'closing', 'signoff', 'signer', 'designation', 'sign', 'created_by', 'created_at', 'updated_at']
+  letters: ['id', 'on_date', 'ref_no', 'to_text', 'subject', 'salutation', 'body', 'closing', 'signoff', 'signer', 'designation', 'sign', 'created_by', 'created_at', 'updated_at', 'stamp']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
@@ -508,7 +508,7 @@ function photo_(u, b) {
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
   const ok = T.gallery.some(r => String(r.photo) === id && (r.visibility !== 'committee' || u.role !== 'resident')) ||
     T.complaints.some(r => (String(r.photos || '').split('|').concat(String(r.reply_photos || '').split('|')).indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
-  const okLet = !ok && LET_ROLE.indexOf(u.role) >= 0 && [letHead_().logo, letHead_().sign].indexOf(id) >= 0;
+  const okLet = !ok && LET_ROLE.indexOf(u.role) >= 0 && [letHead_().logo, letHead_().sign, letHead_().stamp].indexOf(id) >= 0;
   const okReg = !ok && !okLet && REG_ROLE.indexOf(u.role) >= 0 && sh_('visitor_imports') && read_('visitor_imports').some(r => String(r.photo) === id);
   const f = (ok || okReg || okLet) && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
@@ -1437,8 +1437,8 @@ function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').
 
 /* ---------- LETTER PAD (Secretary only) ----------
    Letters printed on the Association's letterhead. The letterhead (names, members, logo, signature) is kept in the script
-   property LETTERHEAD; the letters are in the 'letters' tab. The signature picture is a private upload: only the Secretary
-   login can see or use it. */
+   property LETTERHEAD; the letters are in the 'letters' tab. The signature and the Secretary stamp are private uploads: only the
+   Secretary login can see or use them. */
 const LET_ROLE = ['secretary'];
 const LET_MAX = { to_text: 600, subject: 300, salutation: 80, body: 30000, closing: 200, signoff: 80, signer: 80, designation: 80, ref_no: 60 };
 function letHead_() { try { return JSON.parse(PROPS_().getProperty('LETTERHEAD') || '{}') || {}; } catch (e) { return {}; } }
@@ -1455,7 +1455,7 @@ function letSave_(u, b) {
   for (const k in LET_MAX) if (r[k].length > LET_MAX[k]) return err('The ' + k.replace('_text', '').replace('_', ' ') + ' is too long.');
   r.on_date = String(x.on_date || ''); if (!isDate_(r.on_date)) return err('Enter the date of the letter.');
   if (!r.subject.trim() && !r.body.trim()) return err('Write the subject or the letter first.');
-  r.sign = x.sign === true || x.sign === 'yes' ? 'yes' : 'no';
+  r.sign = x.sign === true || x.sign === 'yes' ? 'yes' : 'no'; r.stamp = x.stamp === true || x.stamp === 'yes' ? 'yes' : 'no';
   if (x.id) {
     const row = byId_('letters', x.id); if (!row) return err('This letter was not found. It may have been deleted.');
     r.updated_at = now_(); setCells_('letters', row.__r, r);
@@ -1481,8 +1481,8 @@ function letHeadSave_(u, b) {
     bearers: (Array.isArray(x.bearers) ? x.bearers : []).slice(0, 4).map(p => ({ role: t(p && p.role, 30), name: t(p && p.name, 60) })),
     side: (Array.isArray(x.side) ? x.side : []).slice(0, 3).map(g => ({ head: t(g && g.head, 40), names: (Array.isArray(g && g.names) ? g.names : []).map(n => t(n, 50)).filter(Boolean).slice(0, 16) })) };
   const fid = v => /^f[0-9a-f]{32}$/.test(String(v || '')) ? String(v) : '';
-  h.logo = fid(x.logo); h.sign = fid(x.sign);
-  [old.logo, old.sign].forEach(f => { if (f && f !== h.logo && f !== h.sign) delFile_(f); }); /* a replaced picture is removed */
+  h.logo = fid(x.logo); h.sign = fid(x.sign); h.stamp = fid(x.stamp);
+  [old.logo, old.sign, old.stamp].forEach(f => { if (f && f !== h.logo && f !== h.sign && f !== h.stamp) delFile_(f); }); /* a replaced picture is removed */
   const json = JSON.stringify(h); if (json.length > 8500) return { error: { message: 'The letterhead has too much text.' } };
   PROPS_().setProperty('LETTERHEAD', json);
   audit_(u, 'update', 'letters', 'letterhead', 'Letterhead details changed', null, null);

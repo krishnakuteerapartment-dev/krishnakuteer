@@ -446,6 +446,9 @@
     "No signature yet.": "ఇంకా సంతకం లేదు.", "Upload signature": "సంతకం అప్‌లోడ్", "Change signature": "సంతకం మార్చండి", "Remove": "తీసివేయండి", "💾 Save letterhead": "💾 లెటర్‌హెడ్ సేవ్", "Letterhead saved": "లెటర్‌హెడ్ సేవ్ అయింది",
     "📄 PDF": "📄 PDF", "📝 Word": "📝 Word", "📄 Print / Save as PDF": "📄 ప్రింట్ / PDF గా సేవ్", "📝 Download Word file": "📝 Word ఫైల్ డౌన్‌లోడ్", "Could not make the Word file": "Word ఫైల్ తయారు కాలేదు",
     "Could not save the file": "ఫైల్ సేవ్ కాలేదు", "To save files, install the new app version (5). Or open the website in Chrome.": "ఫైళ్లు సేవ్ చేయడానికి కొత్త యాప్ వెర్షన్ (5) ఇన్‌స్టాల్ చేయండి. లేదా Chromeలో వెబ్‌సైట్ తెరవండి.",
+    "Add the Secretary stamp": "కార్యదర్శి స్టాంప్ జోడించండి", "Secretary stamp": "కార్యదర్శి స్టాంప్", "No stamp yet.": "ఇంకా స్టాంప్ లేదు.", "Upload stamp": "స్టాంప్ అప్‌లోడ్", "Change stamp": "స్టాంప్ మార్చండి",
+    "A photo or scan of the stamp. Only the stamp's ink is kept (the paper or background is removed). Private: only the Secretary login can use it.": "స్టాంప్ ఫోటో లేదా స్కాన్. స్టాంప్ సిరా మాత్రమే ఉంచబడుతుంది (కాగితం లేదా నేపథ్యం తొలగించబడుతుంది). ప్రైవేట్: కార్యదర్శి లాగిన్ మాత్రమే వాడగలదు.",
+    "Remove the stamp from the letterhead?": "లెటర్‌హెడ్ నుండి స్టాంప్ తీసివేయాలా?", "No stamp found in this picture": "ఈ చిత్రంలో స్టాంప్ కనిపించలేదు",
     "Only the Secretary can use the letter pad.": "లెటర్ ప్యాడ్‌ను కార్యదర్శి మాత్రమే వాడగలరు.", "Enter the date of the letter.": "లేఖ తేదీ నమోదు చేయండి.", "Write the subject or the letter first.": "ముందు విషయం లేదా లేఖ రాయండి."
   };
   for (var k9 in TE9) if (Object.prototype.hasOwnProperty.call(TE9, k9) && !Object.prototype.hasOwnProperty.call(TE, k9)) TE[k9] = TE9[k9];

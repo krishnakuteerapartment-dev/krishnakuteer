@@ -116,7 +116,7 @@ async function min(code, loader) { return (await esbuild.transform(code, { loade
   put("index.html", html);
 
   /* service worker: everything the app needs offline (the Telugu font too: every phone shows the తెలుగు button) */
-  const keep = ["./", "index.html", "firebase-config.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png", ...Object.values(files)];
+  const keep = ["./", "index.html", "firebase-config.js", "hero.webp", "fonts/poppins-Regular.woff2", "fonts/poppins-Medium.woff2", "fonts/poppins-Bold.woff2", "fonts/NotoSansTelugu.woff2", "manifest.webmanifest", "icon-192.png", "association-logo.jpg", ...Object.values(files)];
   const ver = "kk-" + hash(html + keep.join() + read("sw.js"));
   put("sw.js", read("sw.js").replace("__VERSION__", ver).replace("__FILES__", JSON.stringify(keep)));
   if (CHECK) { if (stale.length) fail("public/ is out of date (run npm run build in build/ and commit): " + stale.join(", ")); console.log("public/ is up to date (" + ver + ")"); return; }

@@ -240,3 +240,8 @@ button.rgadd{width:100%;border-style:dashed}
 .lpimg{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 10px}.lpimg img{width:90px;height:90px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff}
 .lpimg img.sg{width:200px;height:auto;max-height:110px}.lpimg .btnrow{margin:0}.lpimg .btnrow button{width:auto}
 @media(min-width:1000px){.lped{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}.lpprev{position:sticky;top:calc(var(--hh,64px) + 12px)}}
+
+/* Sign-in: the Association logo in a white circle over the building photo */
+.login .hero-img+.logo.assoc{width:112px;height:112px;margin:-62px auto 10px;padding:3px;background:#fff;border-radius:50%;border:3px solid #fff;box-shadow:0 4px 16px rgba(14,26,47,.25);overflow:hidden}
+.login .logo.assoc img{width:100%;height:100%;object-fit:contain;border-radius:50%;display:block}
+.lpimg img.stp{width:110px;height:110px}
