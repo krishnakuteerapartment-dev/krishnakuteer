@@ -25,6 +25,16 @@ function printHTML(title,html,land,margin){
 /* Android app: its built-in browser ignores window.print(), so the app's own KKPrint plugin (MainActivity / KKPrintPlugin.java)
    opens Android's print screen instead, and sends "afterprint" back when the print screen closes. Browsers use window.print(). */
 function KKP(){try{const c=window.Capacitor;return c&&c.isPluginAvailable&&c.isPluginAvailable("KKPrint")&&c.Plugins&&c.Plugins.KKPrint||null}catch(e){return null}}
+/* Saving a file (Word letter, CSV, Excel, photos, PDFs). Browsers download it. The Android app saves it in Downloads/Krishna Kuteer
+   through its KKFiles plugin (app version 5 and later) and offers to open it; an older app version cannot save files. */
+function KKF(){try{const c=window.Capacitor;return c&&c.isPluginAvailable&&c.isPluginAvailable("KKFiles")&&c.Plugins&&c.Plugins.KKFiles||null}catch(e){return null}}
+const inApp=()=>{try{const c=window.Capacitor;return !!(c&&(c.isNativePlatform?c.isNativePlatform():c.getPlatform&&c.getPlatform()!=="web"))}catch(e){return false}};
+const blobB64=b=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(",")[1]);r.onerror=no;r.readAsDataURL(b)});
+async function saveFile(name,blob){
+ name=String(name||"file").replace(/[\\/:*?"<>|]+/g,"-").slice(0,120);const P=KKF();
+ if(P){try{await P.save({name,mime:blob.type||"application/octet-stream",data:await blobB64(blob)});toast("Saved in Downloads: "+name);return true}catch(e){toast("Could not save the file");return false}}
+ if(inApp()){toast("To save files, install the new app version (5). Or open the website in Chrome.");return false}
+ const a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);toast("Downloaded "+name);return true}
 const prBtn=(id,label)=>`<button class="ghost" id="${id}">🖨 ${label}</button>`;
 const ptable=(heads,rows,foot,cls)=>`<table><thead><tr>${heads.map((h,i)=>`<th class="${(cls||[])[i]||""}">${h}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${(cls||[])[i]||""}">${c}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${heads.length}">Nothing recorded.</td></tr>`}</tbody>${foot?`<tfoot><tr>${foot.map((c,i)=>`<td class="${(cls||[])[i]||""}">${c}</td>`).join("")}</tr></tfoot>`:""}</table>`;
 const REGCSS=`.regwrap,.regwrap *{-webkit-print-color-adjust:exact;print-color-adjust:exact}.reg{width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:12px}.reg th,.reg td{border:1px solid #9aa5b4;padding:4px 6px;text-align:center}.reg .tt{font-weight:700;color:#fff;padding:5px}.reg .b{background:#4472c4}.reg .g{background:#6aa84f}.reg .o{background:#c55a11}.reg .hb{background:#d9e2f3}.reg .hg{background:#e2efd9}.reg .tot{font-weight:700;background:#e2efd9}.reg .y{background:#ff0;font-weight:700}.reg .cb{background:#fbd5b5;font-weight:700}.reg .l{text-align:left}.reg .bd{font-weight:700}.regwrap{overflow-x:auto;color:#1c2430;background:#fff}`;

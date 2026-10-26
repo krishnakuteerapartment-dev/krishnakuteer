@@ -8,7 +8,7 @@ async function exportAll(kind){toast("Preparing your data…");
  const names=["flats","payments","expenses","income","maintenance_rates","closed_months","notices","settings"],D={};
  for(const t of names){const{data,error}=await db.from(t).select("*");D[t]=error?[]:(data||[])}
  const fn={};D.flats.forEach(f=>fn[f.id]=f.flat_no);D.payments=D.payments.map(p=>({flat_no:fn[p.flat_id]??"",...p}));
- const day=ld(),save=(n,type,c)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([c],{type}));a.download=n;a.click();toast("Downloaded "+n)};
+ const day=ld(),save=(n,type,c)=>saveFile(n,new Blob([c],{type}));
  if(kind==="json")return save("krishna-kuteer-backup-"+day+".json","application/json",JSON.stringify({exported_on:day,tables:D},null,2));
  const xe=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),
  cell=(c,v)=>(typeof v==="number"||(/amount|cash|bank|balance/.test(c)&&v!==null&&v!==""&&!isNaN(v)))?`<Cell><Data ss:Type="Number">${+v}</Data></Cell>`:`<Cell><Data ss:Type="String">${xe(typeof v==="object"&&v?JSON.stringify(v):v)}</Data></Cell>`,
@@ -45,8 +45,8 @@ async function stmt(m){
   const sig2=`<p style="margin-top:36px">Treasurer: ____________ &nbsp; Secretary: ____________</p>`;
   if(R)return printHTML(title,R.html+`<p>Closing in cash: ${inr(P1.c.cash)} &nbsp; Closing in bank/UPI: ${inr(P1.c.bank)}</p>`+sig2,true);
   printHTML(title,sheetHead(title)+`<table><thead><tr><th></th><th class="r">Cash</th><th class="r">Bank/UPI</th><th class="r">Total</th></tr></thead><tbody>${lines.map(l=>`<tr><td>${esc(l[0])}</td>${l.slice(1).map(v=>`<td class="r">${v===""?"":inr(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`+sig2)};
- $("#cv").onclick=()=>{const c="Item,Cash,Bank/UPI,Total\n"+lines.map(l=>`"${l[0]}",${l.slice(1).map(v=>v===""?"":Math.round(v)).join(",")}`).join("\n"),a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([c],{type:"text/csv"}));a.download=(sv==="m"?"statement-"+month:"statement-"+yr)+".csv";a.click()}}
+ $("#cv").onclick=()=>{const c="Item,Cash,Bank/UPI,Total\n"+lines.map(l=>`"${l[0]}",${l.slice(1).map(v=>v===""?"":Math.round(v)).join(",")}`).join("\n");
+  saveFile((sv==="m"?"statement-"+month:"statement-"+yr)+".csv",new Blob([c],{type:"text/csv"}))}}
 /* residents: the monthly statement, view only (it used to be at the bottom of Home) */
 async function stmtView(m){
  const F=await loadFin(),s=month+"-01",e=nx(+month.slice(0,4),+month.slice(5,7));

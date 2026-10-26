@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         /* the app's own plugins must be registered before super.onCreate */
         registerPlugin(KKPrintPlugin.class);
+        registerPlugin(KKFilesPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

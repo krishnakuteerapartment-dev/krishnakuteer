@@ -71,7 +71,7 @@ function lpList(m) {
   m.innerHTML = `<div class="lpbar"><button type="button" id="lpnew">✍️ New letter</button><button type="button" class="ghost" id="lphd">🏷 Letterhead details</button></div>
    ${empty ? `<div class="card lpnote"><b>Set up the letterhead once</b><p class="note">Add the office bearers, members and your signature in <b>Letterhead details</b>. Every letter then prints with them.</p></div>` : ""}
    <h2>Letters · ${LP.list.length}</h2>${LP.list.length ? LP.list.map(L => `<div class="card lpi"><div class="lpit"><b>${esc(L.subject || "(no subject)")}</b><small>${esc(String(L.to_text || "").split("\n")[0] || "No recipient")} · ${esc(dmx(L.on_date))}</small></div>
-    <div class="btnrow"><button type="button" class="ghost" data-lpo="${L.id}">Open</button><button type="button" class="ghost" data-lpp="${L.id}">🖨 Print / PDF</button><button type="button" class="ghost" data-lpc="${L.id}">Copy</button><button type="button" class="ghost" data-lpd="${L.id}">Delete</button></div></div>`).join("")
+    <div class="btnrow"><button type="button" class="ghost" data-lpo="${L.id}">Open</button><button type="button" class="ghost" data-lpp="${L.id}">📄 PDF</button><button type="button" class="ghost" data-lpw="${L.id}">📝 Word</button><button type="button" class="ghost" data-lpc="${L.id}">Copy</button><button type="button" class="ghost" data-lpd="${L.id}">Delete</button></div></div>`).join("")
     : `<div class="card"><p class="note">No letters yet. Tap <b>New letter</b> to write the first one.</p></div>`}`;
   $("#lpnew").onclick = () => { LP.cur = lpNew(LP.head); LP.dirty = false; LP.view = "edit"; lpEdit(m); };
   $("#lphd").onclick = () => { LP.view = "head"; lpHeadView(m); };
@@ -79,6 +79,7 @@ function lpList(m) {
   m.querySelectorAll("[data-lpo]").forEach(b => b.onclick = () => { LP.cur = Object.assign({}, find(b.dataset.lpo)); LP.dirty = false; LP.view = "edit"; lpEdit(m); });
   m.querySelectorAll("[data-lpc]").forEach(b => b.onclick = () => { const c = Object.assign({}, find(b.dataset.lpc), { id: 0, on_date: ld() }); c.subject = c.subject ? c.subject + " (copy)" : ""; LP.cur = c; LP.dirty = true; LP.view = "edit"; lpEdit(m); toast("Copied. Change what you need and save."); });
   m.querySelectorAll("[data-lpp]").forEach(b => b.onclick = () => lpPrint(find(b.dataset.lpp)));
+  m.querySelectorAll("[data-lpw]").forEach(b => b.onclick = () => lpWord(find(b.dataset.lpw)));
   m.querySelectorAll("[data-lpd]").forEach(b => b.onclick = async () => { const L = find(b.dataset.lpd); if (!confirm("Delete the letter “" + (L.subject || "no subject") + "”?")) return;
     const r = await api({ a: "letterDelete", id: L.id }); if (r.error) return toast(r.error.message); toast("Letter deleted"); render(); });
 }
@@ -103,7 +104,7 @@ function lpEdit(m) {
   m.innerHTML = `<div class="lpbar"><button type="button" class="ghost" id="lpback">← All letters</button></div>
    <div class="lped"><div class="card lpform"><h3 style="margin:0 0 6px">${L.id ? "Edit letter" : "New letter"}</h3><div class="f">${LP_F.map(([k, l]) => f(k, l)).join("")}
     <label class="w lpchk"><input type="checkbox" id="lf_sign"${L.sign === "yes" ? " checked" : ""}${H.sign ? "" : " disabled"}> Add my signature${H.sign ? "" : " <small>(upload it in Letterhead details first)</small>"}</label></div>
-    <div class="btnrow lpacts"><button type="button" id="lpsave">💾 Save</button><button type="button" class="ghost" id="lppr">🖨 Print / Save as PDF</button></div></div>
+    <div class="btnrow lpacts"><button type="button" id="lpsave">💾 Save</button><button type="button" class="ghost" id="lppr">📄 Print / Save as PDF</button><button type="button" class="ghost" id="lpwd">📝 Download Word file</button></div></div>
    <div class="lpprev"><div class="lpph"><b>Preview</b><small>Page 1 ends at the dashed line</small></div><div class="lpsheet" id="lpsheet"></div></div></div>`;
   const grab = () => { LP_F.forEach(([k]) => { L[k] = $("#lf_" + k).value; }); L.sign = $("#lf_sign").checked ? "yes" : "no"; };
   let t = null; const upd = () => { grab(); LP.dirty = true; clearTimeout(t); t = setTimeout(lpPreview, 250); };
@@ -114,6 +115,7 @@ function lpEdit(m) {
   $("#lpsave").onclick = async () => { grab(); const r = await api({ a: "letterSave", letter: L }); if (r.error) return toast(r.error.message); L.id = r.id; LP.dirty = false; toast("Letter saved");
     const i = LP.list.findIndex(x => String(x.id) === String(r.id)); if (i >= 0) LP.list[i] = Object.assign({}, L); else LP.list.unshift(Object.assign({}, L)); const h3 = $(".lpform h3"); if (h3) h3.textContent = "Edit letter"; };
   $("#lppr").onclick = () => { grab(); lpPrint(L); };
+  $("#lpwd").onclick = () => { grab(); lpWord(L); };
   lpPreview();
 }
 async function lpPreview() {
@@ -166,4 +168,109 @@ async function lpHeadView(m) {
   $("#lh_lg").onclick = () => up("logo"); $("#lh_sg").onclick = () => up("sign");
   if ($("#lh_lgd")) $("#lh_lgd").onclick = async () => { read(); H.logo = ""; LP.head = H; if (await save()) lpHeadView(m); };
   if ($("#lh_sgd")) $("#lh_sgd").onclick = async () => { if (!confirm("Remove your signature from the letterhead?")) return; read(); H.sign = ""; LP.head = H; if (await save()) lpHeadView(m); };
+}
+/* ---------- Word (.docx) ----------
+   The same letter as a Word file, built here on the phone (no server). Page 1's letterhead is Word's "first page header",
+   so it is not repeated on page 2; the members' list is a text box on page 1 with a line on its right, and the letter
+   flows beside it and then over the full width of page 2, as in the printed letter. */
+const LPX_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function lpxCrc(u) { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = LPX_CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+/* a plain (stored) zip: what a .docx file is */
+function lpxZip(files, type) {
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  files.forEach(f => {
+    const nm = enc.encode(f.name), d = typeof f.data === "string" ? enc.encode(f.data) : f.data, crc = lpxCrc(d), h = new DataView(new ArrayBuffer(30)), c = new DataView(new ArrayBuffer(46));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, d.length, 4], [22, d.length, 4], [26, nm.length, 2], [28, 0, 2]].forEach(([o, v, n]) => n === 4 ? h.setUint32(o, v, true) : h.setUint16(o, v, true));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, d.length, 4], [24, d.length, 4], [28, nm.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, off, 4]].forEach(([o, v, n]) => n === 4 ? c.setUint32(o, v, true) : c.setUint16(o, v, true));
+    parts.push(new Uint8Array(h.buffer), nm, d); cen.push(new Uint8Array(c.buffer), nm); off += 30 + nm.length + d.length;
+  });
+  const cs = cen.reduce((a, x) => a + x.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+  return new Blob(parts.concat(cen, [new Uint8Array(e.buffer)]), { type });
+}
+async function lpxBytes(src) {
+  if (!src) return null;
+  const b = await (await fetch(src)).blob(), bm = await createImageBitmap(b), u = new Uint8Array(await b.arrayBuffer());
+  return { data: u, ext: /png/.test(b.type) ? "png" : "jpeg", w: bm.width, h: bm.height };
+}
+const lpxEsc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+const LPX_MM = 56.7, LPX_EMU = 36000;
+/* one run of text; **bold** inside the text becomes bold */
+function lpxRuns(t, o = {}) {
+  const rp = b => `<w:rPr>${b || o.b ? "<w:b/><w:bCs/>" : ""}${o.sz ? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : ""}</w:rPr>`;
+  return String(t || "").split("\n").map((line, i) => (i ? "<w:r><w:br/></w:r>" : "") + line.split(/(\*\*[^*\n]+\*\*)/).filter(Boolean).map(x => { const b = /^\*\*.*\*\*$/.test(x); return `<w:r>${rp(b)}<w:t xml:space="preserve">${lpxEsc(b ? x.slice(2, -2) : x)}</w:t></w:r>`; }).join("")).join("");
+}
+const lpxP = (runs, pp = "") => `<w:p><w:pPr>${pp}</w:pPr>${runs}</w:p>`;
+const lpxSp = (before, after) => `<w:spacing w:before="${Math.round(before * LPX_MM)}" w:after="${Math.round(after * LPX_MM)}"/>`;
+function lpxPic(rid, id, name, wmm, hmm) {
+  const cx = Math.round(wmm * LPX_EMU), cy = Math.round(hmm * LPX_EMU);
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
+   <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+   <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+const LPX_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w10="urn:schemas-microsoft-com:office:word" mc:Ignorable="wps"';
+const LPX_NOB = '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>';
+function lpxDoc(L, H, logo, sig) {
+  const TW = 180; /* text width in mm: A4 210 mm minus 15 mm margins each side */
+  const bear = (H.bearers || []).filter(p => p.role || p.name), side = (H.side || []).filter(g => g.head || (g.names || []).length);
+  /* first-page header: logo | name and office bearers, then the line */
+  const tcell = (w, inner, va = "center") => `<w:tc><w:tcPr><w:tcW w:w="${Math.round(w * LPX_MM)}" w:type="dxa"/><w:vAlign w:val="${va}"/></w:tcPr>${inner}</w:tc>`;
+  const bTab = bear.length ? `<w:tbl><w:tblPr><w:tblW w:w="${Math.round(138 * LPX_MM)}" w:type="dxa"/><w:jc w:val="center"/>${LPX_NOB}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${bear.map(() => `<w:gridCol w:w="${Math.round(138 / bear.length * LPX_MM)}"/>`).join("")}</w:tblGrid>
+    <w:tr>${bear.map(p => tcell(138 / bear.length, lpxP(lpxRuns(p.role + "\n" + p.name, { b: 1, sz: 22 }), '<w:spacing w:before="100" w:after="0" w:line="270" w:lineRule="exact"/>'))).join("")}</w:tr></w:tbl>` : "";
+  const TL = '<w:spacing w:after="0" w:line="540" w:lineRule="exact"/><w:jc w:val="center"/>', titles = lpxP(lpxRuns(H.title1 || "", { b: 1, sz: 43 }), TL) + (H.title2 ? lpxP(lpxRuns(H.title2, { b: 1, sz: 43 }), TL) : "") + (H.address ? lpxP(lpxRuns(H.address, { sz: 19 }), '<w:spacing w:after="0" w:line="250" w:lineRule="exact"/><w:jc w:val="center"/>') : "");
+  const hdr1 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ${LPX_NS}><w:tbl><w:tblPr><w:tblW w:w="${Math.round(TW * LPX_MM)}" w:type="dxa"/>${LPX_NOB}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPr>
+   <w:tblGrid><w:gridCol w:w="${Math.round(40 * LPX_MM)}"/><w:gridCol w:w="${Math.round((TW - 40) * LPX_MM)}"/></w:tblGrid><w:tr><w:trPr><w:trHeight w:val="${Math.round(43 * LPX_MM)}" w:hRule="exact"/></w:trPr>
+   ${tcell(40, lpxP(lpxPic("rId1", 1, "Logo", 37, 37 * (logo ? logo.h / logo.w : 1)), '<w:spacing w:after="0"/>'))}${tcell(TW - 40, titles + bTab + lpxP("", '<w:spacing w:after="0"/>'))}</w:tr></w:tbl>
+   ${lpxP("", '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="1" w:color="111111"/></w:pBdr><w:spacing w:before="0" w:after="0" w:line="120" w:lineRule="exact"/>')}</w:hdr>`;
+  const hdr2 = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ${LPX_NS}>${lpxP("")}</w:hdr>`;
+  /* members' text box on page 1 (a one-cell table inside it draws the line on its right, down to the bottom of page 1) */
+  const SW = 51, SH = 222;
+  const sideBody = side.map(g => lpxP(lpxRuns(g.head, { b: 1, sz: 21 }), lpxSp(0, 6)) + (g.names || []).map(n => `<w:p><w:pPr>${lpxSp(0, 5)}<w:ind w:left="${Math.round(6 * LPX_MM)}" w:hanging="${Math.round(6 * LPX_MM)}"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">❖</w:t></w:r><w:r><w:tab/></w:r>${lpxRuns(n, { b: 1, sz: 21 })}</w:p>`).join("") + lpxP("", lpxSp(0, 3))).join("");
+  const sideTbl = `<w:tbl><w:tblPr><w:tblW w:w="${Math.round(SW * LPX_MM)}" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="single" w:sz="12" w:space="0" w:color="111111"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="${Math.round(2 * LPX_MM)}" w:type="dxa"/></w:tblCellMar></w:tblPr>
+   <w:tblGrid><w:gridCol w:w="${Math.round(SW * LPX_MM)}"/></w:tblGrid><w:tr><w:trPr><w:trHeight w:val="${Math.round(SH * LPX_MM)}" w:hRule="exact"/></w:trPr><w:tc><w:tcPr><w:tcW w:w="${Math.round(SW * LPX_MM)}" w:type="dxa"/></w:tcPr>${lpxP("", lpxSp(4, 0))}${sideBody || lpxP("")}</w:tc></w:tr></w:tbl>${lpxP("", '<w:spacing w:after="0"/>')}`;
+  const cx = Math.round(SW * LPX_EMU), cy = Math.round(SH * LPX_EMU);
+  const box = side.length ? `<w:r><mc:AlternateContent><mc:Choice Requires="wps"><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="${Math.round(6 * LPX_EMU)}" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+   <wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="margin"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapSquare wrapText="right"/><wp:docPr id="2" name="Members"/><wp:cNvGraphicFramePr/>
+   <a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></wps:spPr>
+   <wps:txbx><w:txbxContent>${sideTbl}</w:txbxContent></wps:txbx><wps:bodyPr rot="0" vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t" anchorCtr="0"><a:noAutofit/></wps:bodyPr></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></mc:Choice>
+   <mc:Fallback><w:pict><v:shape id="Members" o:spid="_x0000_s1026" type="#_x0000_t202" style="position:absolute;margin-left:0;margin-top:0;width:${SW}mm;height:${SH}mm;z-index:251659264;mso-position-horizontal-relative:margin;mso-position-vertical-relative:text" filled="f" stroked="f" xmlns:o="urn:schemas-microsoft-com:office:office"><v:textbox inset="0,0,0,0"><w:txbxContent>${sideTbl}</w:txbxContent></v:textbox><w10:wrap type="square" side="right"/></v:shape></w:pict></mc:Fallback></mc:AlternateContent></w:r>` : "";
+  /* the letter */
+  const B = [], bold = { b: 1 };
+  const toLines = (L.to_text ? "To,\n\n" + L.to_text : "") + (L.on_date ? (L.to_text ? "\n" : "") + "Date: " + lpDate(L.on_date) : "") + (L.ref_no ? "\nRef. No.: " + L.ref_no : "");
+  B.push(`<w:p><w:pPr>${lpxSp(8, 6)}</w:pPr>${box}${lpxRuns(toLines, bold)}</w:p>`);
+  if (L.subject) B.push(lpxP(lpxRuns("Subject: " + L.subject, bold), lpxSp(0, 6)));
+  if (L.salutation) B.push(lpxP(lpxRuns(L.salutation, bold), lpxSp(0, 0)));
+  String(L.body || "").replace(/\r/g, "").split(/\n\s*\n/).forEach(p => { if (p.trim()) B.push(lpxP(lpxRuns(p.trim()), lpxSp(0, 3.2))); });
+  const keep = "<w:keepNext/><w:keepLines/>", ind = `<w:ind w:left="${Math.round(TW * 0.46 * LPX_MM)}"/>`;
+  if (L.closing) B.push(lpxP(lpxRuns(L.closing), keep + lpxSp(5, 2) + `<w:ind w:left="${Math.round(12 * LPX_MM)}"/>`));
+  const sh = 21, sw = sig ? Math.min(75, sh * sig.w / sig.h) : 0;
+  B.push(lpxP(L.sign === "yes" && sig ? lpxPic("rId20", 3, "Signature", sw, sw * sig.h / sig.w) : "", keep + (L.sign === "yes" && sig ? lpxSp(0, 0) : lpxSp(13, 0)) + ind));
+  B.push(lpxP(lpxRuns([L.signoff, L.signer, L.designation].filter(Boolean).join("\n"), bold), "<w:keepLines/>" + lpxSp(0, 0) + ind));
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${LPX_NS}><w:body>${B.join("")}
+   <w:sectPr><w:headerReference w:type="default" r:id="rId11"/><w:headerReference w:type="first" r:id="rId10"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="567" w:footer="567" w:gutter="0"/><w:titlePg/></w:sectPr></w:body></w:document>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Bookman Old Style" w:hAnsi="Bookman Old Style" w:eastAsia="Bookman Old Style" w:cs="Gautami"/><w:color w:val="111111"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="en-IN"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="313" w:lineRule="atLeast"/></w:pPr></w:pPrDefault></w:docDefaults>
+   <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`;
+  const settings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="340"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`;
+  const rel = (id, type, target) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`;
+  const files = [
+    { name: "[Content_Types].xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/>
+      <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
+      <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/header2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>` },
+    { name: "_rels/.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel("rId1", "officeDocument", "word/document.xml")}</Relationships>` },
+    { name: "word/document.xml", data: doc }, { name: "word/styles.xml", data: styles }, { name: "word/settings.xml", data: settings },
+    { name: "word/header1.xml", data: hdr1 }, { name: "word/header2.xml", data: hdr2 },
+    { name: "word/_rels/document.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel("rId1", "styles", "styles.xml")}${rel("rId2", "settings", "settings.xml")}${rel("rId10", "header", "header1.xml")}${rel("rId11", "header", "header2.xml")}${L.sign === "yes" && sig ? rel("rId20", "image", "media/sign." + sig.ext) : ""}</Relationships>` },
+    { name: "word/_rels/header1.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rel("rId1", "image", "media/logo." + logo.ext)}</Relationships>` },
+    { name: "word/media/logo." + logo.ext, data: logo.data }];
+  if (L.sign === "yes" && sig) files.push({ name: "word/media/sign." + sig.ext, data: sig.data });
+  return lpxZip(files, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+}
+async function lpWord(L) {
+  const H = LP.head;
+  try {
+    const [lg, sg] = await Promise.all([lpImg(H.logo), L.sign === "yes" ? lpImg(H.sign) : ""]);
+    const [logo, sig] = await Promise.all([lpxBytes(lg || LP_LOGO), sg ? lpxBytes(sg) : null]);
+    const blob = lpxDoc(L, H, logo, sig), nm = ((L.subject || "Letter").replace(/[^\w\s()&.,-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Letter") + " " + lpDate(L.on_date) + ".docx";
+    await saveFile(nm, blob);
+  } catch (e) { toast("Could not make the Word file"); }
 }

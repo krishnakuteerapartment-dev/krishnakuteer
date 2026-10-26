@@ -444,10 +444,13 @@
     "Left side of page 1": "పేజీ 1 ఎడమ వైపు", "Names, one per line": "పేర్లు, లైన్‌కు ఒకటి", "Logo": "లోగో", "Change logo": "లోగో మార్చండి", "Use the standard logo": "సాధారణ లోగో వాడండి", "Signature": "సంతకం",
     "Sign on plain white paper and take a clear photo. The paper is removed automatically. It is kept private: only the Secretary login can use it.": "తెల్ల కాగితంపై సంతకం చేసి స్పష్టమైన ఫోటో తీయండి. కాగితం ఆటోమేటిక్‌గా తొలగించబడుతుంది. ఇది ప్రైవేట్: కార్యదర్శి లాగిన్ మాత్రమే వాడగలదు.",
     "No signature yet.": "ఇంకా సంతకం లేదు.", "Upload signature": "సంతకం అప్‌లోడ్", "Change signature": "సంతకం మార్చండి", "Remove": "తీసివేయండి", "💾 Save letterhead": "💾 లెటర్‌హెడ్ సేవ్", "Letterhead saved": "లెటర్‌హెడ్ సేవ్ అయింది",
+    "📄 PDF": "📄 PDF", "📝 Word": "📝 Word", "📄 Print / Save as PDF": "📄 ప్రింట్ / PDF గా సేవ్", "📝 Download Word file": "📝 Word ఫైల్ డౌన్‌లోడ్", "Could not make the Word file": "Word ఫైల్ తయారు కాలేదు",
+    "Could not save the file": "ఫైల్ సేవ్ కాలేదు", "To save files, install the new app version (5). Or open the website in Chrome.": "ఫైళ్లు సేవ్ చేయడానికి కొత్త యాప్ వెర్షన్ (5) ఇన్‌స్టాల్ చేయండి. లేదా Chromeలో వెబ్‌సైట్ తెరవండి.",
     "Only the Secretary can use the letter pad.": "లెటర్ ప్యాడ్‌ను కార్యదర్శి మాత్రమే వాడగలరు.", "Enter the date of the letter.": "లేఖ తేదీ నమోదు చేయండి.", "Write the subject or the letter first.": "ముందు విషయం లేదా లేఖ రాయండి."
   };
   for (var k9 in TE9) if (Object.prototype.hasOwnProperty.call(TE9, k9) && !Object.prototype.hasOwnProperty.call(TE, k9)) TE[k9] = TE9[k9];
   PAT.push(
+    [/^Saved in Downloads: (.+)$/, function (m, a) { return "డౌన్‌లోడ్స్‌లో సేవ్ అయింది: " + a; }],
     [/^Letters · (\d+)$/, function (m, a) { return "లేఖలు · " + a; }],
     [/^Post (\d)$/, function (m, a) { return "పదవి " + a; }], [/^Heading (\d)$/, function (m, a) { return "శీర్షిక " + a; }],
     [/^Delete the letter “(.*)”\?$/, function (m, a) { return "“" + a + "” లేఖను తొలగించాలా?"; }]

@@ -66,10 +66,28 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
     const tx = execFileSync('pdftotext', ['-layout', path.join(OUT, 'letter.pdf'), '-']).toString();
     [HEAD.bearers[2][1], HEAD.side[0][1][0], 'Subject:', 'Yours faithfully,', HEAD.signer].forEach(x => { if (!tx.includes(x)) throw new Error('PDF missing ' + x); });
     if (/Letter pad|New letter/.test(tx)) throw new Error('app screen printed'); await s.evaluate(() => dispatchEvent(new Event('afterprint'))); });
+  await check('Word: a .docx file with the letterhead, members and letter', async () => {
+    const [dl] = await Promise.all([s.waitForEvent('download'), s.click('[data-lpw]')]); const f = path.join(OUT, 'letter.docx'); await dl.saveAs(f);
+    if (!/\.docx$/.test(dl.suggestedFilename())) throw new Error(dl.suggestedFilename());
+    const x = execFileSync('unzip', ['-p', f, 'word/document.xml']).toString(), h = execFileSync('unzip', ['-p', f, 'word/header1.xml']).toString();
+    [LET.subject.slice(0, 30), 'Yours faithfully,', HEAD.side[1][1][0]].forEach(t => { if (!x.includes(t)) throw new Error('docx missing ' + t); });
+    if (!h.includes(HEAD.bearers[0][1])) throw new Error('header missing bearer'); if (!x.includes('r:embed="rId20"')) throw new Error('no signature picture'); });
   await check('copy makes a new letter; delete removes it', async () => { await s.click('[data-lpc]'); await s.waitForSelector('#lf_subject'); await s.click('#lpsave'); await s.waitForTimeout(400); eq(G.x.read_('letters').length, 2);
     await s.click('#lpback'); await s.waitForSelector('.lpi'); await s.locator('[data-lpd]').first().click(); await s.waitForTimeout(800); eq(G.x.read_('letters').length, 1); });
   await check('changes are in the audit log', async () => { const a = G.x.read_('audit_log').map(r => r.summary).join(' | '); if (!/Letter: /.test(a) || !/Letterhead details changed/.test(a)) throw new Error(a.slice(0, 200)); });
   await check('no page errors', async () => eq(s.errors, []));
+  console.log('Android app');
+  const a = await b.newContext({ ...devices['Pixel 7'], serviceWorkers: 'block' }), ap = await a.newPage();
+  for (const v5 of [true, false]) {
+    await ap.addInitScript(v5 => { window.Capacitor = { isNativePlatform: () => true, isPluginAvailable: n => v5 && n === 'KKFiles', Plugins: v5 ? { KKFiles: { save: async o => { window.__saved = o; return { uri: 'content://x' }; } } } : {} }; }, v5);
+    await ap.route('https://script.google.com/**', async r => r.fulfill({ contentType: 'application/json', body: G.ctx.doPost({ postData: { contents: r.request().postData() } }).s }));
+    await ap.goto('http://localhost:8895/'); await ap.evaluate(() => localStorage.clear()); await ap.reload(); await ap.selectOption('#em', 'secretary'); await ap.fill('#pw', PASS.secretary); await ap.click('#in'); await ap.waitForSelector('nav button[data-t]');
+    await ap.evaluate(() => { tab = 'lp'; render(); }); await ap.waitForSelector('[data-lpw]');
+    if (v5) await check('app v5: Word file goes to the KKFiles plugin (Downloads)', async () => { await ap.click('[data-lpw]'); await ap.waitForFunction(() => window.__saved, null, { timeout: 10000 });
+      const o = await ap.evaluate(() => ({ name: __saved.name, mime: __saved.mime, zip: atob(__saved.data.slice(0, 8)).slice(0, 2) })); eq([/\.docx$/.test(o.name), o.mime, o.zip], [true, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'PK']); });
+    else await check('older app: clear message instead of a silent failure', async () => { await ap.click('[data-lpw]'); await ap.waitForFunction(() => /new app version/.test(document.getElementById('toast').textContent), null, { timeout: 10000 }); });
+  }
+  await a.close();
   const d = await session(b, 'secretary', { viewport: { width: 1280, height: 900 } });
   await check('computer: form and preview side by side', async () => { await d.go('lp'); await d.click('[data-lpo]'); await d.waitForSelector('#lpsheet'); await d.waitForTimeout(800); await shot(d, '05-desktop'); });
   await b.close(); srv.close();
