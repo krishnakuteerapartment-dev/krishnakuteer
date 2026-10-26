@@ -14,7 +14,7 @@ function lpFonts() {
 const lpBlank = () => ({ title1: "KRISHNA KUTEER", title2: "APARTMENT ASSOCIATION", address: "", signer: "", designation: "Secretary", signoff: "Yours faithfully,",
   bearers: [{ role: "PRESIDENT", name: "" }, { role: "SECRETARY", name: "" }, { role: "TREASURER", name: "" }], side: [{ head: "EXECUTIVE MEMBER", names: [] }, { head: "MEMBERS", names: [] }], logo: "", sign: "", stamp: "" });
 const lpNew = H => ({ id: 0, on_date: ld(), ref_no: "", to_text: "", subject: "", salutation: "Dear Sir/Madam,", body: "", closing: "Thank you for your cooperation.",
-  signoff: H.signoff || "Yours faithfully,", signer: H.signer || "", designation: H.designation || "Secretary", sign: H.sign ? "yes" : "no", stamp: H.stamp ? "yes" : "no" });
+  signoff: H.signoff || "Yours faithfully,", signer: H.signer || "", designation: H.designation || "Secretary", sign: "yes", stamp: "yes" }); /* signature and stamp print as soon as they are uploaded; untick to leave them off */
 const lpDate = d => /^\d{4}-\d{2}-\d{2}/.test(d || "") ? d.slice(8, 10) + "-" + d.slice(5, 7) + "-" + d.slice(0, 4) : "";
 /* the letter text: a blank line starts a new paragraph, **words** print in bold */
 const lpText = t => esc(t || "").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
@@ -66,7 +66,7 @@ async function letters(m) {
   if (!LP) LP = { view: "list", img: {} };
   const r = await api({ a: "letters" }, 1);
   if (r.error) { m.innerHTML = `<div class="card"><p class="note">${esc(r.error.message)}</p></div>`; return; }
-  LP.list = r.letters || []; LP.head = Object.assign(lpBlank(), r.head || {});
+  LP.list = r.letters || []; if (!LP.headDirty) LP.head = Object.assign(lpBlank(), r.head || {});
   if (LP.view === "edit" && LP.cur) return lpEdit(m);
   if (LP.view === "head") return lpHeadView(m);
   lpList(m);
@@ -112,13 +112,16 @@ function lpEdit(m) {
    <div class="lped"><div class="lpleft"><details class="card lpnames" id="lpnm"${who ? "" : " open"}><summary><b>👥 Names and designations</b><small id="lpwho">${who ? esc(who) : "Not filled in yet: add the office bearers' names"}</small></summary>
     <p class="note">Printed at the top and down the left side of every letter. When a new Association body takes over, change them here; 💾 Save keeps them for all letters.</p>${lpNamesHTML(H, "ln_")}
     <div class="btnrow"><button type="button" class="ghost" id="lpnsave">💾 Save names</button></div></details><div class="card lpform"><h3 style="margin:0 0 6px">${L.id ? "Edit letter" : "New letter"}</h3><div class="f">${LP_F.map(([k, l]) => f(k, l)).join("")}
-    <label class="w lpchk"><input type="checkbox" id="lf_sign"${L.sign === "yes" ? " checked" : ""}${H.sign ? "" : " disabled"}> Add my signature${H.sign ? "" : " <small>(upload it in Letterhead details first)</small>"}</label>
-    <label class="w lpchk"><input type="checkbox" id="lf_stamp"${L.stamp === "yes" ? " checked" : ""}${H.stamp ? "" : " disabled"}> Add the Secretary stamp${H.stamp ? "" : " <small>(upload it in Letterhead details first)</small>"}</label></div>
+</div>
     <div class="btnrow lpacts"><button type="button" id="lpsave">💾 Save</button><button type="button" class="ghost" id="lppr">📄 Print / Save as PDF</button><button type="button" class="ghost" id="lpwd">📝 Download Word file</button></div></div></div>
-   <div class="lpprev"><div class="lpph"><b>Preview</b><small>Page 1 ends at the dashed line</small></div><div class="lpsheet" id="lpsheet"></div></div></div>`;
-  const grab = () => { LP_F.forEach(([k]) => { L[k] = $("#lf_" + k).value; }); L.sign = $("#lf_sign").checked ? "yes" : "no"; L.stamp = $("#lf_stamp").checked ? "yes" : "no"; };
+   <div class="lpprev"><div class="lpph"><b>Preview</b><small>Page 1 ends at the dashed line</small></div>
+    <div class="lpadd">${H.sign ? `<label class="lpchk"><input type="checkbox" id="lf_sign"${L.sign === "yes" ? " checked" : ""}> Signature</label>` : `<button type="button" class="ghost" id="lpaddsg">➕ Add your signature</button>`}${H.stamp ? `<label class="lpchk"><input type="checkbox" id="lf_stamp"${L.stamp === "yes" ? " checked" : ""}> Stamp</label>` : `<button type="button" class="ghost" id="lpaddst">➕ Add the stamp</button>`}</div><div class="lpsheet" id="lpsheet"></div></div></div>`;
+  const grab = () => { LP_F.forEach(([k]) => { L[k] = $("#lf_" + k).value; }); const cs = $("#lf_sign"), ct = $("#lf_stamp"); if (cs) L.sign = cs.checked ? "yes" : "no"; if (ct) L.stamp = ct.checked ? "yes" : "no"; };
   let t = null; const upd = () => { grab(); LP.dirty = true; clearTimeout(t); t = setTimeout(lpPreview, 250); };
   m.querySelectorAll(".lpform input,.lpform textarea").forEach(el => { el.oninput = upd; el.onchange = upd; });
+  m.querySelectorAll(".lpadd input").forEach(el => { el.onchange = upd; });
+  const toHead = () => { grab(); LP.ret = true; LP.view = "head"; lpHeadView(m); }; /* upload, then come straight back to this letter */
+  if ($("#lpaddsg")) $("#lpaddsg").onclick = toHead; if ($("#lpaddst")) $("#lpaddst").onclick = toHead;
   const updN = () => { lpNamesRead(LP.head, "ln_"); LP.headDirty = true; const w = lpWho(LP.head); $("#lpwho").textContent = w || "Not filled in yet: add the office bearers' names"; clearTimeout(t); t = setTimeout(lpPreview, 250); };
   m.querySelectorAll(".lpnames input,.lpnames textarea").forEach(el => { el.oninput = updN; });
   const saveNames = async () => { if (!LP.headDirty) return true; const r = await api({ a: "letterheadSave", head: LP.head }); if (r.error) { toast(r.error.message); return false; }
@@ -160,8 +163,9 @@ function lpNamesRead(H, p) {
 const lpWho = H => (H.bearers || []).filter(b => b.name).map(b => b.name + (b.role ? " (" + b.role + ")" : "")).join(", ");
 /* ---------- letterhead details ---------- */
 async function lpPick(kind) {
-  return new Promise(ok => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = async () => {
-    const f = i.files[0]; if (!f) return ok(null);
+  document.querySelectorAll("input.lppick").forEach(x => x.remove()); /* kept in the page while the phone's picker is open (the Android app needs that) */
+  return new Promise(ok => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.className = "lppick"; i.hidden = true; document.body.appendChild(i); i.onchange = async () => {
+    const f = i.files[0]; i.remove(); if (!f) return ok(null);
     try { const bm = await createImageBitmap(f), max = kind === "sign" ? 900 : 600, s = Math.min(1, max / Math.max(bm.width, bm.height)), c = document.createElement("canvas");
       c.width = Math.round(bm.width * s); c.height = Math.round(bm.height * s); const x = c.getContext("2d"); x.drawImage(bm, 0, 0, c.width, c.height);
       if (kind === "stamp") { /* stamp: keep only the coloured ink (blue, violet, red...); white paper, black or grey background becomes see-through */
@@ -182,7 +186,8 @@ async function lpPick(kind) {
 }
 async function lpHeadView(m) {
   LP.view = "head"; const H = JSON.parse(JSON.stringify(LP.head)), [logo, sig, stamp] = await Promise.all([lpImg(H.logo), lpImg(H.sign), lpImg(H.stamp)]);
-  m.innerHTML = `<div class="lpbar"><button type="button" class="ghost" id="lpback">← All letters</button></div>
+  const back = LP.ret && LP.cur;
+  m.innerHTML = `<div class="lpbar"><button type="button" class="ghost" id="lpback">${back ? "← Back to the letter" : "← All letters"}</button></div>
    <h2>Letterhead details</h2><p class="note">Printed on every letter. When a new Association body takes over, change the names here.</p>
    <div class="card"><h3>Name at the top</h3><div class="f">${fld("Line 1", inp("lh_t1", H.title1), 1)}${fld("Line 2", inp("lh_t2", H.title2), 1)}${fld("Address or phone (optional, small line)", inp("lh_ad", H.address), 1)}</div></div>
    <div class="card lpnames"><h3>Names and designations</h3>${lpNamesHTML(H, "lh_")}</div>
@@ -195,11 +200,12 @@ async function lpHeadView(m) {
    <div class="btnrow"><button type="button" id="lh_save">💾 Save letterhead</button></div>`;
   const read = () => { H.title1 = val("lh_t1"); H.title2 = val("lh_t2"); H.address = val("lh_ad"); H.signoff = val("lh_so"); H.signer = val("lh_sn"); H.designation = val("lh_ds");
     lpNamesRead(H, "lh_"); };
-  const save = async () => { read(); const r = await api({ a: "letterheadSave", head: H }); if (r.error) { toast(r.error.message); return false; } LP.head = Object.assign(lpBlank(), r.head); toast("Letterhead saved"); return true; };
+  const save = async () => { read(); const r = await api({ a: "letterheadSave", head: H }); if (r.error) { toast(r.error.message); return false; } LP.head = Object.assign(lpBlank(), r.head); LP.headBak = JSON.stringify(LP.head); LP.headDirty = false; toast("Letterhead saved"); return true; };
+  const done = () => { const b = LP.ret && LP.cur; LP.ret = false; if (b) { LP.view = "edit"; lpEdit(m); } else lpList(m); };
   const up = async (kind) => { const d = await lpPick(kind); if (!d) return; const r = await api({ a: "upload", kind: "letter", img: d }); if (r.error) return toast(r.error.message);
-    LP.img[r.id] = d; read(); H[kind] = r.id; LP.head = H; if (await save()) lpHeadView(m); };
-  $("#lpback").onclick = () => lpList(m);
-  $("#lh_save").onclick = async () => { if (await save()) lpList(m); };
+    LP.img[r.id] = d; read(); H[kind] = r.id; LP.head = H; if (await save()) { if (LP.cur && (kind === "sign" || kind === "stamp")) LP.cur[kind] = "yes"; lpHeadView(m); } };
+  $("#lpback").onclick = done;
+  $("#lh_save").onclick = async () => { if (await save()) done(); };
   $("#lh_lg").onclick = () => up("logo"); $("#lh_sg").onclick = () => up("sign"); $("#lh_st").onclick = () => up("stamp");
   if ($("#lh_std")) $("#lh_std").onclick = async () => { if (!confirm("Remove the stamp from the letterhead?")) return; read(); H.stamp = ""; LP.head = H; if (await save()) lpHeadView(m); };
   if ($("#lh_lgd")) $("#lh_lgd").onclick = async () => { read(); H.logo = ""; LP.head = H; if (await save()) lpHeadView(m); };

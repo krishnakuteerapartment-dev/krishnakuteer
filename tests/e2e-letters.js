@@ -44,8 +44,11 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
   const s = await session(b, 'secretary');
   await check('Letter pad in the secretary menu', async () => eq(await s.locator('nav button[data-t="lp"]').innerText(), 'Letter pad'));
   await check('first visit asks to set up the letterhead', async () => { await s.go('lp'); if (!/Set up the letterhead once/.test(await s.locator('#m').innerText())) throw new Error('no setup note'); await shot(s, '01-list-empty'); });
+  await check('a letter started before the signature and stamp exist offers to add them', async () => {
+    await s.click('#lpnew'); await s.waitForSelector('#lf_subject'); await s.fill('#lf_subject', LET.subject);
+    eq(await s.locator('#lpaddsg').count(), 1); eq(await s.locator('#lpaddst').count(), 1); eq(await s.locator('#lf_sign').count(), 0); await s.locator('.lpprev').scrollIntoViewIfNeeded(); await shot(s, '02a-add-sign');
+    await s.click('#lpaddsg'); await s.waitForSelector('#lh_t1'); eq((await s.locator('#lpback').innerText()).trim(), '← Back to the letter'); });
   await check('letterhead details: names, members, signature saved', async () => {
-    await s.click('#lphd'); await s.waitForSelector('#lh_t1');
     for (let i = 0; i < HEAD.bearers.length; i++) { await s.fill('#lh_br' + i, HEAD.bearers[i][0]); await s.fill('#lh_bn' + i, HEAD.bearers[i][1]); }
     for (let i = 0; i < HEAD.side.length; i++) { await s.fill('#lh_sh' + i, HEAD.side[i][0]); await s.fill('#lh_sl' + i, HEAD.side[i][1].join('\n')); }
     await s.fill('#lh_sn', HEAD.signer);
@@ -53,8 +56,13 @@ const LET = REAL ? REAL.letter : { to: 'SKYWARDS ELEVATORS', date: '2026-10-23',
     await s.waitForSelector('.lpimg img.sg');
     const [fc2] = await Promise.all([s.waitForEvent('filechooser'), s.click('#lh_st')]); await fc2.setFiles(REAL && REAL.stamp ? REAL.stamp : STAMP);
     await s.waitForSelector('.lpimg img.stp'); await shot(s, '02-letterhead', true);
-    await s.click('#lh_save'); await s.waitForSelector('#lpnew');
+    await s.click('#lh_save'); await s.waitForSelector('#lf_subject');
     const h = JSON.parse(G.props.get('LETTERHEAD')); eq(h.bearers[1].name, HEAD.bearers[1][1]); eq(h.side[1].names.length, HEAD.side[1][1].length); eq(/^f[0-9a-f]{32}$/.test(h.sign), true); eq(/^f[0-9a-f]{32}$/.test(h.stamp), true); });
+  await check('back on the same letter: signature and stamp are ticked and in the preview', async () => {
+    eq(await s.inputValue('#lf_subject'), LET.subject); eq(await s.isChecked('#lf_sign'), true); eq(await s.isChecked('#lf_stamp'), true); await s.waitForTimeout(600);
+    eq(await s.evaluate(() => document.querySelector('#lpsheet').shadowRoot.querySelectorAll('.lpe img').length), 2);
+    await s.uncheck('#lf_stamp'); await s.waitForTimeout(600); eq(await s.evaluate(() => document.querySelector('#lpsheet').shadowRoot.querySelectorAll('.lpe img').length), 1);
+    await s.check('#lf_stamp'); await s.click('#lpback'); await s.waitForSelector('#lpnew'); eq(G.x.read_('letters').length, 0); });
   await check('new letter: preview shows the letterhead and the text as typed', async () => {
     await s.click('#lpnew'); await s.waitForSelector('#lf_subject');
     await s.fill('#lf_to_text', LET.to); await s.fill('#lf_on_date', LET.date); await s.fill('#lf_subject', LET.subject); await s.fill('#lf_body', LET.body);

@@ -444,7 +444,7 @@
     "e.g. PRESIDENT": "ఉదా. PRESIDENT", "e.g. EXECUTIVE MEMBERS": "ఉదా. EXECUTIVE MEMBERS", "Not filled in yet: add the office bearers' names": "ఇంకా నింపలేదు: పదాధికారుల పేర్లు జోడించండి",
     "Printed at the top and down the left side of every letter. When a new Association body takes over, change them here; 💾 Save keeps them for all letters.": "ప్రతి లేఖ పైభాగంలో మరియు ఎడమ వైపు ప్రింట్ అవుతాయి. కొత్త అసోసియేషన్ కార్యవర్గం వచ్చినప్పుడు ఇక్కడ మార్చండి; 💾 సేవ్ చేస్తే అన్ని లేఖలకు ఉంటాయి.",
     "💾 Save names": "💾 పేర్లు సేవ్ చేయండి", "The names are already saved": "పేర్లు ఇప్పటికే సేవ్ అయ్యాయి", "Names saved. Every letter now prints them.": "పేర్లు సేవ్ అయ్యాయి. ఇప్పుడు ప్రతి లేఖపై ఇవే ప్రింట్ అవుతాయి.",
-    "Leave without saving the names?": "పేర్లు సేవ్ చేయకుండా వెళ్లాలా?",
+    "Leave without saving the names?": "పేర్లు సేవ్ చేయకుండా వెళ్లాలా?", "Stamp": "స్టాంప్", "➕ Add your signature": "➕ మీ సంతకం జోడించండి", "➕ Add the stamp": "➕ స్టాంప్ జోడించండి", "← Back to the letter": "← లేఖకు తిరిగి",
     "Name at the top": "పైన పేరు", "Line 1": "లైన్ 1", "Line 2": "లైన్ 2", "Address or phone (optional, small line)": "చిరునామా లేదా ఫోన్ (ఐచ్ఛికం, చిన్న లైన్)", "Office bearers": "పదాధికారులు", "(under the name)": "(పేరు కింద)",
     "Left side of page 1": "పేజీ 1 ఎడమ వైపు", "Names, one per line": "పేర్లు, లైన్‌కు ఒకటి", "Logo": "లోగో", "Change logo": "లోగో మార్చండి", "Use the standard logo": "సాధారణ లోగో వాడండి", "Signature": "సంతకం",
     "Sign on plain white paper and take a clear photo. The paper is removed automatically. It is kept private: only the Secretary login can use it.": "తెల్ల కాగితంపై సంతకం చేసి స్పష్టమైన ఫోటో తీయండి. కాగితం ఆటోమేటిక్‌గా తొలగించబడుతుంది. ఇది ప్రైవేట్: కార్యదర్శి లాగిన్ మాత్రమే వాడగలదు.",

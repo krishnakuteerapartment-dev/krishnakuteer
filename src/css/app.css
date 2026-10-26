@@ -249,4 +249,5 @@ button.rgadd{width:100%;border-style:dashed}
 .lpnames>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}.lpnames>summary::-webkit-details-marker{display:none}
 .lpnames>summary b:after{content:" ▾";color:var(--grey);font-weight:400}.lpnames[open]>summary b:after{content:" ▴"}.lpnames>summary small{color:var(--grey);font-size:.8rem}
 .lpnames textarea{width:100%;font:inherit;padding:11px 13px;border-radius:10px;border:1px solid var(--line);resize:vertical;line-height:1.5}
+.lpadd{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px}.lpadd button{width:auto;min-height:36px;padding:6px 12px;font-size:.85rem}.lpadd .lpchk{background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 14px;cursor:pointer;min-height:36px}.lpadd .lpchk input{padding:0;width:18px;height:18px;accent-color:var(--navy)}
 .lpnh{margin:14px 0 0;font-size:.92rem;color:var(--navy)}.lpnh small{color:var(--grey);font-weight:400}.lpnames .btnrow button{width:auto}
