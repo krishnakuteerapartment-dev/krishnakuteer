@@ -70,5 +70,6 @@ const AA = { insert: ["Added", "grn"], update: ["Changed", "amb"], delete: ["Del
       An approved leave is posted as a notice automatically (Notices, Recent activity, alert to everyone).
    ===================================================================================== */
 FIC.staff = (d => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`)('<circle cx="12" cy="7" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/><path d="M9 3.5 12 2l3 1.5"/>');
+FIC.lp = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h7M9 15.5h7M9 19h4"/></svg>`;
 let STF = null, ATM = null;
 try { STF = localStorage.getItem("kk_staff") || null; } catch (e) {}

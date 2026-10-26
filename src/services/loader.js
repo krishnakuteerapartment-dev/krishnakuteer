@@ -2,7 +2,7 @@
    KK_M (written into index.html by the build) lists every file and what it needs:
    { files: { home: "assets/home.1a2b3c4d.js", ... }, deps: { home: ["finance"], ... } }
    need("home") loads finance, then home, once; later calls return at once. */
-const PAGE={dash:"home",maint:"payments",exp:"expenses",st:"statement",work:"maintenance",cel:"celebrations",vis:"visitors",doc:"documents",not:"notices",comp:"complaints",meet:"meeting",poll:"voting",assets:"assets",rem:"reminders",sos:"contacts",audit:"audit",staff:"watchman"};
+const PAGE={dash:"home",maint:"payments",exp:"expenses",st:"statement",work:"maintenance",cel:"celebrations",vis:"visitors",doc:"documents",not:"notices",comp:"complaints",meet:"meeting",poll:"voting",assets:"assets",rem:"reminders",sos:"contacts",audit:"audit",staff:"watchman",lp:"letters"};
 const KK_M=window.KK_M||{files:{},deps:{}},LOADED={};
 function need(n){
  if(!n||!KK_M.files[n])return Promise.resolve();

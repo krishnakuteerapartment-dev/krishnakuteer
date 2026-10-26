@@ -40,7 +40,9 @@ const TABLES = {
   leaves: ['id', 'staff_id', 'from_date', 'to_date', 'days', 'kind', 'reason', 'status', 'requested_by', 'decided_by', 'decided_at', 'notice_id', 'created_at'],
   attendance: ['id', 'staff_id', 'on_date', 'status', 'marked_by', 'marked_at', 'created_at'],
   /* register photo imports (Secretary): one row per photographed page */
-  visitor_imports: ['id', 'at', 'by', 'photo', 'model', 'found', 'unsure', 'saved', 'duplicates', 'failed', 'status', 'note']
+  visitor_imports: ['id', 'at', 'by', 'photo', 'model', 'found', 'unsure', 'saved', 'duplicates', 'failed', 'status', 'note'],
+  /* Letter pad (Secretary): letters printed on the Association's letterhead */
+  letters: ['id', 'on_date', 'ref_no', 'to_text', 'subject', 'salutation', 'body', 'closing', 'signoff', 'signer', 'designation', 'sign', 'created_by', 'created_at', 'updated_at']
 };
 const TEXT_COLS = ['month', 'paid_on', 'spent_on', 'received_on', 'created_on', 'created_at', 'closed_at',
                    'flat_no', 'username', 'temp_password', 'password_hash', 'salt', 'email', 'email_verified', 'photos', 'photo', 'file_id', 'data', 'login_at', 'logout_at', 'last_seen', 'logged_on', 'entry_on', 'visit_on', 'on_date', 'at_time', 'updated_at', 'updated_on', 'item', 'options', 'choice'];
@@ -73,7 +75,7 @@ const RULES = {
   /* audit_log has NO rule on purpose: nobody can add, change or delete it from the app */
 };
 /* tables whose changes are recorded in the audit log (votes never: ballots stay anonymous) */
-const AUDIT_T = ['payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
+const AUDIT_T = ['letters', 'payments', 'expenses', 'income', 'maintenance_rates', 'closed_months', 'settings', 'celebrations', 'complaints', 'meetings', 'action_items',
   'notices', 'polls', 'gallery', 'visitors', 'assets', 'asset_service', 'asset_items', 'reminders', 'contacts', 'maintenance_log', 'status', 'guest_passes', 'flats', 'staff', 'leaves', 'attendance'];
 const AUDIT_BRIEF = ['visitors', 'complaints', 'guest_passes', 'flats']; /* private details are NOT copied into the log for these: only what changed */
 const ENUM = {
@@ -223,6 +225,11 @@ function route_(b) {
     finally { lock.releaseLock(); }
   }
   if (b.a === 'registerImports') { ensureHeader_('visitor_imports'); return regList_(u); }
+  if (b.a === 'letters') { ensureHeader_('letters'); return letList_(u); }
+  if (b.a === 'letterSave' || b.a === 'letterDelete' || b.a === 'letterheadSave') {
+    ensureHeader_('letters'); const lock = LockService.getScriptLock(); lock.waitLock(20000);
+    try { return b.a === 'letterSave' ? letSave_(u, b) : b.a === 'letterDelete' ? letDelete_(u, b) : letHeadSave_(u, b); } finally { lock.releaseLock(); }
+  }
   if (b.a === 'emailSend') return emailSend_(u, b);
   if (b.a === 'emailVerify') { const lock = LockService.getScriptLock(); lock.waitLock(20000); try { return emailVerify_(u, b); } finally { lock.releaseLock(); } }
   if (b.a === 'write' && !verified_(u)) return { error: { message: 'Please verify your e-mail first.' } };
@@ -469,7 +476,9 @@ const MAX_BYTES = 1000000, PIECE = 45000;
 function upload_(u, b) {
   const err = m => ({ error: { message: m } });
   if (!verified_(u)) return err('Please verify your e-mail first.');
-  if (b.kind === 'register' ? REG_ROLE.indexOf(u.role) < 0 : b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint') return err('You do not have permission to do this.');
+  if (b.kind === 'letter' && LET_ROLE.indexOf(u.role) < 0) return err('You do not have permission to do this.');
+  if (b.kind === 'letter' && !/^data:image\/(jpeg|png|webp);/.test(String(b.img || ''))) return err('Please choose a picture (JPG or PNG).');
+  if (b.kind !== 'letter' && (b.kind === 'register' ? REG_ROLE.indexOf(u.role) < 0 : b.kind === 'gallery' ? DOCUP.indexOf(u.role) < 0 : b.kind !== 'complaint')) return err('You do not have permission to do this.');
   if (b.kind === 'register' && !/^data:image\/(jpeg|png|webp);/.test(String(b.img || ''))) return err('Please choose a photo (JPG or PNG).');
   const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf|audio\/(?:webm|ogg|mp4|mpeg));base64,([A-Za-z0-9+\/=]+)$/.exec(String(b.img || ''));
   if (!m) return err('Please choose a photo or a PDF file.');
@@ -499,8 +508,9 @@ function photo_(u, b) {
   if (!verified_(u)) return { error: { message: 'Photo not available.' } };
   const ok = T.gallery.some(r => String(r.photo) === id && (r.visibility !== 'committee' || u.role !== 'resident')) ||
     T.complaints.some(r => (String(r.photos || '').split('|').concat(String(r.reply_photos || '').split('|')).indexOf(id) >= 0 || String(r.voice || '') === id) && (S4.indexOf(u.role) >= 0 || String(r.flat_no).toLowerCase() === String(u.username).toLowerCase()));
-  const okReg = !ok && REG_ROLE.indexOf(u.role) >= 0 && sh_('visitor_imports') && read_('visitor_imports').some(r => String(r.photo) === id);
-  const f = (ok || okReg) && fileRows_(id);
+  const okLet = !ok && LET_ROLE.indexOf(u.role) >= 0 && [letHead_().logo, letHead_().sign].indexOf(id) >= 0;
+  const okReg = !ok && !okLet && REG_ROLE.indexOf(u.role) >= 0 && sh_('visitor_imports') && read_('visitor_imports').some(r => String(r.photo) === id);
+  const f = (ok || okReg || okLet) && fileRows_(id);
   if (!f) return { error: { message: 'Photo not available.' } };
   const v = f.sh.getRange(f.first, 3, f.n, 2).getValues();
   return { ok: true, img: 'data:' + v[0][0] + ';base64,' + v.map(r => r[1]).join('') };
@@ -1424,6 +1434,60 @@ function testPush() { Logger.log(JSON.stringify(pushAll_('Test alert', 'Push not
 function sendAppUpdateNow() { Logger.log(JSON.stringify(pushAll_('Krishna Kuteer updated', 'A new version of the app is ready. Open it to see what is new.', '/'))); }
 function pushStatus() { Logger.log('Phones registered: ' + read_('push_tokens').length); }
 
+
+/* ---------- LETTER PAD (Secretary only) ----------
+   Letters printed on the Association's letterhead. The letterhead (names, members, logo, signature) is kept in the script
+   property LETTERHEAD; the letters are in the 'letters' tab. The signature picture is a private upload: only the Secretary
+   login can see or use it. */
+const LET_ROLE = ['secretary'];
+const LET_MAX = { to_text: 600, subject: 300, salutation: 80, body: 30000, closing: 200, signoff: 80, signer: 80, designation: 80, ref_no: 60 };
+function letHead_() { try { return JSON.parse(PROPS_().getProperty('LETTERHEAD') || '{}') || {}; } catch (e) { return {}; } }
+const letDeny_ = u => LET_ROLE.indexOf(u.role) < 0 ? { error: { message: 'Only the Secretary can use the letter pad.' } } : null;
+function letList_(u) {
+  const no = letDeny_(u); if (no) return no;
+  const L = (sh_('letters') ? read_('letters') : []).map(r => { const o = {}; TABLES.letters.forEach(k => o[k] = r[k] == null ? '' : r[k]); o.on_date = String(o.on_date).slice(0, 10); return o; });
+  return { ok: true, letters: L.sort((a, b) => b.id - a.id), head: letHead_() };
+}
+function letSave_(u, b) {
+  const no = letDeny_(u); if (no) return no;
+  const err = m => ({ error: { message: m } }), x = b.letter || {}, r = {};
+  Object.keys(LET_MAX).forEach(k => { r[k] = String(x[k] == null ? '' : x[k]).replace(/\r/g, ''); });
+  for (const k in LET_MAX) if (r[k].length > LET_MAX[k]) return err('The ' + k.replace('_text', '').replace('_', ' ') + ' is too long.');
+  r.on_date = String(x.on_date || ''); if (!isDate_(r.on_date)) return err('Enter the date of the letter.');
+  if (!r.subject.trim() && !r.body.trim()) return err('Write the subject or the letter first.');
+  r.sign = x.sign === true || x.sign === 'yes' ? 'yes' : 'no';
+  if (x.id) {
+    const row = byId_('letters', x.id); if (!row) return err('This letter was not found. It may have been deleted.');
+    r.updated_at = now_(); setCells_('letters', row.__r, r);
+    audit_(u, 'update', 'letters', row.id, 'Letter: ' + (r.subject || 'no subject').slice(0, 80), null, null);
+    return { ok: true, id: +row.id };
+  }
+  Object.assign(r, { created_by: u.username, updated_at: now_() });
+  const rec = appendRec_('letters', r);
+  audit_(u, 'insert', 'letters', rec.id, 'Letter: ' + (r.subject || 'no subject').slice(0, 80), null, null);
+  return { ok: true, id: +rec.id };
+}
+function letDelete_(u, b) {
+  const no = letDeny_(u); if (no) return no;
+  const row = byId_('letters', b.id); if (!row) return { ok: true };
+  sh_('letters').deleteRow(row.__r);
+  audit_(u, 'delete', 'letters', row.id, 'Letter deleted: ' + String(row.subject || '').slice(0, 80), null, null);
+  return { ok: true };
+}
+function letHeadSave_(u, b) {
+  const no = letDeny_(u); if (no) return no;
+  const x = b.head || {}, t = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n), old = letHead_();
+  const h = { title1: t(x.title1, 60), title2: t(x.title2, 60), address: t(x.address, 160), signer: t(x.signer, 80), designation: t(x.designation, 80), signoff: t(x.signoff, 60),
+    bearers: (Array.isArray(x.bearers) ? x.bearers : []).slice(0, 4).map(p => ({ role: t(p && p.role, 30), name: t(p && p.name, 60) })),
+    side: (Array.isArray(x.side) ? x.side : []).slice(0, 3).map(g => ({ head: t(g && g.head, 40), names: (Array.isArray(g && g.names) ? g.names : []).map(n => t(n, 50)).filter(Boolean).slice(0, 16) })) };
+  const fid = v => /^f[0-9a-f]{32}$/.test(String(v || '')) ? String(v) : '';
+  h.logo = fid(x.logo); h.sign = fid(x.sign);
+  [old.logo, old.sign].forEach(f => { if (f && f !== h.logo && f !== h.sign) delFile_(f); }); /* a replaced picture is removed */
+  const json = JSON.stringify(h); if (json.length > 8500) return { error: { message: 'The letterhead has too much text.' } };
+  PROPS_().setProperty('LETTERHEAD', json);
+  audit_(u, 'update', 'letters', 'letterhead', 'Letterhead details changed', null, null);
+  return { ok: true, head: h };
+}
 
 /* ---------- VISITOR REGISTER PHOTO IMPORT (Secretary only) ----------
    The Secretary photographs one page of the handwritten visitor register. Google's Gemini AI reads the page and returns each row.

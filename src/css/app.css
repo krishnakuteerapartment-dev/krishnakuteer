@@ -223,3 +223,20 @@ button.rgadd{width:100%;border-style:dashed}
  .rgph{top:0}.rgpi{height:calc(100vh - 190px)}
  .rgc{padding:18px 24px}
 }
+
+/* ---------- Letter pad (Secretary) ---------- */
+.lpbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.lpbar button{width:auto;flex:0 1 auto}
+.lpnote{background:#fff8e6;border-color:#f0d58a}.lpnote .note{margin:4px 0 0}
+.lpi .lpit b{display:block}.lpi .lpit small{color:var(--grey)}
+.lpi .btnrow button{width:auto;flex:1 1 auto;min-height:40px;padding:8px 10px;font-size:.86rem}
+.lped{display:grid;gap:12px}
+.lpform textarea{width:100%;font:inherit;padding:11px 13px;border-radius:10px;border:1px solid var(--line);resize:vertical;line-height:1.5}
+.lptool{display:flex;align-items:center;gap:8px;margin:0 0 6px;flex-wrap:wrap}.lptool button{width:auto;min-height:0;padding:5px 12px}.lptool small{color:var(--grey);font-size:.78rem}
+.lpchk{display:flex;align-items:center;gap:8px;font-size:.92rem}.lpchk input{width:auto;margin:0}
+.lpacts button{flex:1 1 160px;width:auto}
+.lpprev{background:#e9eef6;border-radius:14px;padding:10px;min-width:0}
+.lpph{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 8px}.lpph small{color:var(--grey);font-size:.78rem}
+.lpsheet{width:100%;overflow:hidden;box-shadow:0 4px 18px rgba(14,26,47,.15);background:#fff}
+.lpimg{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 10px}.lpimg img{width:90px;height:90px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff}
+.lpimg img.sg{width:200px;height:auto;max-height:110px}.lpimg .btnrow{margin:0}.lpimg .btnrow button{width:auto}
+@media(min-width:1000px){.lped{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}.lpprev{position:sticky;top:calc(var(--hh,64px) + 12px)}}

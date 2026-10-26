@@ -427,6 +427,31 @@
     [/^(\d+) entr(?:y is|ies are) ready\. (\d+) others? still needs? checking and will not be saved now\. Save the ready ones\?$/, function (m, a, b) { return a + " ఎంట్రీలు సిద్ధంగా ఉన్నాయి. మరో " + b + " ఇంకా సరిచూడాలి, ఇప్పుడు సేవ్ కావు. సిద్ధంగా ఉన్నవి సేవ్ చేయాలా?"; }],
     [/^Cancel this import\? (\d+) entr(?:y has|ies have) not been saved\.$/, function (m, a) { return "ఈ దిగుమతి రద్దు చేయాలా? " + a + " ఎంట్రీలు ఇంకా సేవ్ కాలేదు."; }]
   );
+  /* Letter pad (Secretary) */
+  var TE9 = {
+    "Letter pad": "లెటర్ ప్యాడ్", "✍️ New letter": "✍️ కొత్త లేఖ", "🏷 Letterhead details": "🏷 లెటర్‌హెడ్ వివరాలు", "Set up the letterhead once": "లెటర్‌హెడ్‌ను ఒకసారి సెటప్ చేయండి",
+    "Add the office bearers, members and your signature in Letterhead details. Every letter then prints with them.": "లెటర్‌హెడ్ వివరాలలో పదాధికారులు, సభ్యులు, మీ సంతకం జోడించండి. ప్రతి లేఖ వాటితో ప్రింట్ అవుతుంది.",
+    "Open": "తెరవండి", "🖨 Print / PDF": "🖨 ప్రింట్ / PDF", "Copy": "కాపీ", "(no subject)": "(విషయం లేదు)", "No recipient": "గ్రహీత లేరు",
+    "No letters yet. Tap New letter to write the first one.": "ఇంకా లేఖలు లేవు. మొదటి లేఖ రాయడానికి కొత్త లేఖ నొక్కండి.",
+    "← All letters": "← అన్ని లేఖలు", "Edit letter": "లేఖ మార్చండి", "New letter": "కొత్త లేఖ", "Ref. No. (optional)": "రిఫరెన్స్ నం. (ఐచ్ఛికం)", "To (name and address)": "గ్రహీత (పేరు, చిరునామా)",
+    "Greeting": "సంబోధన", "Letter": "లేఖ", "Closing line": "ముగింపు వాక్యం", "Sign-off": "ముగింపు పదం", "Name under the signature": "సంతకం కింద పేరు", "Designation": "హోదా",
+    "Add my signature": "నా సంతకం జోడించండి", "(upload it in Letterhead details first)": "(ముందు లెటర్‌హెడ్ వివరాలలో అప్‌లోడ్ చేయండి)", "💾 Save": "💾 సేవ్", "🖨 Print / Save as PDF": "🖨 ప్రింట్ / PDF గా సేవ్",
+    "Preview": "ప్రివ్యూ", "Page 1 ends at the dashed line": "చుక్కల గీత వద్ద పేజీ 1 ముగుస్తుంది", "Bold": "బోల్డ్",
+    "Blank line = new paragraph. Select words and tap Bold, or type **like this**.": "ఖాళీ లైన్ = కొత్త పేరా. పదాలను ఎంచుకుని బోల్డ్ నొక్కండి, లేదా **ఇలా** టైప్ చేయండి.",
+    "Letter saved": "లేఖ సేవ్ అయింది", "Letter deleted": "లేఖ తొలగించబడింది", "Leave without saving this letter?": "ఈ లేఖను సేవ్ చేయకుండా వెళ్ళాలా?", "Copied. Change what you need and save.": "కాపీ అయింది. కావలసినవి మార్చి సేవ్ చేయండి.",
+    "Select the words to make bold first": "ముందు బోల్డ్ చేయాల్సిన పదాలను ఎంచుకోండి", "Letterhead details": "లెటర్‌హెడ్ వివరాలు", "Printed on every letter. Change anything here when the committee changes.": "ప్రతి లేఖపై ప్రింట్ అవుతుంది. కమిటీ మారినప్పుడు ఇక్కడ మార్చండి.",
+    "Name at the top": "పైన పేరు", "Line 1": "లైన్ 1", "Line 2": "లైన్ 2", "Address or phone (optional, small line)": "చిరునామా లేదా ఫోన్ (ఐచ్ఛికం, చిన్న లైన్)", "Office bearers": "పదాధికారులు", "(under the name)": "(పేరు కింద)",
+    "Left side of page 1": "పేజీ 1 ఎడమ వైపు", "Names, one per line": "పేర్లు, లైన్‌కు ఒకటి", "Logo": "లోగో", "Change logo": "లోగో మార్చండి", "Use the standard logo": "సాధారణ లోగో వాడండి", "Signature": "సంతకం",
+    "Sign on plain white paper and take a clear photo. The paper is removed automatically. It is kept private: only the Secretary login can use it.": "తెల్ల కాగితంపై సంతకం చేసి స్పష్టమైన ఫోటో తీయండి. కాగితం ఆటోమేటిక్‌గా తొలగించబడుతుంది. ఇది ప్రైవేట్: కార్యదర్శి లాగిన్ మాత్రమే వాడగలదు.",
+    "No signature yet.": "ఇంకా సంతకం లేదు.", "Upload signature": "సంతకం అప్‌లోడ్", "Change signature": "సంతకం మార్చండి", "Remove": "తీసివేయండి", "💾 Save letterhead": "💾 లెటర్‌హెడ్ సేవ్", "Letterhead saved": "లెటర్‌హెడ్ సేవ్ అయింది",
+    "Only the Secretary can use the letter pad.": "లెటర్ ప్యాడ్‌ను కార్యదర్శి మాత్రమే వాడగలరు.", "Enter the date of the letter.": "లేఖ తేదీ నమోదు చేయండి.", "Write the subject or the letter first.": "ముందు విషయం లేదా లేఖ రాయండి."
+  };
+  for (var k9 in TE9) if (Object.prototype.hasOwnProperty.call(TE9, k9) && !Object.prototype.hasOwnProperty.call(TE, k9)) TE[k9] = TE9[k9];
+  PAT.push(
+    [/^Letters · (\d+)$/, function (m, a) { return "లేఖలు · " + a; }],
+    [/^Post (\d)$/, function (m, a) { return "పదవి " + a; }], [/^Heading (\d)$/, function (m, a) { return "శీర్షిక " + a; }],
+    [/^Delete the letter “(.*)”\?$/, function (m, a) { return "“" + a + "” లేఖను తొలగించాలా?"; }]
+  );
   var WDTE = { Monday: "సోమవారం", Tuesday: "మంగళవారం", Wednesday: "బుధవారం", Thursday: "గురువారం", Friday: "శుక్రవారం", Saturday: "శనివారం", Sunday: "ఆదివారం" };
   var MON3 = { Jan: "జనవరి", Feb: "ఫిబ్రవరి", Mar: "మార్చి", Apr: "ఏప్రిల్", May: "మే", Jun: "జూన్", Jul: "జూలై", Aug: "ఆగస్టు", Sep: "సెప్టెంబర్", Oct: "అక్టోబర్", Nov: "నవంబర్", Dec: "డిసెంబర్" };
   var MONRX = "January|February|March|April|May|June|July|August|September|October|November|December";
